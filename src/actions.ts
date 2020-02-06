@@ -52,6 +52,34 @@ export function depositEnergy (creep: Creep) {
 }
 
 /**
+ * Store energy in container or storage within range. NOTE: The creep does not move towards the
+ * store!
+ *
+ * @param  creep the creep storing energy
+ * @param  range the range
+ */
+export function storeEnergy (creep: Creep, range: number) {
+  let stores = creep.room.lookForAtArea(LOOK_STRUCTURES, creep.pos.y - range, creep.pos.x - range,
+    creep.pos.y + range, creep.pos.x + range, true).filter(structure => {
+      // Filter for containers and storages
+      return structure.structure.structureType === STRUCTURE_CONTAINER
+      || structure.structure.structureType === STRUCTURE_STORAGE
+    }).map(structure => {
+      // Extract just the structure from the look result
+      return structure.structure as StructureContainer | StructureStorage
+    })
+
+  stores.forEach(store => {
+    if (store.store.getFreeCapacity() > 0) {
+      // If there is free capacity, store energy here
+      let response = creep.transfer(store, RESOURCE_ENERGY)
+      console.log(`storeEnergy response for ${creep.name}: ${response}`)
+    }
+    // If there is no free capacity, skip to the next store
+  })
+}
+
+/**
  * Upgrades the controller
  *
  * @param creep the creep to upgrade the controller

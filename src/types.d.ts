@@ -9,11 +9,22 @@ interface Memory {
 }
 
 interface CreepMemory {
-  role: string,
-  task: CreepTask
+  role: CreepRole,
+  task: CreepTask,
+  /**
+   * A source assigned to this creep by id
+   */
+  assignedSource: string | undefined,
 }
 
 declare const enum CreepTask {
   harvest = "harvest",
   deposit = "deposit"
+}
+
+declare const enum CreepRole {
+  // Simple creep that performs the harvest and deposit actions
+  harvester = "harvester",
+  // Creep that mines into a container near to the source
+  miner = "miner"
 }
