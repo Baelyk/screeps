@@ -1,20 +1,19 @@
-// example declaration file - remove these and add your own custom typings
-
-// memory extension samples
-interface CreepMemory {
-  role: string
-  room: string
-  working: boolean
-}
-
 interface Memory {
-  uuid: number
-  log: any
+  /** Whether the colony needs to be initialized */
+  uninitialzied: boolean
+  /** The name of the spawn to use when Initializing.
+   *
+   * E.g., Game.spawns[Memory.initialSpawn]
+   */
+  initialSpawn: string
 }
 
-// `global` extension samples
-declare namespace NodeJS {
-  interface Global {
-    log: any
-  }
+interface CreepMemory {
+  role: string,
+  task: CreepTask
+}
+
+declare const enum CreepTask {
+  harvest = "harvest",
+  deposit = "deposit"
 }
