@@ -47,6 +47,25 @@ function harvester (creep: Creep) {
 }
 
 /**
+ * Generates a name for the creep based on its memory
+ *
+ * @param  memory the memory of the creep-to-be
+ *
+ * @return a name
+ */
+export function nameCreep (memory: CreepMemory) {
+  // Start the name with the creeps role
+  let name = memory.role + "_"
+  // Since there will be multiple creeps per role, a number will be need since names must be unique
+  let number = 0
+  // While there is a creep with the same name, increment number
+  while (Game.creeps[name + number] !== undefined) {
+    number++
+  }
+  return name + number
+}
+
+/**
  * Passes creep to appropriate behavior function based on the creep's role (`creep.memory.role`)
  *
  * @param  creep the creep
