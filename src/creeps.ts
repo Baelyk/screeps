@@ -1,5 +1,10 @@
 import { depositEnergy, getEnergy, harvestEnergy } from "actions"
 
+/**
+ * Behavior for a harvester creep (CreepRole.harvester)
+ *
+ * @param  creep the harvester creep
+ */
 function harvester (creep: Creep) {
   creep.say(creep.memory.task)
   switch (creep.memory.task) {
@@ -41,6 +46,11 @@ function harvester (creep: Creep) {
   }
 }
 
+/**
+ * Passes creep to appropriate behavior function based on the creep's role (`creep.memory.role`)
+ *
+ * @param  creep the creep
+ */
 export function doRole (creep: Creep) {
   switch (creep.memory.role) {
     case CreepRole.harvester:
