@@ -42,6 +42,11 @@ function harvester (creep: Creep) {
 }
 
 export function doRole (creep: Creep) {
-  const role = creep.memory.role
-  if (role === "harvester") harvester(creep)
+  switch (creep.memory.role) {
+    case CreepRole.harvester:
+      harvester(creep)
+      break;
+    default:
+      throw new Error("doRole invalid role " + creep.memory.role)
+  }
 }
