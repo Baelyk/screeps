@@ -1,5 +1,8 @@
 // Manages construction
 
+// ISSUE: When a creep dies before it can completely construct something, the site is lost from the
+// queue
+
 /**
  * Initialize construction
  *
@@ -39,13 +42,24 @@ function build(position: RoomPosition, structureType: BuildableStructureConstant
 
   // Handle the response
   if (response === ERR_INVALID_TARGET || response === ERR_INVALID_ARGS ) {
-    throw new Error(`build attempted to build ${structureType} over invalid terrain at \
-      (${response}) ${position}`)
+    let structures = position.lookFor(LOOK_STRUCTURES).filter(structure => {
+      return structure.structureType === structureType
+    })
+    let sites = position.lookFor(LOOK_CONSTRUCTION_SITES).filter(site => {
+      return site.structureType === structureType
+    })
+    if (structures.length > 0 || sites.length > 0) {
+      console.log(`{o-fg}build attempted to build ${structureType} over site/structure of same ` +
+        `time{/o-fg}`)
+    } else {
+      throw new Error(`build attempted to build ${structureType} over invalid terrain at ` +
+        `(${response}) ${position}`)
+    }
   } else if (response === ERR_FULL) {
     throw new Error(`buildRoad exceded construction capacity`)
   } else if (response === ERR_RCL_NOT_ENOUGH) {
-    throw new Error(`buildRoad attempted to build ${structureType} with insufficient RCL: \
-      ${(Game.rooms[position.roomName].controller as StructureController).level}`)
+    throw new Error(`buildRoad attempted to build ${structureType} with insufficient RCL: ` +
+      `${(Game.rooms[position.roomName].controller as StructureController).level}`)
   } else if (response === OK) {
     // Construction site successfullly created
     addToQueue(position)
@@ -83,4 +97,13 @@ export function fromQueue(): string | undefined {
   // HOWEVER, if the second instance of point A in the queue is accessed before the first site is
   // finished, there will be an issue
   return sites[0]
+}
+
+/**
+ * Gets the length of the construction queue
+ *
+ * @return the length of the construction queue
+ */
+export function queueLength(): number {
+  return Memory.constructionQueue.length
 }

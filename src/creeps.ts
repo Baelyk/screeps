@@ -1,5 +1,6 @@
-import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build } from "actions"
-import { fromQueue } from "construct";
+import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle } from "actions"
+import { fromQueue, queueLength } from "construct";
+import { error, info } from "utils/logger";
 
 /**
  * Behavior for a harvester creep (CreepRole.harvester)
@@ -18,11 +19,7 @@ function harvester (creep: Creep) {
         // If the creep has more free energy, keep harvesting
         harvestEnergy(creep)
       } else {
-        // If the creep has no free energy, begin depositing
-        creep.memory.task = CreepTask.deposit
-        // Call harvester again with the updated information
-        console.log("recursing in harvester harvest")
-        harvester(creep)
+        switchTaskAndDoRoll(creep, CreepTask.deposit)
         return
       }
       break
@@ -34,10 +31,7 @@ function harvester (creep: Creep) {
         depositEnergy(creep)
       } else {
         // If the creep has no energy, begin harvesting
-        creep.memory.task = CreepTask.harvest
-        // Call harvester again with the updated information
-        console.log("recursing in harvester deposit")
-        harvester(creep)
+        switchTaskAndDoRoll(creep, CreepTask.harvest)
         return
       }
       break
@@ -73,10 +67,7 @@ function miner (creep: Creep) {
         harvestEnergy(creep, source)
       } else {
         // If the creep has no free energy, begin depositing
-        creep.memory.task = CreepTask.deposit
-        // Call harvester again with the updated information
-        console.log("recursing in miner harvest")
-        miner(creep)
+        switchTaskAndDoRoll(creep, CreepTask.deposit)
         return
       }
       break
@@ -88,10 +79,7 @@ function miner (creep: Creep) {
         storeEnergy(creep, 3)
       } else {
         // If the creep has no energy, begin harvesting
-        creep.memory.task = CreepTask.harvest
-        // Call harvester again with the updated information
-        console.log("recursing in miner deposit")
-        miner(creep)
+        switchTaskAndDoRoll(creep, CreepTask.harvest)
         return
       }
       break
@@ -125,10 +113,7 @@ function builder (creep: Creep) {
         getEnergy(creep)
       } else {
         // If the creep has full energy, begin building
-        creep.memory.task = CreepTask.build
-        // Call builder again with the updated information
-        console.log("recursing in builder get_energy")
-        builder(creep)
+        switchTaskAndDoRoll(creep, CreepTask.build)
         return
       }
       break
@@ -136,34 +121,75 @@ function builder (creep: Creep) {
     case CreepTask.build: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has more energy, continue building
-        if (creep.memory.assignedConstruction == undefined) {
-          creep.memory.assignedConstruction = fromQueue()
-          if (creep.memory.assignedConstruction == undefined) {
-            // For now, if the construction queue is empty, throw an error. In the future maybe the
-            // creep could go back to getting energy, begin repairs, go back to spawn, commit
-            // suicide
-            throw new Error("build no items in the construction queue")
-          }
+        if (queueLength() > 0) {
+          if (creep.memory.assignedConstruction == undefined
+            || Game.getObjectById(creep.memory.assignedConstruction) == undefined) {
+            creep.memory.assignedConstruction = fromQueue()
+            if (creep.memory.assignedConstruction == undefined) {
+              error(`queueLength was positive but creep ${creep.name} unable to get assignment`)
+            }
 
+          }
+          // Perform the build action
+          build(creep)
+        } else {
+          // TODO: Refine idle Behavior
+          // For now, if the construction queue is empty, throw an error. In the future maybe the
+          // creep could go back to getting energy, begin repairs, go back to spawn, commit
+          // suicide
+          switchTaskAndDoRoll(creep, CreepTask.idle)
+          return
         }
-        // Perform the build action
-        build(creep)
       } else {
-        // If the creep has no energy, it should get energy
-        creep.memory.task = CreepTask.getEnergy
-        // Call the builder again with the updated information
-        console.log("recursing in builder build")
-        builder(creep)
+        info(`No items in the construction queue`)
+        switchTaskAndDoRoll(creep, CreepTask.getEnergy)
         return
+      }
+      break
+    }
+    case CreepTask.idle: {
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        // If the creep has free energy, it should get energy
+        switchTaskAndDoRoll(creep, CreepTask.getEnergy)
+        return
+      } else if (queueLength() > 0) {
+        // Build
+        switchTaskAndDoRoll(creep, CreepTask.build)
+        return
+      } else {
+        // Remain idle
+        info(`Creep ${creep.name} is idle`)
+        idle(creep)
       }
       break
     }
     // The creep  has an invalid task
     default: {
-      throw new Error(`builder creep.memory.task should be ${CreepTask.getEnergy} or \
-        ${CreepTask.build}, not ${creep.memory.task}`)
+      error(`builder creep.memory.task should be ${CreepTask.getEnergy} or ` +
+        `${CreepTask.build}, not ${creep.memory.task}`)
     }
   }
+}
+
+function switchTaskAndDoRoll (creep: Creep, task: CreepTask) {
+  creep.memory.task = task
+  info(`Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`)
+  doRole(creep)
+}
+
+/**
+ * Count the number of creeps of a certain role
+ *
+ * @param  role the role to count
+ *
+ * @return the number of creeps
+ */
+export function countRole (role: CreepRole): number {
+  let count = 0
+  for (let name in Game.creeps) {
+    if (Game.creeps[name].memory.role === role) count++
+  }
+  return count
 }
 
 /**

@@ -96,6 +96,8 @@ export function upgradeController (creep: Creep) {
   let response = creep.upgradeController(controller)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(controller)
+  } else {
+    console.log(`${creep.name} attempting to build with response ${response}`)
   }
 }
 
@@ -117,4 +119,10 @@ export function build (creep: Creep, building?: ConstructionSite) {
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(building)
   }
+}
+
+export function idle (creep: Creep, position?: RoomPosition) {
+  // TODO: Temporary hardcoded idle position
+  if (position == undefined) position = creep.room.getPositionAt(11, 21) as RoomPosition
+  creep.moveTo(position)
 }

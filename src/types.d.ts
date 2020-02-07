@@ -37,6 +37,8 @@ interface CreepMemory {
 declare const enum CreepTask {
   /** Role indicating the creep is freshly spawned (i.e. uninit) */
   fresh = "fresh",
+  /** Task indicating the creep is waiting for further instructions/state change */
+  idle = "idle",
   harvest = "harvest",
   deposit = "deposit",
   getEnergy = "get_energy",
