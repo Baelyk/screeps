@@ -13,9 +13,9 @@ export function init() {
   // Spawn a creep at the spawn, this will be our energy harvester
   let response = spawn.spawnCreep([WORK, MOVE, CARRY], "InitWorker1", {
     memory: {
-      role: "harvester",
+      role: CreepRole.harvester,
       // The creep should default to harvesting
-      task: CreepTask.harvest
+      task: CreepTask.harvest,
     }
   })
   console.log("spawn creep response: " + response)
