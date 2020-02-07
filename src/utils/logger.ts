@@ -67,3 +67,13 @@ export function stringifyBody (body: BodyPartConstant[]): string {
   })
   return string
 }
+
+/**
+ * Log the current tick
+ */
+export function tick (format?: string) {
+  if (format == undefined) {
+    format = `{bold}{yellow-bg}`
+  }
+  console.log(`${format}tick: ${Game.time}`)
+}
