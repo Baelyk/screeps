@@ -7,7 +7,7 @@ console.log("- - - - RESTARTING - - - -")
 
 export const loop = ErrorMapper.wrapLoop(() => {
   console.log(`tick: ${Game.time}`)
-  if (Memory.uninitialzied) {
+  if (Memory.uninitialized) {
     init()
   }
 

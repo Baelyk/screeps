@@ -20,6 +20,6 @@ export function init() {
   // Initialize construction
   initConstruction(spawn)
 
-  Memory.uninitialzied = false
+  Memory.uninitialized = false
   console.log("Initialized!")
 }

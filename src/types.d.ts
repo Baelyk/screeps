@@ -1,6 +1,6 @@
 interface Memory {
   /** Whether the colony needs to be initialized */
-  uninitialzied: boolean,
+  uninitialized: boolean,
   /** The name of the spawn to use when Initializing.
    *
    * E.g., Game.spawns[Memory.initialSpawn]
