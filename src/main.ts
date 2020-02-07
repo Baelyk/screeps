@@ -1,4 +1,5 @@
 import { ErrorMapper } from "utils/ErrorMapper"
+import { watcher } from "utils/watch-client"
 import { doRole } from "creeps"
 import { init } from "initialize"
 
@@ -21,4 +22,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   for (const name in Game.creeps) {
     doRole(Game.creeps[name])
   }
+
+  // screeps-multimeter watcher
+  watcher()
 });

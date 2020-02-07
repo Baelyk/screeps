@@ -9,7 +9,13 @@ interface Memory {
   /**
    * The construction queue: an array of ConstructionSite ids
    */
-  constructionQueue: ConstructionQueue
+  constructionQueue: ConstructionQueue,
+  watch: ScreepsMultimeterWatch
+}
+
+interface ScreepsMultimeterWatch {
+  expressions?: object | undefined,
+  values?: { [index: string]: any }
 }
 
 type ConstructionQueue = string[]
