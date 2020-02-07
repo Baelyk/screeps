@@ -59,12 +59,7 @@ function build(position: RoomPosition, structureType: BuildableStructureConstant
  * queue
  */
 function addToQueue (position: RoomPosition) {
-  // Get all the construction sites at a room position as object ids
-  let constructionSites = position.lookFor(LOOK_CONSTRUCTION_SITES).map(site => {
-      return site.id
-    })
-  // Add the found sites to the constructionQueue
-  Memory.constructionQueue.concat(constructionSites)
+  Memory.constructionQueue.push(position)
 }
 
 /**
@@ -73,5 +68,19 @@ function addToQueue (position: RoomPosition) {
  * @return the id of the construction site if the queue is not empty
  */
 export function fromQueue(): string | undefined {
-  return Memory.constructionQueue.shift()
+  let queueItem = Memory.constructionQueue.shift()
+  if (queueItem == undefined) return
+  let position = Game.rooms[queueItem.roomName].getPositionAt(queueItem.x, queueItem.y)
+  if (position == undefined) return
+  let sites = position.lookFor(LOOK_CONSTRUCTION_SITES).map(site => {
+      return site.id
+    })
+  console.log(`Removed ${position} (${position.x}, ${position.y}) from queue`)
+  // Each construction sites should have it's own entry in the queue even if it has the same
+  // position as another site. So for example, if there were two sites at point A, there would be
+  // two entries in the queue for point A, so removing one instance will be fine.
+  //
+  // HOWEVER, if the second instance of point A in the queue is accessed before the first site is
+  // finished, there will be an issue
+  return sites[0]
 }

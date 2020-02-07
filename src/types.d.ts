@@ -18,7 +18,7 @@ interface ScreepsMultimeterWatch {
   values?: { [index: string]: any }
 }
 
-type ConstructionQueue = string[]
+type ConstructionQueue = RoomPosition[]
 
 interface CreepMemory {
   role: CreepRole,

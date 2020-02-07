@@ -104,17 +104,17 @@ export function upgradeController (creep: Creep) {
  *
  * @param  creep the creep
  */
-export function build (creep: Creep) {
-  if (creep.memory.assignedConstruction == undefined) {
-    throw new Error ("build creep has no assigned construction site")
+export function build (creep: Creep, building?: ConstructionSite) {
+  if (building == undefined) {
+    if (creep.memory.assignedConstruction == undefined) {
+      throw new Error ("build creep has no assigned construction site")
+    } else {
+      building = Game.getObjectById(creep.memory.assignedConstruction) as ConstructionSite
+    }
   }
 
-  let building = Game.getObjectById(creep.memory.assignedConstruction) as ConstructionSite
   let response = creep.build(building)
-  if (response === OK) {
-    // If the building as been built, remove the assignment
-    creep.memory.assignedConstruction = undefined
-  } else if (response === ERR_NOT_IN_RANGE) {
+  if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(building)
   }
 }

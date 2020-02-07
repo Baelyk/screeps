@@ -195,6 +195,9 @@ export function doRole (creep: Creep) {
     case CreepRole.harvester:
       harvester(creep)
       break;
+    case CreepRole.builder:
+      builder(creep)
+      break;
     default:
       throw new Error("doRole invalid role " + creep.memory.role)
   }
