@@ -17,6 +17,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
     }
   }
 
+  // Process creep behavior
   for (const name in Game.creeps) {
     doRole(Game.creeps[name])
   }

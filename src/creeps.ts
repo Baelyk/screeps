@@ -1,4 +1,5 @@
-import { depositEnergy, getEnergy, harvestEnergy, storeEnergy } from "actions"
+import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build } from "actions"
+import { fromQueue } from "construct";
 
 /**
  * Behavior for a harvester creep (CreepRole.harvester)
@@ -19,9 +20,9 @@ function harvester (creep: Creep) {
         // Call harvester again with the updated information
         console.log("recursing in harvester harvest")
         harvester(creep)
-        return;
+        return
       }
-      break;
+      break
     }
     // The creep is depositing
     case CreepTask.deposit: {
@@ -34,9 +35,9 @@ function harvester (creep: Creep) {
         // Call harvester again with the updated information
         console.log("recursing in harvester deposit")
         harvester(creep)
-        return;
+        return
       }
-      break;
+      break
     }
     // The creep is neither harvesting nor depositing, i.e. it has an invalid task
     default: {
@@ -71,9 +72,9 @@ function miner (creep: Creep) {
         // Call harvester again with the updated information
         console.log("recursing in miner harvest")
         miner(creep)
-        return;
+        return
       }
-      break;
+      break
     }
     // The creep is depositing
     case CreepTask.deposit: {
@@ -86,14 +87,74 @@ function miner (creep: Creep) {
         // Call harvester again with the updated information
         console.log("recursing in miner deposit")
         miner(creep)
-        return;
+        return
       }
-      break;
+      break
     }
     // The creep is neither harvesting nor depositing, i.e. it has an invalid task
     default: {
       throw new Error("miner creep.memory.task should be harvest or deposit, not "
       + creep.memory.task)
+    }
+  }
+}
+
+/**
+ * Behavior function for builder creeps (CreepRole.builder). These creeps should construct buildings
+ * in the build queue.
+ *
+ * @param  creep the builder creep
+ */
+function builder (creep: Creep) {
+  // Announce current task
+  creep.say(creep.memory.task)
+  // Tasks for this creep:
+  // 1. CreepTask.getEnergy: Get energy to construct buildings
+  // 2. CreepTask.build: Move to a construction site and build
+  switch (creep.memory.task) {
+    case CreepTask.getEnergy: {
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        // If the creep can hold more energy, keep getting energy
+        getEnergy(creep)
+      } else {
+        // If the creep has full energy, begin building
+        creep.memory.task = CreepTask.build
+        // Call builder again with the updated information
+        console.log("recursing in builder get_energy")
+        builder(creep)
+        return
+      }
+      break
+    }
+    case CreepTask.build: {
+      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        // If the creep has more energy, continue building
+        if (creep.memory.assignedConstruction == undefined) {
+          creep.memory.assignedConstruction = fromQueue()
+          if (creep.memory.assignedConstruction == undefined) {
+            // For now, if the construction queue is empty, throw an error. In the future maybe the
+            // creep could go back to getting energy, begin repairs, go back to spawn, commit
+            // suicide
+            throw new Error("build no items in the construction queue")
+          }
+
+        }
+        // Perform the build action
+        build(creep)
+      } else {
+        // If the creep has no energy, it should get energy
+        creep.memory.task = CreepTask.getEnergy
+        // Call the builder again with the updated information
+        console.log("recursing in builder build")
+        builder(creep)
+        return
+      }
+      break
+    }
+    // The creep  has an invalid task
+    default: {
+      throw new Error(`builder creep.memory.task should be ${CreepTask.getEnergy} or \
+        ${CreepTask.build}, not ${creep.memory.task}`)
     }
   }
 }
