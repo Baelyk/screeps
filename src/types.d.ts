@@ -35,6 +35,8 @@ interface CreepMemory {
 
 // The exact task depends also on the role
 declare const enum CreepTask {
+  /** Role indicating the creep is freshly spawned (i.e. uninit) */
+  fresh = "fresh",
   harvest = "harvest",
   deposit = "deposit",
   getEnergy = "get_energy",

@@ -7,6 +7,9 @@ import { fromQueue } from "construct";
  * @param  creep the harvester creep
  */
 function harvester (creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.harvest
+
+  // Announce current task
   creep.say(creep.memory.task)
   switch (creep.memory.task) {
     // The creep is harvesting
@@ -54,6 +57,8 @@ function harvester (creep: Creep) {
  * @param  creep the miner creep
  */
 function miner (creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.harvest
+
   // Announce current task
   creep.say(creep.memory.task)
   // Tasks for this creep:
@@ -106,6 +111,8 @@ function miner (creep: Creep) {
  * @param  creep the builder creep
  */
 function builder (creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.getEnergy
+
   // Announce current task
   creep.say(creep.memory.task)
   // Tasks for this creep:
