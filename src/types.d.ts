@@ -47,5 +47,5 @@ declare const enum CreepRole {
   /** Creep that mines into a container near to the source */
   miner = "miner",
   /** Creep that constructs buildings */
-  build = "builder"
+  builder = "builder"
 }
