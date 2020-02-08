@@ -1,4 +1,4 @@
-import { error } from "utils/logger";
+import { error, info, warn } from "utils/logger";
 
 // Manages construction
 
@@ -95,7 +95,7 @@ export function fromQueue(): string | undefined {
   let sites = position.lookFor(LOOK_CONSTRUCTION_SITES).map(site => {
       return site.id
     })
-  console.log(`Removed ${position} (${position.x}, ${position.y}) from queue`)
+  info(`Removed ${position} from queue`)
   // Each construction sites should have it's own entry in the queue even if it has the same
   // position as another site. So for example, if there were two sites at point A, there would be
   // two entries in the queue for point A, so removing one instance will be fine.
@@ -196,4 +196,15 @@ function getSurroundingTiles(position: RoomPosition, radius = 0): RoomPosition[]
   return coords.map(coord => {
     return Game.rooms[position.roomName].getPositionAt(coord.x, coord.y) as RoomPosition
   })
+}
+
+export function unassignConstruction (name: string) {
+  let memory = Memory.creeps[name]
+  if (memory.assignedConstruction) {
+    let site = Game.getObjectById(memory.assignedConstruction) as ConstructionSite
+    addToQueue(site.pos)
+    delete memory.assignedConstruction
+  } else {
+    warn(`Attempted to delete undefined assigned construction for creep ${name}`)
+  }
 }

@@ -1,5 +1,5 @@
 import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle } from "actions"
-import { fromQueue, queueLength } from "construct";
+import { fromQueue, queueLength, unassignConstruction } from "construct";
 import { error, info } from "utils/logger";
 
 /**
@@ -159,7 +159,7 @@ function builder (creep: Creep) {
         return
       } else {
         // Remain idle
-        info(`Creep ${creep.name} is idle`)
+        info(`Creep ${creep.name} is idle`, InfoType.idleCreep)
         idle(creep)
       }
       break
@@ -174,7 +174,8 @@ function builder (creep: Creep) {
 
 function switchTaskAndDoRoll (creep: Creep, task: CreepTask) {
   creep.memory.task = task
-  info(`Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`)
+  info(`Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`,
+    InfoType.task)
   doRole(creep)
 }
 
@@ -230,5 +231,16 @@ export function doRole (creep: Creep) {
       break;
     default:
       throw new Error("doRole invalid role " + creep.memory.role)
+  }
+}
+
+export function handleDead (name: string) {
+  info(`Handling death of creep ${name}`, InfoType.general)
+  let memory = Memory.creeps[name]
+  switch (memory.role) {
+    case CreepRole.builder:
+      if (memory.assignedConstruction) {
+        unassignConstruction(name)
+      }
   }
 }

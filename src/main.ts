@@ -1,6 +1,6 @@
 import { ErrorMapper } from "utils/ErrorMapper"
 import { watcher } from "utils/watch-client"
-import { doRole } from "creeps"
+import { doRole, handleDead } from "creeps"
 import { init } from "initialize"
 import { spawnManager } from "spawns";
 import { tick } from "utils/logger";
@@ -17,6 +17,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // Automatically delete memory of missing creeps
   for (const name in Memory.creeps) {
     if (!(name in Game.creeps)) {
+      handleDead(name)
       delete Memory.creeps[name]
     }
   }
