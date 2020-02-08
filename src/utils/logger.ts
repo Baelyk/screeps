@@ -35,8 +35,8 @@ export function errorConstant (error: ResponseCode): string {
  *
  * @param  msg the message
  */
-export function info (msg?: any) {
-  console.log(`{cyan-fg}Info: ${msg}{/cyan-fg}`)
+export function info (msg?: any, type = InfoType.general) {
+  if (Memory.debug.log.infoSettings[type]) console.log(`{cyan-fg}Info: ${msg}{/cyan-fg}`)
 }
 
 /**
@@ -46,6 +46,15 @@ export function info (msg?: any) {
  */
 export function error (msg?: any) {
   console.log(`{red-fg}Error: ${msg}{/red-fg}`)
+}
+
+/**
+ * Logs a message in yellow
+ *
+ * @param  msg the message
+ */
+export function warn (msg?: any) {
+  console.log(`{yellow-fg}Error: ${msg}{/yellow-fg}`)
 }
 
 /**

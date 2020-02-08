@@ -12,10 +12,16 @@ interface Memory {
   constructionQueue: ConstructionQueue,
   watch: ScreepsMultimeterWatch,
   debug: DebugMemory
+  debug: DebugMemory,
 }
 
 interface DebugMemory {
-  disableMiners?: boolean
+  disableMiners?: boolean,
+  log: LogSettings
+}
+
+interface LogSettings {
+  infoSettings: { [key in InfoType]?: boolean }
 }
 
 interface ScreepsMultimeterWatch {
@@ -58,4 +64,11 @@ declare const enum CreepRole {
   miner = "miner",
   /** Creep that constructs buildings */
   builder = "builder"
+}
+
+declare const enum InfoType {
+  general = "general",
+  spawn = "spawn",
+  task = "task",
+  idleCreep = "idleCreep"
 }
