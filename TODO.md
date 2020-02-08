@@ -2,7 +2,6 @@
 
 ## Creeps
 
-- Implement upgrader behavior
 - Allow builder creeps to repair instead of going idle
 
 ## Structures

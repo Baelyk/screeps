@@ -172,6 +172,47 @@ function builder (creep: Creep) {
   }
 }
 
+function upgrader (creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.getEnergy
+
+  // Announce current task
+  creep.say(creep.memory.task)
+  // Tasks for this creep:
+  // 1. Get energy
+  // 2. Deposit energy first in the spawn then upgrade the controller
+  switch (creep.memory.task) {
+    // The creep is getting energy
+    case CreepTask.getEnergy: {
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        // If the creep can hold more energy, keep getting energy
+        getEnergy(creep)
+      } else {
+        // If the creep has full energy, begin building
+        switchTaskAndDoRoll(creep, CreepTask.deposit)
+        return
+      }
+      break
+    }
+    // The creep is depositing
+    case CreepTask.deposit: {
+      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        // If the creep has energy, keep depositing
+        depositEnergy(creep)
+      } else {
+        // If the creep has no energy, begin getting energy
+        switchTaskAndDoRoll(creep, CreepTask.getEnergy)
+        return
+      }
+      break
+    }
+    // The creep is neither harvesting nor depositing, i.e. it has an invalid task
+    default: {
+      error(`Creep ${creep} should have tasks ${CreepTask.getEnergy} or ${CreepTask.deposit}, ` +
+        `not ${creep.memory.task}`)
+    }
+  }
+}
+
 /**
  * Switches the creeps task and then calls doRoll on the creep
  *
@@ -228,13 +269,16 @@ export function doRole (creep: Creep) {
   switch (creep.memory.role) {
     case CreepRole.harvester:
       harvester(creep)
-      break;
+      break
     case CreepRole.builder:
       builder(creep)
-      break;
+      break
     case CreepRole.miner:
       miner(creep)
-      break;
+      break
+    case CreepRole.upgrader:
+      upgrader(creep)
+      break
     default:
       throw new Error("doRole invalid role " + creep.memory.role)
   }
