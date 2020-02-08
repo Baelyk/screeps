@@ -1,4 +1,4 @@
-import { info } from "utils/logger";
+import { info, errorConstant } from "utils/logger";
 import { fromRepairQueue } from "construct";
 
 /**
@@ -48,8 +48,28 @@ export function harvestEnergy (creep: Creep, source?: Source) {
  * @param  creep The creep to get the energy
  */
 export function getEnergy (creep: Creep) {
-  // For now, just harvest energy
-  harvestEnergy(creep)
+  let structures = [...creep.room.find(FIND_STRUCTURES)]
+  .filter(structure => {
+    // Filter for containers and storages
+    return structure.structureType === STRUCTURE_CONTAINER
+    || structure.structureType === STRUCTURE_STORAGE
+  })
+  .map(structure => {
+    return { structure, path: creep.pos.findPathTo(structure)}
+  }).sort((a, b) => {
+    if (a.path.length < b.path.length) return -1
+    if (a.path.length > b.path.length) return 1
+    return 0
+  })
+  let structure = structures[0].structure as StructureContainer | StructureStorage
+  let path = structures[0].path
+
+
+  // Try to harvest energy. If we can't because we're not in range, move towards the source
+  let response = creep.withdraw(structure, RESOURCE_ENERGY)
+  if (response === ERR_NOT_IN_RANGE) {
+    creep.moveByPath(path)
+  }
 }
 
 /**
@@ -98,7 +118,7 @@ export function storeEnergy (creep: Creep, range: number) {
     if (store.store.getFreeCapacity() > 0) {
       // If there is free capacity, store energy here
       let response = creep.transfer(store, RESOURCE_ENERGY)
-      info(`storeEnergy response for ${creep.name}: ${response}`, InfoType.task)
+      info(`storeEnergy response for ${creep.name}: ${errorConstant(response)}`, InfoType.task)
       if (response === ERR_NOT_IN_RANGE) {
         creep.moveTo(store)
         return
@@ -175,6 +195,8 @@ export function repair (creep: Creep, repair?: Structure) {
   let response = creep.repair(repair)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(repair)
+  } else {
+    info(`Creep ${creep.name} repairing ${repair.pos} with response ${errorConstant(response)}`)
   }
 }
 
