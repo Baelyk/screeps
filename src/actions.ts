@@ -1,3 +1,5 @@
+import { info } from "utils/logger";
+
 /**
  * Harvest energy from a specified Source or find the first Source in the room.
  *
@@ -75,8 +77,7 @@ export function depositEnergy (creep: Creep) {
 }
 
 /**
- * Store energy in container or storage within range. NOTE: The creep does not move towards the
- * store!
+ * Store energy in container or storage within range.
  *
  * @param  creep the creep storing energy
  * @param  range the range
@@ -96,10 +97,19 @@ export function storeEnergy (creep: Creep, range: number) {
     if (store.store.getFreeCapacity() > 0) {
       // If there is free capacity, store energy here
       let response = creep.transfer(store, RESOURCE_ENERGY)
-      console.log(`storeEnergy response for ${creep.name}: ${response}`)
+      info(`storeEnergy response for ${creep.name}: ${response}`, InfoType.task)
+      if (response === ERR_NOT_IN_RANGE) {
+        creep.moveTo(store)
+        return
+      } else if (response === OK) {
+        return
+      }
     }
     // If there is no free capacity, skip to the next store
   })
+
+  // If no valid store was found, perform the deposit action
+  depositEnergy(creep)
 }
 
 /**
@@ -119,8 +129,8 @@ export function upgradeController (creep: Creep) {
   let response = creep.upgradeController(controller)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(controller)
-  } else {
-    console.log(`${creep.name} attempting to build with response ${response}`)
+  } else if (response !== OK) {
+    console.log(`${creep.name} attempting to upgrade controller with response ${response}`)
   }
 }
 
