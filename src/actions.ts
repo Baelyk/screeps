@@ -1,4 +1,4 @@
-import { info, errorConstant } from "utils/logger";
+import { errorConstant, warn } from "utils/logger";
 import { fromRepairQueue } from "construct";
 
 /**
@@ -39,6 +39,8 @@ export function harvestEnergy (creep: Creep, source?: Source) {
     } else {
       creep.moveTo(source);
     }
+  } else if (response !== OK) {
+    warn(`Creep ${creep.name} harvesting ${source.pos} with response ${errorConstant(response)}`)
   }
 }
 
@@ -69,6 +71,8 @@ export function getEnergy (creep: Creep) {
   let response = creep.withdraw(structure, RESOURCE_ENERGY)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveByPath(path)
+  } else if (response !== OK) {
+    warn(`Creep ${creep.name} getting energy ${structure.pos} with response ${errorConstant(response)}`)
   }
 }
 
@@ -90,6 +94,8 @@ export function depositEnergy (creep: Creep) {
     if (response === ERR_NOT_IN_RANGE) {
       // If the spawn is not in range, move towards the spawn
       creep.moveTo(spawn)
+    } else if (response !== OK) {
+      warn(`Creep ${creep.name} depositing ${spawn.pos} with response ${errorConstant(response)}`)
     }
   } else {
     // If the spawn has no free energy capacity, upgrade the controller
@@ -118,12 +124,13 @@ export function storeEnergy (creep: Creep, range: number) {
     if (store.store.getFreeCapacity() > 0) {
       // If there is free capacity, store energy here
       let response = creep.transfer(store, RESOURCE_ENERGY)
-      info(`storeEnergy response for ${creep.name}: ${errorConstant(response)}`, InfoType.task)
       if (response === ERR_NOT_IN_RANGE) {
         creep.moveTo(store)
         return
       } else if (response === OK) {
         return
+      } else {
+        warn(`Creep ${creep.name} found no valid stores within ${range}, depositing instead`)
       }
     }
     // If there is no free capacity, skip to the next store
@@ -151,7 +158,7 @@ export function upgradeController (creep: Creep) {
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(controller)
   } else if (response !== OK) {
-    console.log(`${creep.name} attempting to upgrade controller with response ${response}`)
+    warn(`Creep ${creep.name} attempting to upgrade controller with response ${response}`)
   }
 }
 
@@ -172,6 +179,8 @@ export function build (creep: Creep, building?: ConstructionSite) {
   let response = creep.build(building)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(building)
+  } else if (response !== OK) {
+    warn(`Creep ${creep.name} building ${building.pos} with response ${errorConstant(response)}`)
   }
 }
 
@@ -195,8 +204,8 @@ export function repair (creep: Creep, repair?: Structure) {
   let response = creep.repair(repair)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(repair)
-  } else {
-    info(`Creep ${creep.name} repairing ${repair.pos} with response ${errorConstant(response)}`)
+  } else if (response !== OK) {
+    warn(`Creep ${creep.name} repairing ${repair.pos} with response ${errorConstant(response)}`)
   }
 }
 
