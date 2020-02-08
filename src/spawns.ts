@@ -24,7 +24,7 @@ export function spawnManager(spawn: StructureSpawn) {
   if (upgraderCount < maxUpgraders) {
     if (allowSpawn) {
       info(`${spawn.name}     requesting ${CreepRole.upgrader}`, InfoType.spawn)
-      spawnCreep(spawn, CreepRole.harvester)
+      spawnCreep(spawn, CreepRole.upgrader)
     } else {
       info(`${spawn.name} NOT requesting ${CreepRole.upgrader}`, InfoType.spawn)
     }
@@ -86,8 +86,9 @@ function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial
 function generateBodyByRole (role: CreepRole): BodyPartConstant[] {
   switch (role) {
     case CreepRole.builder: return [WORK, CARRY, MOVE]
-    // 10 WORK, 1 CARRY, 1 MOVE
+    // 2 WORK, 1 CARRY, 1 MOVE
     case CreepRole.miner: return [WORK, WORK, CARRY, MOVE]
+    case CreepRole.upgrader: return [WORK, WORK, CARRY, MOVE]
     default: throw new Error(`getBodyPartsFromRole invalid role ${role}`)
   }
 }
