@@ -2,8 +2,6 @@
 
 ## Creeps
 
-- Allow builder creeps to repair instead of going idle
-
 ## Structures
 
 - Extensions for spawn

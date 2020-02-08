@@ -124,17 +124,7 @@ export function constructMinerContainers (room: Room) {
         console.log(`${position}: terrain: ${terrain.get(position.x, position.y)}`)
         // If the terrain at the position is plain
         if (terrain.get(position.x, position.y) === 0) {
-          let viable = true
-
-          // Check that the tiles around the prospective tile are empty
-          getSurroundingTiles(position, 1).forEach(positionAround => {
-            console.log(`\t${positionAround}: terrain: ${terrain.get(positionAround.x, positionAround.y)}`)
-            // If the terrain at the position isn't plain,
-            if (terrain.get(positionAround.x, positionAround.y) !== 0) {
-              // This terrain isn't viable
-              viable = false
-            }
-          })
+          let viable = surroundingTilesAreEmpty(position)
 
           if (viable) {
             build(position, STRUCTURE_CONTAINER)
@@ -243,4 +233,33 @@ export function resetRepairQueue (room: Room) {
 
 export function fromRepairQueue(): string | undefined {
   return Memory.repairQueue.shift()
+}
+
+function surroundingTilesAreEmpty(position: RoomPosition, exceptions?: StructureConstant[]): boolean {
+  let terrain = Game.map.getRoomTerrain(position.roomName)
+  let empty = true
+
+  // Exceptions should not be undefined and should include roads
+  if (exceptions == undefined) {
+    exceptions = [STRUCTURE_ROAD]
+  }
+  if (exceptions.indexOf(STRUCTURE_ROAD) === -1) {
+    exceptions.push(STRUCTURE_ROAD)
+  }
+
+  getSurroundingTiles(position, 1).forEach(positionAround => {
+    console.log(`\t${positionAround}: terrain: ${terrain.get(positionAround.x, positionAround.y)}`)
+    // If the terrain at the position isn't plain,
+    if (terrain.get(positionAround.x, positionAround.y) !== 0) {
+      // This terrain isn't viable
+      empty = false
+    }
+    positionAround.lookFor(LOOK_STRUCTURES).forEach(structure => {
+      if ((exceptions as StructureConstant[]).indexOf(structure.structureType) === -1) {
+        empty = false
+      }
+    })
+  })
+
+  return empty
 }
