@@ -1,5 +1,5 @@
 import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle, repair } from "actions"
-import { fromQueue, queueLength, unassignConstruction, fromRepairQueue } from "construct";
+import { fromQueue, queueLength, unassignConstruction, fromRepairQueue, repairQueueLength } from "construct";
 import { error, info } from "utils/logger";
 
 /**
@@ -156,6 +156,10 @@ function builder (creep: Creep) {
         // Build
         switchTaskAndDoRoll(creep, CreepTask.build)
         return
+      } else if (repairQueueLength() > 0) {
+        // Repair
+        switchTaskAndDoRoll(creep, CreepTask.repair)
+        return
       } else {
         // Remain idle
         info(`Creep ${creep.name} is idle`, InfoType.idleCreep)
@@ -178,6 +182,10 @@ function builder (creep: Creep) {
         let repairStructure = Game.getObjectById(creep.memory.assignedRepairs) as Structure
         while (repairStructure.hits === repairStructure.hitsMax) {
           repairStructure = Game.getObjectById(fromRepairQueue()) as Structure
+          if (repairStructure == undefined) {
+            switchTaskAndDoRoll(creep, CreepTask.idle)
+            return
+          }
         }
         creep.memory.assignedRepairs = repairStructure.id
 

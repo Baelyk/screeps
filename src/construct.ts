@@ -225,16 +225,23 @@ function sortRepairQueue() {
 }
 
 export function resetRepairQueue (room: Room) {
+  let oldQueue = Memory.repairQueue
   info(`Resetting repair queue`)
   let structures = getStructuresNeedingRepair(room)
   Memory.repairQueue = structures
   sortRepairQueue()
-}
+  // Exactly how arrays were meant to be compared
+  if (JSON.stringify(oldQueue) === JSON.stringify(Memory.repairQueue)) {
+    warn(`Unnecessary repair queue reset`)
+  }
+  }
 
 export function fromRepairQueue(): string | undefined {
   let repair = Game.getObjectById(Memory.repairQueue.shift()) as Structure
+  if (repair == undefined) return
   while (repair.hits === repair.hitsMax) {
     repair = Game.getObjectById(Memory.repairQueue.shift()) as Structure
+    if (repair == undefined) return
   }
   return repair.id
 }
@@ -266,4 +273,13 @@ function surroundingTilesAreEmpty(position: RoomPosition, exceptions?: Structure
   })
 
   return empty
+}
+
+/**
+ * Gets the length of the construction queue
+ *
+ * @return the length of the construction queue
+ */
+export function repairQueueLength(): number {
+  return Memory.repairQueue.length
 }
