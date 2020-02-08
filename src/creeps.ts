@@ -174,6 +174,13 @@ function builder (creep: Creep) {
             return
           }
         }
+        // Only repair structures that need repairs
+        let repairStructure = Game.getObjectById(creep.memory.assignedRepairs) as Structure
+        while (repairStructure.hits === repairStructure.hitsMax) {
+          repairStructure = Game.getObjectById(fromRepairQueue()) as Structure
+        }
+        creep.memory.assignedRepairs = repairStructure.id
+
         repair(creep, Game.getObjectById(creep.memory.assignedRepairs) as Structure)
       } else {
         switchTaskAndDoRoll(creep, CreepTask.getEnergy)

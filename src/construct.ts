@@ -232,7 +232,11 @@ export function resetRepairQueue (room: Room) {
 }
 
 export function fromRepairQueue(): string | undefined {
-  return Memory.repairQueue.shift()
+  let repair = Game.getObjectById(Memory.repairQueue.shift()) as Structure
+  while (repair.hits === repair.hitsMax) {
+    repair = Game.getObjectById(Memory.repairQueue.shift()) as Structure
+  }
+  return repair.id
 }
 
 function surroundingTilesAreEmpty(position: RoomPosition, exceptions?: StructureConstant[]): boolean {
