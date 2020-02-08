@@ -11,9 +11,11 @@ interface Memory {
    */
   constructionQueue: ConstructionQueue,
   watch: ScreepsMultimeterWatch,
-  debug: DebugMemory
   debug: DebugMemory,
+  populationLimit: MemoryPopulationLimit,
 }
+
+type MemoryPopulationLimit = { [key in CreepRole]?: number }
 
 interface DebugMemory {
   disableMiners?: boolean,
@@ -63,7 +65,7 @@ declare const enum CreepRole {
   /** Creep that mines into a container near to the source */
   miner = "miner",
   /** Creep that constructs buildings */
-  builder = "builder"
+  builder = "builder",
 }
 
 declare const enum InfoType {
