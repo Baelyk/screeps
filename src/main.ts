@@ -22,16 +22,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
   }
 
   // Process creep behavior
-  console.log(`Processing creep behavior`)
   for (const name in Game.creeps) {
-    console.log(`  Processing behavior for ${name}`)
     doRole(Game.creeps[name])
   }
 
   // Process spawn behavior
-  console.log(`Processing spawn behavior`)
   for (const name in Game.spawns) {
-    console.log(`  Processing behavior for ${name}`)
     spawnManager(Game.spawns[name])
   }
 

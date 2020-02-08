@@ -127,8 +127,9 @@ function builder (creep: Creep) {
             creep.memory.assignedConstruction = fromQueue()
             if (creep.memory.assignedConstruction == undefined) {
               error(`queueLength was positive but creep ${creep.name} unable to get assignment`)
+              // End the behavior function
+              return
             }
-
           }
           // Perform the build action
           build(creep)

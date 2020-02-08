@@ -10,7 +10,12 @@ interface Memory {
    * The construction queue: an array of ConstructionSite ids
    */
   constructionQueue: ConstructionQueue,
-  watch: ScreepsMultimeterWatch
+  watch: ScreepsMultimeterWatch,
+  debug: DebugMemory
+}
+
+interface DebugMemory {
+  disableMiners?: boolean
 }
 
 interface ScreepsMultimeterWatch {
@@ -21,6 +26,7 @@ interface ScreepsMultimeterWatch {
 type ConstructionQueue = RoomPosition[]
 
 interface CreepMemory {
+  [key: string]: any
   role: CreepRole,
   task: CreepTask,
   /**
