@@ -172,6 +172,12 @@ function builder (creep: Creep) {
   }
 }
 
+/**
+ * Switches the creeps task and then calls doRoll on the creep
+ *
+ * @param  creep the creep
+ * @param  task the new role for the creep
+ */
 function switchTaskAndDoRoll (creep: Creep, task: CreepTask) {
   creep.memory.task = task
   info(`Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`,
@@ -234,6 +240,11 @@ export function doRole (creep: Creep) {
   }
 }
 
+/**
+ * Performs actions upon the death of a creep based on the creeps roll
+ *
+ * @param  name the name of the dead creep
+ */
 export function handleDead (name: string) {
   info(`Handling death of creep ${name}`, InfoType.general)
   let memory = Memory.creeps[name]
