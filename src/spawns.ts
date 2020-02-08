@@ -41,8 +41,11 @@ export function spawnManager(spawn: StructureSpawn) {
   if (!Memory.debug.disableMiners && minerCount < sources.length && minerCount < maxMiners) {
     if (allowSpawn) {
       info(`${spawn.name}     requesting ${CreepRole.miner}`, InfoType.spawn)
+      let memory = generateMemoryByRole(CreepRole.miner)
+      // Get the id of the miner, which is the number attached the end of it's name
+      let id = memory.name.replace("miner_", "")
       spawnCreep(spawn, CreepRole.miner, {
-        assignedSource: sources[minerCount].id
+        assignedSource: sources[id].id
       })
     }  else {
       info(`${spawn.name} NOT requesting ${CreepRole.miner}`, InfoType.spawn)
