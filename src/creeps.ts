@@ -76,7 +76,7 @@ function miner (creep: Creep) {
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has energy, keep depositing
-        storeEnergy(creep, 3)
+        storeEnergy(creep, 5)
       } else {
         // If the creep has no energy, begin harvesting
         switchTaskAndDoRoll(creep, CreepTask.harvest)

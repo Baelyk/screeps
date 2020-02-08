@@ -54,7 +54,7 @@ export function error (msg?: any) {
  * @param  msg the message
  */
 export function warn (msg?: any) {
-  console.log(`{yellow-fg}Error: ${msg}{/yellow-fg}`)
+  console.log(`{yellow-fg}Warn: ${msg}{/yellow-fg}`)
 }
 
 /**

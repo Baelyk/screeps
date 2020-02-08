@@ -53,8 +53,9 @@ export function getEnergy (creep: Creep) {
   let structures = [...creep.room.find(FIND_STRUCTURES)]
   .filter(structure => {
     // Filter for containers and storages
-    return structure.structureType === STRUCTURE_CONTAINER
-    || structure.structureType === STRUCTURE_STORAGE
+    return (structure.structureType === STRUCTURE_CONTAINER
+      || structure.structureType === STRUCTURE_STORAGE)
+      && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
   })
   .map(structure => {
     return { structure, path: creep.pos.findPathTo(structure)}
@@ -63,6 +64,11 @@ export function getEnergy (creep: Creep) {
     if (a.path.length > b.path.length) return 1
     return 0
   })
+  if (structures[0] == undefined) {
+    warn(`Creep ${creep.name} unable to find suitable structure for getEnergy, harvesting`)
+    harvestEnergy(creep)
+    return
+  }
   let structure = structures[0].structure as StructureContainer | StructureStorage
   let path = structures[0].path
 
@@ -109,35 +115,37 @@ export function depositEnergy (creep: Creep) {
  * @param  creep the creep storing energy
  * @param  range the range
  */
-export function storeEnergy (creep: Creep, range: number) {
-  let stores = creep.room.lookForAtArea(LOOK_STRUCTURES, creep.pos.y - range, creep.pos.x - range,
-    creep.pos.y + range, creep.pos.x + range, true).filter(structure => {
-      // Filter for containers and storages
-      return structure.structure.structureType === STRUCTURE_CONTAINER
-      || structure.structure.structureType === STRUCTURE_STORAGE
-    }).map(structure => {
-      // Extract just the structure from the look result
-      return structure.structure as StructureContainer | StructureStorage
-    })
-
-  stores.forEach(store => {
-    if (store.store.getFreeCapacity() > 0) {
-      // If there is free capacity, store energy here
-      let response = creep.transfer(store, RESOURCE_ENERGY)
-      if (response === ERR_NOT_IN_RANGE) {
-        creep.moveTo(store)
-        return
-      } else if (response === OK) {
-        return
-      } else {
-        warn(`Creep ${creep.name} found no valid stores within ${range}, depositing instead`)
-      }
-    }
-    // If there is no free capacity, skip to the next store
+export function storeEnergy (creep: Creep) {
+  let structures = [...creep.room.find(FIND_STRUCTURES)]
+  .filter(structure => {
+    // Filter for containers and storages
+    return (structure.structureType === STRUCTURE_CONTAINER
+      || structure.structureType === STRUCTURE_STORAGE)
+      && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
   })
+  .map(structure => {
+    return { structure, path: creep.pos.findPathTo(structure)}
+  }).sort((a, b) => {
+    if (a.path.length < b.path.length) return -1
+    if (a.path.length > b.path.length) return 1
+    return 0
+  })
+  if (structures[0] == undefined) {
+    warn(`Creep ${creep.name} unable to find suitable structure for storeEnergy, depositing`)
+    depositEnergy(creep)
+    return
+  }
+  let structure = structures[0].structure as StructureContainer | StructureStorage
+  let path = structures[0].path
 
-  // If no valid store was found, perform the deposit action
-  depositEnergy(creep)
+
+  // Try to harvest energy. If we can't because we're not in range, move towards the source
+  let response = creep.transfer(structure, RESOURCE_ENERGY)
+  if (response === ERR_NOT_IN_RANGE) {
+    creep.moveByPath(path)
+  } else if (response !== OK) {
+    warn(`Creep ${creep.name} getting energy ${structure.pos} with response ${errorConstant(response)}`)
+  }
 }
 
 /**
