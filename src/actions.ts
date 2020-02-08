@@ -5,14 +5,37 @@
  * @param  source The Source, or undefined
  */
 export function harvestEnergy (creep: Creep, source?: Source) {
+  // TODO: This currently permanently assigns a source to creeps that shouldn't have a permanent
+  // source. Additionally, this is a LOT of CPU for harvesting. Even worse, this doesn't even solve
+  // the problem I wrote it to solve, which was picking a source not blocked by another creep.
+  let path;
   if (source == undefined) {
-    // For now, if source is undefined, just use the first source found in the room.
-    source = creep.room.find(FIND_SOURCES_ACTIVE)[0]
+    if (creep.memory.assignedSource == undefined) {
+      let sources = [...creep.room.find(FIND_SOURCES)].map(source => {
+        return { source, path: creep.pos.findPathTo(source)}
+      }).sort((a, b) => {
+        if (a.path.length < b.path.length) return -1
+        if (a.path.length > b.path.length) return 1
+        return 0
+      })
+      source = sources[0].source as Source
+      path = sources[0].path
+
+      // If this amount of work is going to be done, we are going to assign this source to the creep
+      creep.memory.assignedSource = source.id
+    } else {
+      source = Game.getObjectById(creep.memory.assignedSource) as Source
+    }
   }
 
   // Try to harvest energy. If we can't because we're not in range, move towards the source
-  if (creep.harvest(source) === ERR_NOT_IN_RANGE) {
-    creep.moveTo(source);
+  let response = creep.harvest(source)
+  if (response === ERR_NOT_IN_RANGE) {
+    if (path) {
+      creep.moveByPath(path)
+    } else {
+      creep.moveTo(source);
+    }
   }
 }
 
