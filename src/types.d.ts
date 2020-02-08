@@ -7,9 +7,13 @@ interface Memory {
    */
   initialSpawn: string,
   /**
-   * The construction queue: an array of ConstructionSite ids
+   * The construction queue: an array of ConstructionSite positions
    */
   constructionQueue: ConstructionQueue,
+  /**
+   * The repair queue: an array of Structure ids that need repairs, sorted by least hits to most
+   */
+  repairQueue: RepairQueue
   watch: ScreepsMultimeterWatch,
   debug: DebugMemory,
   populationLimit: MemoryPopulationLimit,
@@ -32,6 +36,7 @@ interface ScreepsMultimeterWatch {
 }
 
 type ConstructionQueue = RoomPosition[]
+type RepairQueue = string[]
 
 interface CreepMemory {
   [key: string]: any
@@ -45,6 +50,10 @@ interface CreepMemory {
    * A construction site assigned to this creep by id
    */
   assignedConstruction?: string | undefined,
+  /**
+   * A structuring needing repairs that this creep is repairing
+   */
+  assignedRepairs?: string | undefined
 }
 
 // The exact task depends also on the role
@@ -56,7 +65,8 @@ declare const enum CreepTask {
   harvest = "harvest",
   deposit = "deposit",
   getEnergy = "get_energy",
-  build = "build"
+  build = "build",
+  repair = "repair"
 }
 
 declare const enum CreepRole {

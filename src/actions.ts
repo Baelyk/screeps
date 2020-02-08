@@ -1,4 +1,5 @@
 import { info } from "utils/logger";
+import { fromRepairQueue } from "construct";
 
 /**
  * Harvest energy from a specified Source or find the first Source in the room.
@@ -59,7 +60,7 @@ export function getEnergy (creep: Creep) {
 export function depositEnergy (creep: Creep) {
   // Get the first Spawn in the room
   let spawn = creep.room.find(FIND_MY_STRUCTURES).filter(structure => {
-    return structure.structureType == STRUCTURE_SPAWN
+    return structure.structureType === STRUCTURE_SPAWN
   })[0] as StructureSpawn
 
   // If the spawn has free energy capacity
@@ -151,6 +152,29 @@ export function build (creep: Creep, building?: ConstructionSite) {
   let response = creep.build(building)
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(building)
+  }
+}
+
+/**
+ * Repairs or moves to the creep's assigned repair site
+ *
+ * @param  creep the creep
+ * @param  repair the structure to repair
+ */
+export function repair (creep: Creep, repair?: Structure) {
+  if (repair == undefined) {
+    if (creep.memory.assignedRepairs == undefined) {
+      let idToRepair = fromRepairQueue()
+      repair = Game.getObjectById(idToRepair) as Structure
+      creep.memory.assignedRepairs = idToRepair
+    } else {
+      repair = Game.getObjectById(creep.memory.assignedRepairs) as Structure
+    }
+  }
+
+  let response = creep.repair(repair)
+  if (response === ERR_NOT_IN_RANGE) {
+    creep.moveTo(repair)
   }
 }
 

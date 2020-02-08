@@ -1,5 +1,5 @@
-import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle } from "actions"
-import { fromQueue, queueLength, unassignConstruction } from "construct";
+import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle, repair } from "actions"
+import { fromQueue, queueLength, unassignConstruction, fromRepairQueue } from "construct";
 import { error, info } from "utils/logger";
 
 /**
@@ -106,6 +106,8 @@ function builder (creep: Creep) {
   // Tasks for this creep:
   // 1. CreepTask.getEnergy: Get energy to construct buildings
   // 2. CreepTask.build: Move to a construction site and build
+  // 3. CreepTask.repair: Move to a repairable structure and repair
+  // 4. CreepTask.idle: Move to the idle location and chill
   switch (creep.memory.task) {
     case CreepTask.getEnergy: {
       if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
@@ -134,12 +136,9 @@ function builder (creep: Creep) {
           // Perform the build action
           build(creep)
         } else {
-          // TODO: Refine idle Behavior
-          // For now, if the construction queue is empty, throw an error. In the future maybe the
-          // creep could go back to getting energy, begin repairs, go back to spawn, commit
-          // suicide
+          // If there is nothing to build, repair
           info(`No items in the construction queue`, InfoType.general)
-          switchTaskAndDoRoll(creep, CreepTask.idle)
+          switchTaskAndDoRoll(creep, CreepTask.repair)
           return
         }
       } else {
@@ -161,6 +160,24 @@ function builder (creep: Creep) {
         // Remain idle
         info(`Creep ${creep.name} is idle`, InfoType.idleCreep)
         idle(creep)
+      }
+      break
+    }
+    case CreepTask.repair: {
+      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        if (creep.memory.assignedRepairs == undefined) {
+          creep.memory.assignedRepairs = fromRepairQueue()
+          if (creep.memory.assignedRepairs == undefined) {
+            // If there is nothing to repair, idle
+            info(`No items in the repair queue`, InfoType.general)
+            switchTaskAndDoRoll(creep, CreepTask.idle)
+            return
+          }
+        }
+        repair(creep, Game.getObjectById(creep.memory.assignedRepairs) as Structure)
+      } else {
+        switchTaskAndDoRoll(creep, CreepTask.getEnergy)
+        return
       }
       break
     }

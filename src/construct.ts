@@ -208,3 +208,39 @@ export function unassignConstruction (name: string) {
     warn(`Attempted to delete undefined assigned construction for creep ${name}`)
   }
 }
+
+function getStructuresNeedingRepair (room: Room): string[] {
+  return room.find(FIND_STRUCTURES)
+  .filter(structure => {
+    switch (structure.structureType) {
+      case STRUCTURE_ROAD:
+      case STRUCTURE_CONTAINER:
+        return true
+      default: return false
+    }
+  })
+  .map(structure => {
+    return structure.id
+  })
+}
+
+function sortRepairQueue() {
+  Memory.repairQueue = Memory.repairQueue.sort((a, b) => {
+    let structureA = Game.getObjectById(a) as Structure
+    let structureB = Game.getObjectById(b) as Structure
+    if (structureA.hits < structureB.hits) return -1
+    if (structureA.hits < structureB.hits) return -1
+    return 0
+  })
+}
+
+export function resetRepairQueue (room: Room) {
+  info(`Resetting repair queue`)
+  let structures = getStructuresNeedingRepair(room)
+  Memory.repairQueue = structures
+  sortRepairQueue()
+}
+
+export function fromRepairQueue(): string | undefined {
+  return Memory.repairQueue.shift()
+}
