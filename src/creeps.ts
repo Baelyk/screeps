@@ -138,11 +138,11 @@ function builder (creep: Creep) {
           // For now, if the construction queue is empty, throw an error. In the future maybe the
           // creep could go back to getting energy, begin repairs, go back to spawn, commit
           // suicide
+          info(`No items in the construction queue`, InfoType.general)
           switchTaskAndDoRoll(creep, CreepTask.idle)
           return
         }
       } else {
-        info(`No items in the construction queue`)
         switchTaskAndDoRoll(creep, CreepTask.getEnergy)
         return
       }
