@@ -41,8 +41,9 @@ function buildRoad (path: RoomPosition[]) {
  *
  * @param  position the room position at which to create the construction site
  * @param  structureType the type of structure to create a construction site for
+ * @return returns true if the construction site was successfully created
  */
-function build(position: RoomPosition, structureType: BuildableStructureConstant) {
+function build(position: RoomPosition, structureType: BuildableStructureConstant): boolean {
   // Attempt to create the construction site
   let response = position.createConstructionSite(structureType)
 
@@ -58,18 +59,20 @@ function build(position: RoomPosition, structureType: BuildableStructureConstant
       warn(`{o-fg}build attempted to build ${structureType} over site/structure of same ` +
         `time{/o-fg}`)
     } else {
-      throw new Error(`build attempted to build ${structureType} over invalid terrain at ` +
+      error(`build attempted to build ${structureType} over invalid terrain at ` +
         `(${response}) ${position}`)
     }
   } else if (response === ERR_FULL) {
-    throw new Error(`buildRoad exceded construction capacity`)
+    error(`build exceded construction capacity`)
   } else if (response === ERR_RCL_NOT_ENOUGH) {
-    throw new Error(`buildRoad attempted to build ${structureType} with insufficient RCL: ` +
+    error(`build attempted to build ${structureType} with insufficient RCL: ` +
       `${(Game.rooms[position.roomName].controller as StructureController).level}`)
   } else if (response === OK) {
     // Construction site successfullly created
     addToQueue(position)
+    return true
   }
+  return false
 }
 
 /**

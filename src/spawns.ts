@@ -68,7 +68,7 @@ export function spawnManager(spawn: StructureSpawn) {
   }
 
   // Build extentions
-  requestExtentions(spawn)
+  if ((spawn.room.controller as StructureController).level > 1) requestExtentions(spawn)
 }
 
 function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial<CreepMemory>) {
@@ -128,8 +128,11 @@ function requestExtentions (spawn: StructureSpawn) {
 
     if (shouldRequest) {
       info(`Spawn ${spawn.name} requesting extention at ${surrounding[0]}`, InfoType.build)
-      buildStructure(surrounding[0], STRUCTURE_EXTENSION)
-      spawn.memory.extensions.push(surrounding[0])
+      if (buildStructure(surrounding[0], STRUCTURE_EXTENSION)) {
+        spawn.memory.extensions.push(surrounding[0])
+      } else {
+        info(`Spawn ${spawn.name} failed extention request at ${surrounding[0]}`, InfoType.build)
+      }
     }
   }
 }
