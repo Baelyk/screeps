@@ -3,10 +3,33 @@ import { watcher } from "utils/watch-client"
 import { doRole, handleDead } from "creeps"
 import { init } from "initialize"
 import { spawnManager } from "spawns";
-import { tick, info } from "utils/logger";
+import { tick, info, warn } from "utils/logger";
 import { resetRepairQueue } from "construct"
 
 console.log("- - - - RESTARTING - - - -")
+
+export function resetMemory() {
+  warn("Reseting memory")
+  Memory.uninitialized = true
+  Memory.initialSpawn = "Spawn1"
+  Memory.constructionQueue = []
+  Memory.repairQueue = []
+  Memory.watch = {}
+  Memory.debug = {
+    log: {
+      infoSettings: {
+        general: true,
+        spawn: true,
+        task: true,
+        idleCreep: true,
+        build: true
+      }
+    }
+  }
+  Memory.populationLimit = {
+    builder: 1
+  }
+}
 
 export const loop = ErrorMapper.wrapLoop(() => {
   tick()
