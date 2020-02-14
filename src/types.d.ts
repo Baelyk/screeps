@@ -23,6 +23,8 @@ type MemoryPopulationLimit = { [key in CreepRole]?: number }
 
 interface DebugMemory {
   disableMiners?: boolean,
+  /** Whether creeps should `.say()` their task */
+  sayTask?: boolean
   log: LogSettings
 }
 

@@ -10,8 +10,6 @@ import { error, info } from "utils/logger";
 function harvester (creep: Creep) {
   if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.harvest
 
-  // Announce current task
-  creep.say(creep.memory.task)
   switch (creep.memory.task) {
     // The creep is harvesting
     case CreepTask.harvest: {
@@ -53,8 +51,6 @@ function harvester (creep: Creep) {
 function miner (creep: Creep) {
   if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.harvest
 
-  // Announce current task
-  creep.say(creep.memory.task)
   // Tasks for this creep:
   // 1. CreepTask.harvest: harvest from assigned energy source
   // 2. CreepTask.deposit: deposite into nearby energy store
@@ -101,8 +97,6 @@ function miner (creep: Creep) {
 function builder (creep: Creep) {
   if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.getEnergy
 
-  // Announce current task
-  creep.say(creep.memory.task)
   // Tasks for this creep:
   // 1. CreepTask.getEnergy: Get energy to construct buildings
   // 2. CreepTask.build: Move to a construction site and build
@@ -207,8 +201,6 @@ function builder (creep: Creep) {
 function upgrader (creep: Creep) {
   if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.getEnergy
 
-  // Announce current task
-  creep.say(creep.memory.task)
   // Tasks for this creep:
   // 1. Get energy
   // 2. Deposit energy first in the spawn then upgrade the controller
@@ -298,6 +290,7 @@ export function nameCreep (memory: CreepMemory) {
  * @param  creep the creep
  */
 export function doRole (creep: Creep) {
+  if (Memory.debug.sayTask) creep.say(creep.memory.task)
   switch (creep.memory.role) {
     case CreepRole.harvester:
       harvester(creep)
