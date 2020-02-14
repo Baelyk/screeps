@@ -76,7 +76,7 @@ function miner (creep: Creep) {
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has energy, keep depositing
-        storeEnergy(creep, 5)
+        storeEnergy(creep)
       } else {
         // If the creep has no energy, begin harvesting
         switchTaskAndDoRoll(creep, CreepTask.harvest)
@@ -123,7 +123,7 @@ function builder (creep: Creep) {
     case CreepTask.build: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has more energy, continue building
-        if (queueLength() > 0) {
+        if (creep.memory.assignedConstruction || queueLength() > 0) {
           if (creep.memory.assignedConstruction == undefined
             || Game.getObjectById(creep.memory.assignedConstruction) == undefined) {
             creep.memory.assignedConstruction = fromQueue()
@@ -152,11 +152,11 @@ function builder (creep: Creep) {
         // If the creep has free energy, it should get energy
         switchTaskAndDoRoll(creep, CreepTask.getEnergy)
         return
-      } else if (queueLength() > 0) {
+      } else if (creep.memory.assignedConstruction || queueLength() > 0) {
         // Build
         switchTaskAndDoRoll(creep, CreepTask.build)
         return
-      } else if (repairQueueLength() > 0) {
+      } else if (creep.memory.assignedRepairs || repairQueueLength() > 0) {
         // Repair
         switchTaskAndDoRoll(creep, CreepTask.repair)
         return

@@ -21,7 +21,7 @@ export function initConstruction (spawn: StructureSpawn) {
   // that is the source that the initial harvester will harvest from.
   let source = spawn.room.find(FIND_SOURCES_ACTIVE)[0]
   let path = PathFinder.search(spawn.pos, {pos: source.pos, range: 1}).path
-  console.log(`Source road from ${spawn.pos} to ${source.pos}: ${JSON.stringify(path)}`)
+  info(`Source road from ${spawn.pos} to ${source.pos}: ${JSON.stringify(path)}`, InfoType.build)
   buildRoad(path)
 }
 
@@ -55,7 +55,7 @@ function build(position: RoomPosition, structureType: BuildableStructureConstant
       return site.structureType === structureType
     })
     if (structures.length > 0 || sites.length > 0) {
-      console.log(`{o-fg}build attempted to build ${structureType} over site/structure of same ` +
+      warn(`{o-fg}build attempted to build ${structureType} over site/structure of same ` +
         `time{/o-fg}`)
     } else {
       throw new Error(`build attempted to build ${structureType} over invalid terrain at ` +
@@ -121,7 +121,6 @@ export function constructMinerContainers (room: Room) {
     let foundViable = false
     getSurroundingTiles(source.pos, 2).forEach(position => {
       if (!foundViable) {
-        console.log(`${position}: terrain: ${terrain.get(position.x, position.y)}`)
         // If the terrain at the position is plain
         if (terrain.get(position.x, position.y) === 0) {
           let viable = surroundingTilesAreEmpty(position)
@@ -156,7 +155,6 @@ function getSurroundingCoords(x: number, y: number, radius = 1): {x: number, y: 
   let maxY = y + radius
   let minX = x - radius
   let minY = y - radius
-  console.log(`${x},${y} x:${minX}-${maxX} y:${minY}-${maxY}`)
   let coords = []
 
   for (let xCoord = minX; xCoord <= maxX; xCoord++) {
@@ -181,7 +179,7 @@ function getSurroundingCoords(x: number, y: number, radius = 1): {x: number, y: 
   return coords
 }
 
-function getSurroundingTiles(position: RoomPosition, radius = 0): RoomPosition[] {
+export function getSurroundingTiles(position: RoomPosition, radius = 0): RoomPosition[] {
   let coords = getSurroundingCoords(position.x, position.y, radius)
   return coords.map(coord => {
     return Game.rooms[position.roomName].getPositionAt(coord.x, coord.y) as RoomPosition
@@ -246,20 +244,19 @@ export function fromRepairQueue(): string | undefined {
   return repair.id
 }
 
-function surroundingTilesAreEmpty(position: RoomPosition, exceptions?: StructureConstant[]): boolean {
+export function surroundingTilesAreEmpty(position: RoomPosition, exceptions?: StructureConstant[]): boolean {
   let terrain = Game.map.getRoomTerrain(position.roomName)
   let empty = true
 
-  // Exceptions should not be undefined and should include roads
+  // Exceptions should not be undefined and should include roads, unless it is an empty array
   if (exceptions == undefined) {
     exceptions = [STRUCTURE_ROAD]
   }
-  if (exceptions.indexOf(STRUCTURE_ROAD) === -1) {
+  if (exceptions.length > 0 && exceptions.indexOf(STRUCTURE_ROAD) === -1) {
     exceptions.push(STRUCTURE_ROAD)
   }
 
   getSurroundingTiles(position, 1).forEach(positionAround => {
-    console.log(`\t${positionAround}: terrain: ${terrain.get(positionAround.x, positionAround.y)}`)
     // If the terrain at the position isn't plain,
     if (terrain.get(positionAround.x, positionAround.y) !== 0) {
       // This terrain isn't viable
@@ -282,4 +279,8 @@ function surroundingTilesAreEmpty(position: RoomPosition, exceptions?: Structure
  */
 export function repairQueueLength(): number {
   return Memory.repairQueue.length
+}
+
+export function buildStructure(position: RoomPosition, type: BuildableStructureConstant) {
+  build(position, type)
 }

@@ -84,5 +84,17 @@ declare const enum InfoType {
   general = "general",
   spawn = "spawn",
   task = "task",
-  idleCreep = "idleCreep"
+  idleCreep = "idleCreep",
+  build = "build"
+}
+
+interface Coord {
+  x: number,
+  y: number,
+  room?: string
+}
+
+interface SpawnMemory {
+  // Array of extension positions this spawn can use
+  extensions: RoomPosition[]
 }

@@ -1,5 +1,6 @@
 import { nameCreep, countRole } from "creeps";
 import { errorConstant, stringifyBody, info } from "utils/logger";
+import { queueLength, getSurroundingTiles, buildStructure } from "construct";
 
 export function spawnManager(spawn: StructureSpawn) {
   // Currently no spawn queue, so we can only queue one creep per tick
@@ -65,6 +66,9 @@ export function spawnManager(spawn: StructureSpawn) {
     }
     allowSpawn = false
   }
+
+  // Build extentions
+  requestExtentions(spawn)
 }
 
 function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial<CreepMemory>) {
@@ -97,5 +101,35 @@ function generateMemoryByRole (role: CreepRole): CreepMemory {
   return {
     role,
     task: CreepTask.fresh
+  }
+}
+
+function requestExtentions (spawn: StructureSpawn) {
+  if (queueLength() === 0) {
+    let shouldRequest = true
+    let terrain = Game.map.getRoomTerrain(spawn.room.name)
+    let surrounding = getSurroundingTiles(spawn.pos, 2).filter(position => {
+      let empty = true
+      if (terrain.get(position.x, position.y) !== 0) {
+        // This terrain isn't viable
+        empty = false
+      }
+      position.lookFor(LOOK_STRUCTURES).forEach(() => {
+        empty = false
+      })
+      position.lookFor(LOOK_CONSTRUCTION_SITES).forEach(site => {
+        empty = false
+        if (site.structureType === STRUCTURE_EXTENSION) {
+          shouldRequest = false
+        }
+      })
+      return empty
+    })
+
+    if (shouldRequest) {
+      info(`Spawn ${spawn.name} requesting extention at ${surrounding[0]}`, InfoType.build)
+      buildStructure(surrounding[0], STRUCTURE_EXTENSION)
+      spawn.memory.extensions.push(surrounding[0])
+    }
   }
 }
