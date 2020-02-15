@@ -17,12 +17,12 @@ export function initConstruction (spawn: StructureSpawn) {
   // Construct containers near the sources for miners
   constructMinerContainers(spawn.room)
 
-  // Construct a road from the spawn to the "first" source in the room. The "first" source because
-  // that is the source that the initial harvester will harvest from.
-  let source = spawn.room.find(FIND_SOURCES_ACTIVE)[0]
-  let path = PathFinder.search(spawn.pos, {pos: source.pos, range: 1}).path
-  info(`Source road from ${spawn.pos} to ${source.pos}: ${JSON.stringify(path)}`, InfoType.build)
-  buildRoad(path)
+  // Construct a road from the spawn to the sources in the room.
+  spawn.room.find(FIND_SOURCES_ACTIVE).forEach(source => {
+    let path = PathFinder.search(spawn.pos, {pos: source.pos, range: 1}).path
+    info(`Source road from ${spawn.pos} to ${source.pos}: ${JSON.stringify(path)}`, InfoType.build)
+    buildRoad(path)
+  })
 }
 
 /**
@@ -193,7 +193,7 @@ export function unassignConstruction (name: string) {
   let memory = Memory.creeps[name]
   if (memory.assignedConstruction) {
     let site = Game.getObjectById(memory.assignedConstruction) as ConstructionSite
-    addToQueue(site.pos)
+    Memory.constructionQueue.unshift(site.pos)
     delete memory.assignedConstruction
   } else {
     warn(`Attempted to delete undefined assigned construction for creep ${name}`)
@@ -284,6 +284,6 @@ export function repairQueueLength(): number {
   return Memory.repairQueue.length
 }
 
-export function buildStructure(position: RoomPosition, type: BuildableStructureConstant) {
-  build(position, type)
+export function buildStructure(position: RoomPosition, type: BuildableStructureConstant): boolean {
+  return build(position, type)
 }

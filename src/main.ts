@@ -5,6 +5,7 @@ import { init } from "initialize"
 import { spawnManager } from "spawns";
 import { tick, info, warn } from "utils/logger";
 import { resetRepairQueue } from "construct"
+import { census } from "population";
 
 console.log("- - - - RESTARTING - - - -")
 
@@ -56,11 +57,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
     spawnManager(Game.spawns[name])
   }
 
-  // Update repair queue every 32 ticks
-  if (Game.time % 32 === 0) {
+  // Update repair queue and pop limits every 100 ticks
+  if (Game.time % 100 === 0) {
     for (const name in Game.rooms) {
       // This will not work with multiple rooms, despite the way I've made it
       resetRepairQueue(Game.rooms[name])
+      census(Game.rooms[name])
     }
   }
 

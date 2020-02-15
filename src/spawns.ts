@@ -1,6 +1,6 @@
 import { nameCreep, countRole } from "creeps";
-import { errorConstant, stringifyBody, info } from "utils/logger";
-import { queueLength, getSurroundingTiles, buildStructure } from "construct";
+import { errorConstant, stringifyBody, info, error, warn } from "utils/logger";
+import { queueLength, getSurroundingTiles, buildStructure, repairQueueLength } from "construct";
 
 export function spawnManager(spawn: StructureSpawn) {
   // Currently no spawn queue, so we can only queue one creep per tick
@@ -19,6 +19,25 @@ export function spawnManager(spawn: StructureSpawn) {
     allowSpawn = false
   }
 
+  // Spawn miner creeps
+  let sources = spawn.room.find(FIND_SOURCES)
+  let minerCount = countRole(CreepRole.miner)
+  let maxMiners = Memory.populationLimit.miner || 0
+  if (minerCount < maxMiners) {
+    if (allowSpawn) {
+      info(`${spawn.name}     requesting ${CreepRole.miner}`, InfoType.spawn)
+      let memory = generateMemoryByRole(CreepRole.miner)
+      // Get the id of the miner, which is the number attached the end of it's name
+      let id = Number(nameCreep(memory).replace("miner_", ""))
+      spawnCreep(spawn, CreepRole.miner, minerCount < sources.length ? {
+        assignedSource: sources[id].id
+      } : {})
+    }  else {
+      info(`${spawn.name} NOT requesting ${CreepRole.miner}`, InfoType.spawn)
+    }
+    allowSpawn = false
+  }
+
   // Spawn upgrader creeps
   let maxUpgraders = Memory.populationLimit.upgrader || 0
   let upgraderCount = countRole(CreepRole.upgrader)
@@ -33,36 +52,14 @@ export function spawnManager(spawn: StructureSpawn) {
   }
 
   // Spawn builder creeps
-  if (Memory.constructionQueue.length > 0) {
-    // If there are items in the build queue,
-    let builderCount = countRole(CreepRole.builder)
-    let maxBuilders = Memory.populationLimit.builder || 0
-    if (builderCount < maxBuilders) {
-      if (allowSpawn) {
-        info(`${spawn.name}     requesting ${CreepRole.builder}`, InfoType.spawn)
-        spawnCreep(spawn, CreepRole.builder)
-      } else {
-        info(`${spawn.name} NOT requesting ${CreepRole.builder}`, InfoType.spawn)
-      }
-      allowSpawn = false
-    }
-  }
-
-  // Spawn miner creeps
-  let sources = spawn.room.find(FIND_SOURCES)
-  let minerCount = countRole(CreepRole.miner)
-  let maxMiners = Memory.populationLimit.miner || 0
-  if (!Memory.debug.disableMiners && minerCount < sources.length && minerCount < maxMiners) {
+  let builderCount = countRole(CreepRole.builder)
+  let maxBuilders = Memory.populationLimit.builder || 0
+  if (builderCount < maxBuilders) {
     if (allowSpawn) {
-      info(`${spawn.name}     requesting ${CreepRole.miner}`, InfoType.spawn)
-      let memory = generateMemoryByRole(CreepRole.miner)
-      // Get the id of the miner, which is the number attached the end of it's name
-      let id = Number(nameCreep(memory).replace("miner_", ""))
-      spawnCreep(spawn, CreepRole.miner, {
-        assignedSource: sources[id].id
-      })
-    }  else {
-      info(`${spawn.name} NOT requesting ${CreepRole.miner}`, InfoType.spawn)
+      info(`${spawn.name}     requesting ${CreepRole.builder}`, InfoType.spawn)
+      spawnCreep(spawn, CreepRole.builder)
+    } else {
+      info(`${spawn.name} NOT requesting ${CreepRole.builder}`, InfoType.spawn)
     }
     allowSpawn = false
   }
@@ -79,7 +76,7 @@ function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial
     }
   }
   let name = nameCreep(memory)
-  let body = generateBodyByRole(role)
+  let body = generateBodyByRole(spawn, role)
   let response = spawn.spawnCreep(body, name, {
     memory
   })
@@ -87,11 +84,19 @@ function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial
   `${errorConstant(response)}`, InfoType.spawn)
 }
 
-function generateBodyByRole (role: CreepRole): BodyPartConstant[] {
+function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartConstant[] {
   switch (role) {
     case CreepRole.builder: return [WORK, CARRY, MOVE]
-    // 2 WORK, 1 CARRY, 1 MOVE
-    case CreepRole.miner: return [WORK, WORK, CARRY, MOVE]
+    case CreepRole.miner: {
+      let body: BodyPartConstant[] = [CARRY, MOVE]
+      // The capacity minus the carry and move part cost divided by the work part cost
+      let workParts = Math.floor((getSpawnCapacity(spawn) - 100) / 100)
+      info(`workparts ${workParts} cap ${getSpawnCapacity(spawn)}`)
+      for (let i = 0; i < workParts; i++) {
+        body.push(WORK)
+      }
+      return body
+    }
     case CreepRole.upgrader: return [WORK, WORK, CARRY, MOVE]
     default: throw new Error(`getBodyPartsFromRole invalid role ${role}`)
   }
@@ -105,7 +110,8 @@ function generateMemoryByRole (role: CreepRole): CreepMemory {
 }
 
 function requestExtentions (spawn: StructureSpawn) {
-  if (queueLength() === 0) {
+  if (spawn.memory.extensions == undefined) spawn.memory.extensions = []
+  if (queueLength() === 0 && repairQueueLength() == 0) {
     let shouldRequest = true
     let terrain = Game.map.getRoomTerrain(spawn.room.name)
     let surrounding = getSurroundingTiles(spawn.pos, 2).filter(position => {
@@ -131,8 +137,39 @@ function requestExtentions (spawn: StructureSpawn) {
       if (buildStructure(surrounding[0], STRUCTURE_EXTENSION)) {
         spawn.memory.extensions.push(surrounding[0])
       } else {
-        info(`Spawn ${spawn.name} failed extention request at ${surrounding[0]}`, InfoType.build)
+        warn(`Spawn ${spawn.name} failed extention request at ${surrounding[0]}`)
       }
     }
   }
+}
+
+function getSpawnExtensions (spawn: StructureSpawn): StructureExtension[] {
+  let extensions: StructureExtension[] = []
+  if (spawn.memory.extensions == undefined) return []
+  spawn.memory.extensions.forEach(position => {
+    let pos = spawn.room.getPositionAt(position.x, position.y)
+    if (pos == undefined) return
+    pos.lookFor(LOOK_STRUCTURES).filter(structure => {
+      return structure.structureType === STRUCTURE_EXTENSION
+    }).forEach(extension => {
+      extensions.push(extension as StructureExtension)
+    })
+  })
+  return extensions
+}
+
+function getSpawnCapacity (spawn: StructureSpawn): number {
+  let capacity = spawn.store.getCapacity(RESOURCE_ENERGY)
+  getSpawnExtensions(spawn).forEach(extension => {
+    capacity += extension.store.getCapacity(RESOURCE_ENERGY)
+  })
+  return capacity
+}
+
+function getSpawnEnergy (spawn: StructureSpawn): number {
+  let energy = spawn.store.getUsedCapacity(RESOURCE_ENERGY)
+  getSpawnExtensions(spawn).forEach(extension => {
+    energy += extension.store.getUsedCapacity(RESOURCE_ENERGY)
+  })
+  return energy
 }
