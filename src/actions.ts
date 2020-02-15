@@ -83,28 +83,28 @@ export function getEnergy (creep: Creep) {
 }
 
 /**
- * Deposit energy in the room's first spawn
+ * Deposit energy in the room's first spawn/extension
  *
  * @param  creep The creep to deposit the energy
  */
 export function depositEnergy (creep: Creep) {
   // Get the first Spawn in the room
-  let spawn = creep.room.find(FIND_MY_STRUCTURES).filter(structure => {
-    return structure.structureType === STRUCTURE_SPAWN
-  })[0] as StructureSpawn
+  let target = creep.room.find(FIND_MY_STRUCTURES).filter(structure => {
+    return (structure.structureType === STRUCTURE_SPAWN || structure.structureType === STRUCTURE_EXTENSION) && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+  })[0] as (StructureSpawn | StructureExtension)
 
-  // If the spawn has free energy capacity
-  if (spawn.store.getFreeCapacity(RESOURCE_ENERGY) !== 0) {
-    // Try to transfer energy to the spawn.
-    let response = creep.transfer(spawn, RESOURCE_ENERGY)
+  // If the target has free energy capacity
+  if (target != undefined && target.store.getFreeCapacity(RESOURCE_ENERGY) !== 0) {
+    // Try to transfer energy to the target.
+    let response = creep.transfer(target, RESOURCE_ENERGY)
     if (response === ERR_NOT_IN_RANGE) {
       // If the spawn is not in range, move towards the spawn
-      creep.moveTo(spawn)
+      creep.moveTo(target)
     } else if (response !== OK) {
-      warn(`Creep ${creep.name} depositing ${spawn.pos} with response ${errorConstant(response)}`)
+      warn(`Creep ${creep.name} depositing ${target.pos} with response ${errorConstant(response)}`)
     }
   } else {
-    // If the spawn has no free energy capacity, upgrade the controller
+    // If the target has no free energy capacity, upgrade the controller
     upgradeController(creep)
   }
 }
