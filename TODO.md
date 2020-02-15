@@ -14,6 +14,7 @@
 - Road linking containers
 - Road to upgrader
 - Road to idle location
+- Wider roads in frequent/important path areas
 
 ### Spawns
 
