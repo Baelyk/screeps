@@ -15,7 +15,7 @@ export function initConstruction (spawn: StructureSpawn) {
   Memory.constructionQueue = []
 
   // Construct containers near the sources for miners
-  constructMinerContainers(spawn.room)
+  constructMinerContainers(spawn.room, 1)
 
   // Construct a road from the spawn to the sources in the room.
   spawn.room.find(FIND_SOURCES_ACTIVE).forEach(source => {
@@ -117,25 +117,27 @@ export function queueLength(): number {
   return Memory.constructionQueue.length
 }
 
-export function constructMinerContainers (room: Room) {
+export function constructMinerContainers (room: Room, max: number) {
+  // 16 is the maximum number of containers that could be placed in an r = 2 ring around a source
+  if (max === -1) max = 16
   let sources = room.find(FIND_SOURCES)
   let terrain = Game.map.getRoomTerrain(room.name)
   sources.forEach(source => {
-    let foundViable = false
+    let count = 0
     getSurroundingTiles(source.pos, 2).forEach(position => {
-      if (!foundViable) {
+      if (count < max) {
         // If the terrain at the position is plain
         if (terrain.get(position.x, position.y) === 0) {
-          let viable = surroundingTilesAreEmpty(position)
+          let viable = surroundingTilesAreEmpty(position, [STRUCTURE_CONTAINER])
 
           if (viable) {
             build(position, STRUCTURE_CONTAINER)
-            foundViable = true
+            count++
           }
         }
       }
     })
-    if (!foundViable) {
+    if (count === 0) {
       error(`Unable to find suitable container location for source at (${source.pos.x}, ` +
         `${source.pos.y})`)
     }

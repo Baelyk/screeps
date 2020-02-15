@@ -65,7 +65,8 @@ export function spawnManager(spawn: StructureSpawn) {
   }
 
   // Build extentions
-  if ((spawn.room.controller as StructureController).level > 1) requestExtentions(spawn)
+  let controller = (spawn.room.controller as StructureController).level
+  if (spawn.memory.extensions.length < getMaxExtensions(controller)) requestExtentions(spawn)
 }
 
 function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial<CreepMemory>) {
@@ -172,4 +173,17 @@ function getSpawnEnergy (spawn: StructureSpawn): number {
     energy += extension.store.getUsedCapacity(RESOURCE_ENERGY)
   })
   return energy
+}
+
+export function getMaxExtensions (level: number): number {
+  switch (level) {
+    case 2: return 5
+    case 3: return 10
+    case 4: return 20
+    case 5: return 30
+    case 6: return 40
+    case 7: return 50
+    case 8: return 60
+    default: return 0
+  }
 }

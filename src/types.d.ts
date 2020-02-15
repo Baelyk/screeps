@@ -17,6 +17,11 @@ interface Memory {
   watch: ScreepsMultimeterWatch,
   debug: DebugMemory,
   populationLimit: MemoryPopulationLimit,
+  status: StatusMemory
+}
+
+interface StatusMemory {
+  builtAllSourceContainers?: boolean
 }
 
 type MemoryPopulationLimit = { [key in CreepRole]?: number }

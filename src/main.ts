@@ -2,9 +2,9 @@ import { ErrorMapper } from "utils/ErrorMapper"
 import { watcher } from "utils/watch-client"
 import { doRole, handleDead } from "creeps"
 import { init } from "initialize"
-import { spawnManager } from "spawns";
+import { spawnManager, getMaxExtensions } from "spawns";
 import { tick, info, warn } from "utils/logger";
-import { resetRepairQueue } from "construct"
+import { resetRepairQueue, constructMinerContainers } from "construct"
 import { census } from "population";
 
 console.log("- - - - RESTARTING - - - -")
@@ -30,6 +30,7 @@ export function resetMemory() {
   Memory.populationLimit = {
     builder: 1
   }
+  Memory.status = {}
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {
@@ -60,9 +61,19 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // Update repair queue and pop limits every 100 ticks
   if (Game.time % 100 === 0) {
     for (const name in Game.rooms) {
+      let room = Game.rooms[name]
       // This will not work with multiple rooms, despite the way I've made it
-      resetRepairQueue(Game.rooms[name])
-      census(Game.rooms[name])
+      resetRepairQueue(room)
+      census(room)
+      // If we have reached the miner tier, queue as many containers as possible for sources
+      if (!Memory.status.builtAllSourceContainers && Memory.populationLimit.miner) {
+        let maxExtensions = getMaxExtensions((room.controller as StructureController).level)
+        let extensionsCount = room.find(FIND_MY_STRUCTURES).filter(structure => {
+          return structure.structureType === STRUCTURE_EXTENSION
+        }).length
+        if (extensionsCount === maxExtensions) constructMinerContainers(room, -1)
+        Memory.status.builtAllSourceContainers = true
+      }
     }
   }
 
