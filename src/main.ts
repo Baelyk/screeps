@@ -71,8 +71,13 @@ export const loop = ErrorMapper.wrapLoop(() => {
         let extensionsCount = room.find(FIND_MY_STRUCTURES).filter(structure => {
           return structure.structureType === STRUCTURE_EXTENSION
         }).length
-        if (extensionsCount === maxExtensions) constructMinerContainers(room, -1)
-        Memory.status.builtAllSourceContainers = true
+        if (extensionsCount === maxExtensions) {
+          info(`Requesting containers around sources`, InfoType.build)
+          constructMinerContainers(room, -1)
+          Memory.status.builtAllSourceContainers = true
+        } else {
+          info(`Waiting for max extensions to request containers around sources`, InfoType.build)
+        }
       }
     }
   }
