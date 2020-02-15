@@ -30,8 +30,8 @@ export function census(room: Room) {
   } else {
     // If we have miners, we want upgraders
     upgraders = miners * 2 - 1
-    // One hauler per two upgraders with a minimum of 1 hauler
-    haulers = Math.floor(upgraders) / 2 || 1
+    // One hauler per four upgraders with a minimum of 1 hauler
+    haulers = Math.floor(upgraders) / 4 || 1
   }
 
   // One builder per two construction queue items, or per ten repair queue items, with a minimum of
