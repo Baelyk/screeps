@@ -290,6 +290,7 @@ export function nameCreep (memory: CreepMemory) {
  * @param  creep the creep
  */
 export function doRole (creep: Creep) {
+  if (creep.spawning) return
   if (Memory.debug.sayTask) creep.say(creep.memory.task)
   switch (creep.memory.role) {
     case CreepRole.harvester:
