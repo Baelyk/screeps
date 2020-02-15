@@ -87,7 +87,6 @@ function spawnCreep (spawn: StructureSpawn, role: CreepRole, overrides?: Partial
 
 function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartConstant[] {
   switch (role) {
-    case CreepRole.builder: return [WORK, CARRY, MOVE]
     case CreepRole.miner: {
       let body: BodyPartConstant[] = [CARRY, MOVE]
       // The capacity minus the carry and move part cost divided by the work part cost
@@ -98,7 +97,19 @@ function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartCo
       }
       return body
     }
-    case CreepRole.upgrader: return [WORK, WORK, CARRY, MOVE]
+    case CreepRole.builder:
+    case CreepRole.upgrader: {
+      let body: BodyPartConstant[] = []
+      let bodyUnits = Math.floor((getSpawnCapacity(spawn)) / 100)
+      for (let i = 0; i < bodyUnits; i++) {
+        if (i % 2 === 0) {
+          body.push(MOVE, CARRY)
+        } else {
+          body.push(WORK)
+        }
+      }
+      return body
+    }
     default: throw new Error(`getBodyPartsFromRole invalid role ${role}`)
   }
 }
