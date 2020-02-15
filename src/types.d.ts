@@ -85,6 +85,8 @@ declare const enum CreepRole {
   builder = "builder",
   /** Creep that gets energy and deposits energy to spawn then controller */
   upgrader = "upgrader",
+  /** Creep that hauls energy between sources and deposits energy */
+  hauler = "hauler"
 }
 
 declare const enum InfoType {

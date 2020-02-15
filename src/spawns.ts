@@ -64,6 +64,19 @@ export function spawnManager(spawn: StructureSpawn) {
     allowSpawn = false
   }
 
+  // Spawn hauler creeps
+  let haulerCount = countRole(CreepRole.hauler)
+  let maxHaulers = Memory.populationLimit.hauler || 0
+  if (haulerCount < maxHaulers) {
+    if (allowSpawn) {
+      info(`${spawn.name}     requesting ${CreepRole.hauler}`, InfoType.spawn)
+      spawnCreep(spawn, CreepRole.hauler)
+    } else {
+      info(`${spawn.name} NOT requesting ${CreepRole.hauler}`, InfoType.spawn)
+    }
+    allowSpawn = false
+  }
+
   // Build extentions
   let controller = (spawn.room.controller as StructureController).level
   if (spawn.memory.extensions.length < getMaxExtensions(controller)) requestExtentions(spawn)
@@ -91,7 +104,6 @@ function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartCo
       let body: BodyPartConstant[] = [CARRY, MOVE]
       // The capacity minus the carry and move part cost divided by the work part cost
       let workParts = Math.floor((getSpawnCapacity(spawn) - 100) / 100)
-      info(`workparts ${workParts} cap ${getSpawnCapacity(spawn)}`)
       for (let i = 0; i < workParts; i++) {
         body.push(WORK)
       }
@@ -110,7 +122,21 @@ function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartCo
       }
       return body
     }
-    default: throw new Error(`getBodyPartsFromRole invalid role ${role}`)
+    case CreepRole.hauler: {
+      let body: BodyPartConstant[] = [WORK]
+      // Energy capacity minus work cost divided by MOVE/CARRY cost
+      let bodyUnits = Math.floor((getSpawnCapacity(spawn) - 100) / 50)
+      // Alternate between adding move and carry parts
+      for (let i = 0; i < bodyUnits; i++) {
+        if (i % 2 === 0) {
+          body.push(MOVE)
+        } else {
+          body.push(CARRY)
+        }
+      }
+      return body
+    }
+    default: error(`getBodyPartsFromRole invalid role ${role}`); return []
   }
 }
 

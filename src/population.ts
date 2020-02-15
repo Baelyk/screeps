@@ -12,22 +12,26 @@ export function census(room: Room) {
   let miners = 0
   room.find(FIND_SOURCES).forEach(source => {
     getSurroundingTiles(source.pos, 2).forEach(position => {
-      // One miner per container around a source
-      // TODO: change this to one miner per source-accessible tile
-      miners += position.lookFor(LOOK_STRUCTURES).filter(structure => {
+      // One miner per source with a container around it
+      let containersAroundSource = position.lookFor(LOOK_STRUCTURES).filter(structure => {
         return structure.structureType === STRUCTURE_CONTAINER
       }).length
+
+      if (containersAroundSource > 0) miners++
     })
   })
 
   // If we have no miners, we need harvesters
   let harvesters = 0
   let upgraders = 0
+  let haulers = 0
   if (miners === 0) {
     harvesters = 1
   } else {
     // If we have miners, we want upgraders
     upgraders = miners * 2 - 1
+    // One hauler per two upgraders with a minimum of 1 hauler
+    haulers = Math.floor(upgraders) / 2 || 1
   }
 
   // One builder per two construction queue items, or per ten repair queue items, with a minimum of
@@ -38,4 +42,5 @@ export function census(room: Room) {
   Memory.populationLimit.harvester = harvesters
   Memory.populationLimit.upgrader = upgraders
   Memory.populationLimit.builder = builders
+  Memory.populationLimit.hauler = haulers
 }

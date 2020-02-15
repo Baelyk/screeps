@@ -49,36 +49,46 @@ export function harvestEnergy (creep: Creep, source?: Source) {
  *
  * @param  creep The creep to get the energy
  */
-export function getEnergy (creep: Creep) {
-  let structures = [...creep.room.find(FIND_STRUCTURES)]
-  .filter(structure => {
-    // Filter for containers and storages
-    return (structure.structureType === STRUCTURE_CONTAINER
-      || structure.structureType === STRUCTURE_STORAGE)
-      && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
-  })
-  .map(structure => {
-    return { structure, path: creep.pos.findPathTo(structure)}
-  }).sort((a, b) => {
-    if (a.path.length < b.path.length) return -1
-    if (a.path.length > b.path.length) return 1
-    return 0
-  })
-  if (structures[0] == undefined) {
-    warn(`Creep ${creep.name} unable to find suitable structure for getEnergy, harvesting`)
-    harvestEnergy(creep)
-    return
-  }
-  let structure = structures[0].structure as StructureContainer | StructureStorage
-  let path = structures[0].path
+export function getEnergy (creep: Creep, target?: (Structure | Tombstone | Ruin)) {
+  if (target == undefined) {
+    let structures = [...creep.room.find(FIND_STRUCTURES)]
+    .filter(structure => {
+      // Filter for containers and storages
+      return (structure.structureType === STRUCTURE_CONTAINER
+        || structure.structureType === STRUCTURE_STORAGE)
+        && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+    })
+    .map(structure => {
+      return { structure, path: creep.pos.findPathTo(structure)}
+    }).sort((a, b) => {
+      if (a.path.length < b.path.length) return -1
+      if (a.path.length > b.path.length) return 1
+      return 0
+    })
+    if (structures[0] == undefined) {
+      warn(`Creep ${creep.name} unable to find suitable structure for getEnergy, harvesting`)
+      harvestEnergy(creep)
+      return
+    }
+    let structure = structures[0].structure as StructureContainer | StructureStorage
+    let path = structures[0].path
 
 
-  // Try to harvest energy. If we can't because we're not in range, move towards the source
-  let response = creep.withdraw(structure, RESOURCE_ENERGY)
-  if (response === ERR_NOT_IN_RANGE) {
-    creep.moveByPath(path)
-  } else if (response !== OK) {
-    warn(`Creep ${creep.name} getting energy ${structure.pos} with response ${errorConstant(response)}`)
+    // Try to harvest energy. If we can't because we're not in range, move towards the target
+    let response = creep.withdraw(structure, RESOURCE_ENERGY)
+    if (response === ERR_NOT_IN_RANGE) {
+      creep.moveByPath(path)
+    } else if (response !== OK) {
+      warn(`Creep ${creep.name} getting energy ${structure.pos} with response ${errorConstant(response)}`)
+    }
+  } else {
+    // Try to harvest energy. If we can't because we're not in range, move towards the target
+    let response = creep.withdraw(target, RESOURCE_ENERGY)
+    if (response === ERR_NOT_IN_RANGE) {
+      creep.moveTo(target)
+    } else if (response !== OK) {
+      warn(`Creep ${creep.name} getting energy ${target.pos} with response ${errorConstant(response)}`)
+    }
   }
 }
 
@@ -86,8 +96,10 @@ export function getEnergy (creep: Creep) {
  * Deposit energy in the room's first spawn/extension
  *
  * @param  creep The creep to deposit the energy
+ * @param  disableUpgrading whether to disable upgrading if no deposit locations
+ * @return true if depositing, false if not depositing and not upgrading
  */
-export function depositEnergy (creep: Creep) {
+export function depositEnergy (creep: Creep, disableUpgrading = false): boolean {
   // Get the first Spawn in the room
   let target = creep.room.find(FIND_MY_STRUCTURES).filter(structure => {
     return (structure.structureType === STRUCTURE_SPAWN || structure.structureType === STRUCTURE_EXTENSION) && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
@@ -103,9 +115,14 @@ export function depositEnergy (creep: Creep) {
     } else if (response !== OK) {
       warn(`Creep ${creep.name} depositing ${target.pos} with response ${errorConstant(response)}`)
     }
+    return true
   } else {
     // If the target has no free energy capacity, upgrade the controller
+    if (disableUpgrading) {
+      return false
+    }
     upgradeController(creep)
+    return true
   }
 }
 
@@ -220,4 +237,14 @@ export function repair (creep: Creep, repair?: Structure) {
 export function idle (creep: Creep, position?: RoomPosition) {
   // Idle creeps upgrade the controller
   upgradeController(creep)
+}
+
+export function haul (creep: Creep, target: (Creep | PowerCreep | Structure)) {
+  let response = creep.transfer(target, RESOURCE_ENERGY)
+  if (response === ERR_NOT_IN_RANGE) {
+    // If the spawn is not in range, move towards the spawn
+    creep.moveTo(target)
+  } else if (response !== OK) {
+    warn(`Creep ${creep.name} hauling to ${target.pos} with response ${errorConstant(response)}`)
+  }
 }

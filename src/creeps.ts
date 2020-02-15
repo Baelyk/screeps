@@ -1,4 +1,4 @@
-import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle, repair } from "actions"
+import { depositEnergy, getEnergy, harvestEnergy, storeEnergy, build, idle, repair, haul } from "actions"
 import { fromQueue, queueLength, unassignConstruction, fromRepairQueue, repairQueueLength } from "construct";
 import { error, info } from "utils/logger";
 
@@ -241,6 +241,76 @@ function upgrader (creep: Creep) {
   }
 }
 
+function hauler (creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.getEnergy
+
+  // Tasks for this creep:
+  // 1. getEnergy: Get energy from fullest container
+  // 2. deposit: Deposit into spawn/extension or least full container
+  switch (creep.memory.task) {
+    // Creep is getting energy
+    case CreepTask.getEnergy: {
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        // Get all containers
+        let containers = [...creep.room.find(FIND_STRUCTURES)]
+        .filter(structure => {
+          // Filter for containers and storages
+          return structure.structureType === STRUCTURE_CONTAINER
+            && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+        }).map(structure => {
+          return structure as StructureContainer
+        })
+        // Get the fullest container
+        let fullest = containers.reduce((a, b) => {
+          if (a.store.getUsedCapacity(RESOURCE_ENERGY) > b.store.getUsedCapacity(RESOURCE_ENERGY)) {
+            return a
+          } else {
+            return b
+          }
+        })
+
+        // If the creep can hold more energy, keep getting energy
+        getEnergy(creep, fullest)
+      } else {
+        // If the creep has full energy, begin building
+        switchTaskAndDoRoll(creep, CreepTask.deposit)
+        return
+      }
+      break
+    }
+    // The creep is depositing
+    case CreepTask.deposit: {
+      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        // If the creep has energy, keep depositing
+        if(!depositEnergy(creep, true)) {
+          // If there are no deposit locations haul instead
+          let containers = [...creep.room.find(FIND_STRUCTURES)]
+          .filter(structure => {
+            // Filter for containers and storages
+            return structure.structureType === STRUCTURE_CONTAINER
+              && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+          }).map(structure => {
+            return structure as StructureContainer
+          })
+          let emptiest = containers.reduce((a, b) => {
+            if (a.store.getUsedCapacity(RESOURCE_ENERGY) < b.store.getUsedCapacity(RESOURCE_ENERGY)) {
+              return a
+            } else {
+              return b
+            }
+          })
+          haul(creep, emptiest)
+        }
+      } else {
+        // If the creep has no energy, begin getting energy
+        switchTaskAndDoRoll(creep, CreepTask.getEnergy)
+        return
+      }
+      break
+    }
+  }
+}
+
 /**
  * Switches the creeps task and then calls doRoll on the creep
  *
@@ -308,6 +378,9 @@ export function doRole (creep: Creep) {
       break
     case CreepRole.upgrader:
       upgrader(creep)
+      break
+    case CreepRole.hauler:
+      hauler(creep)
       break
     default:
       throw new Error("doRole invalid role " + creep.memory.role)
