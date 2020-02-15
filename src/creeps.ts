@@ -142,8 +142,8 @@ function builder (creep: Creep) {
       break
     }
     case CreepTask.idle: {
-      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-        // If the creep has free energy, it should get energy
+      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+        // If the creep has no energy, it should get energy
         switchTaskAndDoRoll(creep, CreepTask.getEnergy)
         return
       } else if (creep.memory.assignedConstruction || queueLength() > 0) {
@@ -176,7 +176,11 @@ function builder (creep: Creep) {
         let repairStructure = Game.getObjectById(creep.memory.assignedRepairs) as Structure
         while (repairStructure.hits === repairStructure.hitsMax) {
           repairStructure = Game.getObjectById(fromRepairQueue()) as Structure
+          // If we've reached the end of the repairQueue without a valid repair,
           if (repairStructure == undefined) {
+            // Delete the creeps assigned repair
+            delete creep.memory.assignedRepairs
+            // And go idle
             switchTaskAndDoRoll(creep, CreepTask.idle)
             return
           }

@@ -218,7 +218,6 @@ export function repair (creep: Creep, repair?: Structure) {
 }
 
 export function idle (creep: Creep, position?: RoomPosition) {
-  // TODO: Temporary hardcoded idle position
-  if (position == undefined) position = creep.room.getPositionAt(11, 21) as RoomPosition
-  creep.moveTo(position)
+  // Idle creeps upgrade the controller
+  upgradeController(creep)
 }
