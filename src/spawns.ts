@@ -105,6 +105,12 @@ function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartCo
       // The capacity minus the carry and move part cost divided by the work part cost
       let workParts = Math.floor((getSpawnCapacity(spawn) - 100) / 100)
       for (let i = 0; i < workParts; i++) {
+        // If there are more than five work parts, alternate between adding work and carry parts
+        if (i > 5 && i % 2 === 1) {
+          // One carry costs 50, so two carry costs the same as one work
+          body.push(CARRY, CARRY)
+          continue
+        }
         body.push(WORK)
       }
       return body
