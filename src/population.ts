@@ -11,14 +11,14 @@ export function census(room: Room) {
   // Recalculate miners
   let miners = 0
   room.find(FIND_SOURCES).forEach(source => {
+    let containersAroundSource = 0
     getSurroundingTiles(source.pos, 2).forEach(position => {
       // One miner per source with a container around it
-      let containersAroundSource = position.lookFor(LOOK_STRUCTURES).filter(structure => {
+      containersAroundSource += position.lookFor(LOOK_STRUCTURES).filter(structure => {
         return structure.structureType === STRUCTURE_CONTAINER
       }).length
-
-      if (containersAroundSource > 0) miners++
     })
+    if (containersAroundSource > 0) miners++
   })
 
   // If we have no miners, we need harvesters

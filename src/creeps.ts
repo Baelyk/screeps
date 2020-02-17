@@ -226,8 +226,10 @@ function upgrader (creep: Creep) {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has energy, keep depositing
         if (countRole(CreepRole.hauler) > 0) {
+          info(`Creep ${creep.name} should upgrade`)
           upgradeController(creep)
         } else {
+          info(`Creep ${creep.name} should deposit`)
           depositEnergy(creep)
         }
       } else {
@@ -260,21 +262,23 @@ function hauler (creep: Creep) {
         .filter(structure => {
           // Filter for containers and storages
           return structure.structureType === STRUCTURE_CONTAINER
-            && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
         }).map(structure => {
           return structure as StructureContainer
         })
         // Get the fullest container
-        let fullest = containers.reduce((a, b) => {
-          if (a.store.getUsedCapacity(RESOURCE_ENERGY) > b.store.getUsedCapacity(RESOURCE_ENERGY)) {
-            return a
-          } else {
-            return b
-          }
-        })
+        if (containers.length > 0) {
+          let fullest = containers.reduce((a, b) => {
+            if (a.store.getUsedCapacity(RESOURCE_ENERGY) > b.store.getUsedCapacity(RESOURCE_ENERGY)) {
+              return a
+            } else {
+              return b
+            }
+          })
 
-        // If the creep can hold more energy, keep getting energy
-        getEnergy(creep, fullest)
+          // If the creep can hold more energy, keep getting energy
+          getEnergy(creep, fullest)
+        }
       } else {
         // If the creep has full energy, begin building
         switchTaskAndDoRoll(creep, CreepTask.deposit)
@@ -296,14 +300,16 @@ function hauler (creep: Creep) {
           }).map(structure => {
             return structure as StructureContainer
           })
-          let emptiest = containers.reduce((a, b) => {
-            if (a.store.getUsedCapacity(RESOURCE_ENERGY) < b.store.getUsedCapacity(RESOURCE_ENERGY)) {
-              return a
-            } else {
-              return b
-            }
-          })
-          haul(creep, emptiest)
+          if (containers.length > 0) {
+            let emptiest = containers.reduce((a, b) => {
+              if (a.store.getUsedCapacity(RESOURCE_ENERGY) < b.store.getUsedCapacity(RESOURCE_ENERGY)) {
+                return a
+              } else {
+                return b
+              }
+            })
+            haul(creep, emptiest)
+          }
         }
       } else {
         // If the creep has no energy, begin getting energy

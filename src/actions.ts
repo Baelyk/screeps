@@ -1,5 +1,7 @@
 import { errorConstant, warn } from "utils/logger";
 import { fromRepairQueue } from "construct";
+import { errorConstant, warn, info, error } from "utils/logger";
+import { countRole } from "creeps";
 
 /**
  * Harvest energy from a specified Source or find the first Source in the room.
@@ -66,8 +68,8 @@ export function getEnergy (creep: Creep, target?: (Structure | Tombstone | Ruin)
       return 0
     })
     if (structures[0] == undefined) {
-      warn(`Creep ${creep.name} unable to find suitable structure for getEnergy, harvesting`)
-      harvestEnergy(creep)
+      warn(`Creep ${creep.name} unable to find suitable structure for getEnergy`)
+      if (countRole(CreepRole.miner) === 0) harvestEnergy(creep)
       return
     }
     let structure = structures[0].structure as StructureContainer | StructureStorage

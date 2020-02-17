@@ -30,10 +30,19 @@ export function initConstruction (spawn: StructureSpawn) {
  *
  * @param  path an array of `RoomPosition`s
  */
-function buildRoad (path: RoomPosition[]) {
+export function buildRoad (path: RoomPosition[]) {
+  if (!Array.isArray(path) || path.length === 0) return
   path.forEach(position => {
-    build(position, STRUCTURE_ROAD)
+    buildWithoutChecks(position as RoomPosition, STRUCTURE_ROAD)
   })
+}
+
+function buildWithoutChecks(position: RoomPosition, structureType: BuildableStructureConstant) {
+  if (position.createConstructionSite && position.createConstructionSite(structureType) === OK) {
+    addToQueue(position)
+  } else {
+    warn(JSON.stringify(position))
+  }
 }
 
 /**
