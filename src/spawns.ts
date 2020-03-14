@@ -115,6 +115,7 @@ function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartCo
       }
       return body
     }
+    // General body
     case CreepRole.builder:
     case CreepRole.upgrader: {
       let body: BodyPartConstant[] = []
@@ -141,6 +142,9 @@ function generateBodyByRole (spawn: StructureSpawn, role: CreepRole): BodyPartCo
         }
       }
       return body
+    }
+    case CreepRole.claimer: {
+      return [MOVE, MOVE, CLAIM]
     }
     default: error(`getBodyPartsFromRole invalid role ${role}`); return []
   }

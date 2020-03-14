@@ -321,6 +321,10 @@ function hauler (creep: Creep) {
   }
 }
 
+function claimer (creep: Creep) {
+  
+}
+
 /**
  * Switches the creeps task and then calls doRoll on the creep
  *
