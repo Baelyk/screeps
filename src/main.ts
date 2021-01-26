@@ -1,87 +1,167 @@
-import { ErrorMapper } from "utils/ErrorMapper"
-import { watcher } from "utils/watch-client"
-import { doRole, handleDead } from "creeps"
-import { init } from "initialize"
+import { ErrorMapper } from "utils/ErrorMapper";
+import { watcher } from "utils/watch-client";
+import { doRole, handleDead } from "creeps";
+import { init } from "initialize";
 import { spawnManager, getMaxExtensions } from "spawns";
-import { tick, info, warn } from "utils/logger";
-import { resetRepairQueue, constructMinerContainers } from "construct"
+import { error, tick, info, warn } from "utils/logger";
+import { buildStorage, resetRepairQueue, updateWallRepair } from "construct";
 import { census } from "population";
+import { buildTower, towerManager } from "towers";
+import { getTowersInRoom } from "rooms";
+import { debugLoop } from "utils/debug";
+import { linkManager } from "links";
 
-console.log("- - - - RESTARTING - - - -")
-
-export function resetMemory() {
-  warn("Reseting memory")
-  Memory.uninitialized = true
-  Memory.initialSpawn = "Spawn1"
-  Memory.constructionQueue = []
-  Memory.repairQueue = []
-  Memory.watch = {}
-  Memory.debug = {
-    log: {
-      infoSettings: {
-        general: true,
-        spawn: true,
-        task: true,
-        idleCreep: true,
-        build: true
-      }
-    }
-  }
-  Memory.populationLimit = {
-    builder: 1
-  }
-  Memory.status = {}
-}
+console.log("- - - - RESTARTING - - - -");
 
 export const loop = ErrorMapper.wrapLoop(() => {
-  tick()
+  tick();
 
   if (Memory.uninitialized) {
-    init()
+    init();
   }
+
+  // Debug
+  debugLoop();
 
   // Automatically delete memory of missing creeps
   for (const name in Memory.creeps) {
     if (!(name in Game.creeps)) {
-      handleDead(name)
-      delete Memory.creeps[name]
+      handleDead(name);
+      delete Memory.creeps[name];
     }
   }
 
   // Process creep behavior
   for (const name in Game.creeps) {
-    doRole(Game.creeps[name])
+    doRole(Game.creeps[name]);
   }
 
   // Process spawn behavior
   for (const name in Game.spawns) {
-    spawnManager(Game.spawns[name])
+    spawnManager(Game.spawns[name]);
   }
 
-  // Update repair queue and pop limits every 100 ticks
-  if (Game.time % 100 === 0) {
-    for (const name in Game.rooms) {
-      let room = Game.rooms[name]
-      // This will not work with multiple rooms, despite the way I've made it
-      resetRepairQueue(room)
-      census(room)
-      // If we have reached the miner tier, queue as many containers as possible for sources
-      if (!Memory.status.builtAllSourceContainers && Memory.populationLimit.miner) {
-        let maxExtensions = getMaxExtensions((room.controller as StructureController).level)
-        let extensionsCount = room.find(FIND_MY_STRUCTURES).filter(structure => {
-          return structure.structureType === STRUCTURE_EXTENSION
-        }).length
-        if (extensionsCount === maxExtensions) {
-          info(`Requesting containers around sources`, InfoType.build)
-          constructMinerContainers(room, -1)
-          Memory.status.builtAllSourceContainers = true
+  // Process room behavior
+  for (const roomName in Game.rooms) {
+    const room = Game.rooms[roomName];
+    if (room.memory.level >= 3) {
+      // Process tower behavior
+      for (const towerIndex in room.memory.towers) {
+        const tower = Game.getObjectById(
+          room.memory.towers[towerIndex]
+        ) as StructureTower;
+        if (tower !== null) {
+          towerManager(tower);
         } else {
-          info(`Waiting for max extensions to request containers around sources`, InfoType.build)
+          warn(
+            `Unable to get tower of id ${room.memory.towers[towerIndex]} in room ${roomName}`
+          );
+        }
+      }
+    }
+    if (room.memory.level >= 4) {
+      // Process link behavior
+      for (const linkId in room.memory.links.all) {
+        const link = Game.getObjectById(linkId) as StructureLink | null;
+        if (link != undefined) {
+          linkManager(link);
+        } else {
+          error(`Unable to get link of id ${linkId} in room ${room}`);
         }
       }
     }
   }
 
+  // Infrequent actions:
+  // Update repair queue and pop limits every 100 ticks
+  if (Game.time % 100 === 0) {
+    for (const name in Game.rooms) {
+      const room = Game.rooms[name];
+      const controller = room.controller;
+      // This will not work with multiple rooms, despite the way I've made it
+      resetRepairQueue(room);
+      updateWallRepair(room);
+      census(room);
+      // If we have reached the miner tier, queue as many containers as possible for sources
+      if (
+        !Memory.status.builtAllSourceContainers &&
+        Memory.populationLimit.miner
+      ) {
+        const maxExtensions = getMaxExtensions(
+          (room.controller as StructureController).level
+        );
+        const extensionsCount = room
+          .find(FIND_MY_STRUCTURES)
+          .filter((structure) => {
+            return structure.structureType === STRUCTURE_EXTENSION;
+          }).length;
+        if (extensionsCount === maxExtensions) {
+          info(`Requesting containers around sources`, InfoType.build);
+          // constructMinerContainers(room, -1);
+          Memory.status.builtAllSourceContainers = true;
+        } else {
+          info(
+            `Waiting for max extensions to request containers around sources`,
+            InfoType.build
+          );
+        }
+      }
+
+      if (controller !== undefined) {
+        // If the controller has leveled up, level up the room
+        if (controller.level !== room.memory.level) {
+          room.memory.level = controller.level;
+          info(`Updating room memory level to ${room.memory.level}`);
+          if (room.memory.level === 3) {
+            // Level 3: Build tower
+            buildTower(room.name);
+          }
+          if (room.memory.level === 4) {
+            // Level 4: Build storage
+            buildStorage(room.name);
+          }
+        }
+
+        // Level-based room checks
+        if (room.memory.level >= 3) {
+          if (
+            room.memory.towers === undefined ||
+            room.memory.towers.length === 0
+          ) {
+            // There should be a tower (or construction site)
+            room.memory.towers = getTowersInRoom(room);
+            if (room.memory.towers.length === 0) {
+              warn(`Room ${room.name} should have a tower but none were found`);
+            }
+          }
+        }
+        if (room.memory.level >= 4) {
+          // Set primary storage
+          if (room.memory.storage === undefined) {
+            const storage = room
+              .find(FIND_MY_STRUCTURES)
+              .find(
+                (structure) => structure.structureType === STRUCTURE_STORAGE
+              ) as StructureStorage | undefined;
+            if (storage !== undefined) {
+              info(
+                `Setting storage ${storage.id} as room ${room.name} primary storage`
+              );
+              room.memory.storage = storage.id;
+            } else {
+              info(`No candidate for primary storage for room ${room.name}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const cpuUsed = Game.cpu.getUsed();
+  if (cpuUsed >= 5) {
+    warn(`Used ${cpuUsed} cpu`);
+  }
+
   // screeps-multimeter watcher
-  watcher()
+  watcher();
 });

@@ -1,5 +1,12 @@
 # To-do List
 
+- Make custom error class and use that and Try/Catch for error resolution instead of early returns and whatever
+- Make memories (e.g. creep/room/link memory) private and instead access it with functions (e.g. getRoomMemorySpawnLink(room))
+
+## Mining
+- Miner creeps on top of containers
+- 1(?) hauler creep per miner to take from mine container to central container/storage
+
 ## Creeps
 
 - If builders have an assigned construction, they will not repair. This could to builders ignoring stuctures needing repair until they decay
@@ -16,6 +23,7 @@
 - Road to upgrader
 - Road to idle location
 - Wider roads in frequent/important path areas
+- Tower !!
 
 ### Spawns
 

@@ -3,3 +3,4 @@ screeps.json
 node_modules
 .rpt2_cache
 .DS_Store
+src/screeps.d.ts

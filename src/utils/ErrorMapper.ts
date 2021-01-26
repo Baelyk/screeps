@@ -27,10 +27,11 @@ export class ErrorMapper {
    */
   public static sourceMappedStackTrace(error: Error | string): string {
     const stack: string = error instanceof Error ? (error.stack as string) : error;
-    if (this.cache.hasOwnProperty(stack)) {
+    if (Object.prototype.hasOwnProperty.call(this.cache, stack)) {
       return this.cache[stack];
     }
 
+    // eslint-disable-next-line no-useless-escape
     const re = /^\s+at\s+(.+?\s+)?\(?([0-z._\-\\\/]+):(\d+):(\d+)\)?$/gm;
     let match: RegExpExecArray | null;
     let outStack = error.toString();
@@ -76,9 +77,11 @@ export class ErrorMapper {
         if (e instanceof Error) {
           if ("sim" in Game.rooms) {
             const message = `Source maps don't work in the simulator - displaying original error`;
-            console.log(`<span style='color:red'>${message}<br>${_.escape(e.stack)}</span>`);
+            let stack = e.stack;
+            if (stack === undefined) stack = ""
+            console.log(`<span style='color:red'>${message}<br>${decodeURI(stack)}</span>`);
           } else {
-            console.log(`<span style='color:red'>${_.escape(this.sourceMappedStackTrace(e))}</span>`);
+            console.log(`<span style='color:red'>${decodeURI(this.sourceMappedStackTrace(e))}</span>`);
           }
         } else {
           // can't handle it

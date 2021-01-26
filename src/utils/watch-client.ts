@@ -1,4 +1,4 @@
-export function watcher () {
+export function watcher (): void {
   if (typeof Memory.watch !== "object") {
     Memory.watch = {};
   }
@@ -8,7 +8,7 @@ export function watcher () {
   if (typeof Memory.watch.values !== "object") {
     Memory.watch.values = {};
   }
-  _.each(Memory.watch.expressions, (expr, name) => {
+  for (const [expr, name] of Object.entries(Memory.watch.expressions)) {
     if (Memory.watch.values == undefined || name == undefined) return;
     if (typeof expr !== "string") return;
     let result;
@@ -23,5 +23,5 @@ export function watcher () {
       Memory.watch.values[name] =
         typeof result !== "undefined" ? result.toString() : result;
     }
-  });
+  }
 };
