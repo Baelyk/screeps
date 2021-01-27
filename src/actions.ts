@@ -43,7 +43,8 @@ export function harvestEnergy(creep: Creep, source?: Source): void {
     } else {
       creep.moveTo(source);
     }
-  } else if (response !== OK) {
+  // Don't warn about the source being empty
+  } else if (response !== OK && response !== ERR_NOT_ENOUGH_RESOURCES) {
     warn(
       `Creep ${creep.name} harvesting ${
         source.pos
