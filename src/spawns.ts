@@ -205,7 +205,7 @@ export function generateBodyByRole(
       const body: BodyPartConstant[] = [MOVE];
       // The capacity minus the carry and move part cost divided by the work part cost
       const workParts = Math.min(
-        5,
+        7,
         Math.floor((getSpawnCapacity(spawn) - 100) / 100)
       );
       for (let i = 0; i < workParts; i++) {

@@ -4404,7 +4404,7 @@ function generateBodyByRole(spawn, role) {
         case "miner" /* miner */: {
             const body = [MOVE];
             // The capacity minus the carry and move part cost divided by the work part cost
-            const workParts = Math.min(5, Math.floor((getSpawnCapacity(spawn) - 100) / 100));
+            const workParts = Math.min(7, Math.floor((getSpawnCapacity(spawn) - 100) / 100));
             for (let i = 0; i < workParts; i++) {
                 body.push(WORK);
             }
