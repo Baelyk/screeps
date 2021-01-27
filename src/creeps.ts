@@ -508,7 +508,15 @@ function renewCreep(creep: Creep): void {
     return;
   }
 
-  if (creep.ticksToLive && creep.ticksToLive < 1400) {
+  // The energy required for each renew
+  const energyCost = Math.ceil(bodyCost(creep.body) / 2.5 / creep.body.length);
+  // The ratio of energy available to energy capacity of the spawn
+  const energyRatio = creep.room.energyAvailable / creep.room.energyCapacityAvailable;
+
+  // Only renew the creep if it has less than 1400 ticks to live and the spawn
+  // has more than 50% of the energy it can have. This second part is largely
+  // to combat tender renewal preventing all other creeps from spawning.
+  if (creep.ticksToLive && creep.ticksToLive < 1400 && energyRatio > 0.5) {
     // If the creep is adjacent to the spawn
     if (creep.pos.getRangeTo(spawn) === 1) {
       spawn.renewCreep(creep);
