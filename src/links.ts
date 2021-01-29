@@ -1,12 +1,12 @@
 import { error, errorConstant, info, warn } from "utils/logger";
 import { getLinksInRoom } from "rooms";
 import { getSurroundingTiles } from "construct";
+import { GetByIdError, RoomMemoryError, ScriptError } from "utils/errors";
 
 export function resetLinkMemory(linkId: Id<StructureLink>): void {
   const link = Game.getObjectById(linkId);
   if (link == null) {
-    error(`Link ${linkId} could not be obtained`);
-    return;
+    throw new GetByIdError(linkId, STRUCTURE_LINK);
   }
   let linkMode = LinkMode.none;
   let linkType = LinkType.unknown;
@@ -37,12 +37,6 @@ export function linkManager(link: StructureLink): void {
   }
 
   const memory = getLinkMemory(link);
-  if (memory == undefined) {
-    error(
-      `Memory of link ${link.id} cannot be found on room ${link.room.name}'s memory`
-    );
-    return;
-  }
 
   // Link mode is send
   if (memory.mode === LinkMode.send) {
@@ -65,15 +59,16 @@ export function linkManager(link: StructureLink): void {
         }
       }
       if (spawnLink == undefined) {
-        error(`Unable to get spawn link`);
-        return;
+        throw new ScriptError(
+          `Unable to get spawn link in room ${link.room.name}`,
+        );
       }
       const response = link.transferEnergy(spawnLink);
       if (response !== OK) {
         warn(
           `Link ${link.id} sending to spawn link with response ${errorConstant(
-            response
-          )}`
+            response,
+          )}`,
         );
       }
       return;
@@ -93,17 +88,17 @@ export function linkManager(link: StructureLink): void {
         (link) =>
           link.room.memory.links.all[link.id].type !== LinkType.spawn &&
           link.room.memory.links.all[link.id].mode === LinkMode.recieve &&
-          link.store.getFreeCapacity(RESOURCE_ENERGY) !== 0
+          link.store.getFreeCapacity(RESOURCE_ENERGY) !== 0,
       )
       .sort(
         (a, b) =>
           a.store.getUsedCapacity(RESOURCE_ENERGY) -
-          b.store.getUsedCapacity(RESOURCE_ENERGY)
+          b.store.getUsedCapacity(RESOURCE_ENERGY),
       )[0];
     if (targetLink != undefined) {
       const energyToSend = Math.min(
         link.store.getUsedCapacity(RESOURCE_ENERGY),
-        targetLink.store.getFreeCapacity(RESOURCE_ENERGY)
+        targetLink.store.getFreeCapacity(RESOURCE_ENERGY),
       );
       // Don't bother sending less than 100 energy, also don't try and send
       // while the link is in cooldown.
@@ -113,7 +108,7 @@ export function linkManager(link: StructureLink): void {
           warn(
             `Link ${link.id} sending to link ${
               targetLink.id
-            } with response ${errorConstant(response)}`
+            } with response ${errorConstant(response)}`,
           );
         }
       }
@@ -122,18 +117,21 @@ export function linkManager(link: StructureLink): void {
   }
 }
 
-function getLinkMemory(link: StructureLink): LinkMemory | undefined {
+function getLinkMemory(link: StructureLink): LinkMemory {
   const memory = link.room.memory.links.all[link.id];
   if (memory == undefined) {
-    error(`Unable to get memory of link ${link.id} in room ${link.room.name}`);
-    return;
+    throw new RoomMemoryError(
+      link.room,
+      "links",
+      `Unable to get memory of link ${link.id} in room ${link.room.name}`,
+    );
   }
   return memory;
 }
 
 function getLinkMemoryById(
   linkId: Id<StructureLink> | string,
-  room?: Room
+  room?: Room,
 ): LinkMemory | undefined {
   // If room wasn't specified, get the link structure and use the other override
   // which takes a StructureLink
@@ -142,15 +140,17 @@ function getLinkMemoryById(
     if (link != undefined) {
       return getLinkMemory(link);
     } else {
-      error(`Unable to get link of id ${linkId}`);
-      return undefined;
+      throw new GetByIdError(linkId, STRUCTURE_LINK);
     }
   }
   // If room was specified, just use the room's memory
   const memory = room.memory.links.all[linkId];
   if (memory == undefined) {
-    error(`Unable to get memory of link ${linkId} in room ${room.name}`);
-    return;
+    throw new RoomMemoryError(
+      room,
+      "links",
+      `Unable to get memory of link ${linkId} in room ${room.name}`,
+    );
   }
   return memory;
 }

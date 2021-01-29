@@ -1,5 +1,6 @@
-import { error, info, warn } from "utils/logger";
+import { info, warn } from "utils/logger";
 import { isControllerLink, resetLinkMemory } from "links";
+import { GetByIdError } from "utils/errors";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
@@ -105,13 +106,10 @@ export function getRoomAvailableEnergy(room: Room): number | undefined {
     return undefined;
   }
   const storage = Game.getObjectById(
-    room.memory.storage
+    room.memory.storage,
   ) as StructureStorage | null;
   if (storage == undefined) {
-    error(
-      `Room ${room.name} has primary storage id ${room.memory.storage} but Game was unable to get the structure.`
-    );
-    return undefined;
+    throw new GetByIdError(room.memory.storage, STRUCTURE_STORAGE);
   }
   return storage.store.getUsedCapacity(RESOURCE_ENERGY);
 }
@@ -123,7 +121,7 @@ export function getLinksInRoom(room: Room): Record<string, StructureLink> {
     if (link != undefined) {
       links[linkId] = link;
     } else {
-      error(`Unable to get link of id ${linkId} in room ${room.name}`);
+      throw new GetByIdError(linkId, STRUCTURE_LINK);
     }
   }
   return links;

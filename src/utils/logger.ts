@@ -67,7 +67,7 @@ function withColor(color: string, msg?: any): string {
  */
 export function info(msg?: any, type = InfoType.general) {
   if (Memory.debug.log.infoSettings[type]) {
-    console.log(withColor(INFO_COLOR, `  ${msg}`));
+    console.log(withColor(INFO_COLOR, ` ${msg}`));
   }
 }
 
@@ -77,7 +77,7 @@ export function info(msg?: any, type = InfoType.general) {
  * @param msg The message
  */
 export function error(msg?: any) {
-  console.log(withColor(ERROR_COLOR, `  ${msg}`));
+  console.log(withColor(ERROR_COLOR, ` ${msg}`));
 }
 
 /**
@@ -86,7 +86,7 @@ export function error(msg?: any) {
  * @param msg The message
  */
 export function warn(msg?: any) {
-  console.log(withColor(WARN_COLOR, `  ${msg}`));
+  console.log(withColor(WARN_COLOR, ` ${msg}`));
 }
 
 /**

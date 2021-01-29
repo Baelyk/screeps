@@ -3,18 +3,19 @@ import { watcher } from "utils/watch-client";
 import { doRole, handleDead } from "creeps";
 import { init } from "initialize";
 import { spawnManager, getMaxExtensions } from "spawns";
-import { error, tick, info, warn } from "utils/logger";
+import * as logger from "utils/logger";
 import { buildStorage, resetRepairQueue, updateWallRepair } from "construct";
 import { census } from "population";
 import { buildTower, towerManager } from "towers";
 import { getTowersInRoom } from "rooms";
-import { debugLoop } from "utils/debug";
+import { debugEnergyHarvested, debugLoop } from "utils/debug";
 import { linkManager } from "links";
+import { GetByIdError, wrapper } from "utils/errors";
 
 console.log("- - - - RESTARTING - - - -");
 
 export const loop = ErrorMapper.wrapLoop(() => {
-  tick();
+  logger.tick();
 
   if (Memory.uninitialized) {
     init();
@@ -33,7 +34,10 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   // Process creep behavior
   for (const name in Game.creeps) {
-    doRole(Game.creeps[name]);
+    wrapper(
+      () => doRole(Game.creeps[name]),
+      `Error processing creep ${name} behavior`,
+    );
   }
 
   // Process spawn behavior
@@ -48,13 +52,13 @@ export const loop = ErrorMapper.wrapLoop(() => {
       // Process tower behavior
       for (const towerIndex in room.memory.towers) {
         const tower = Game.getObjectById(
-          room.memory.towers[towerIndex]
+          room.memory.towers[towerIndex],
         ) as StructureTower;
         if (tower !== null) {
           towerManager(tower);
         } else {
-          warn(
-            `Unable to get tower of id ${room.memory.towers[towerIndex]} in room ${roomName}`
+          logger.warn(
+            `Unable to get tower of id ${room.memory.towers[towerIndex]} in room ${roomName}`,
           );
         }
       }
@@ -66,7 +70,11 @@ export const loop = ErrorMapper.wrapLoop(() => {
         if (link != undefined) {
           linkManager(link);
         } else {
-          error(`Unable to get link of id ${linkId} in room ${room}`);
+          throw new GetByIdError(
+            linkId,
+            STRUCTURE_LINK,
+            `The link should be in room ${roomName}`,
+          );
         }
       }
     }
@@ -88,7 +96,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
         Memory.populationLimit.miner
       ) {
         const maxExtensions = getMaxExtensions(
-          (room.controller as StructureController).level
+          (room.controller as StructureController).level,
         );
         const extensionsCount = room
           .find(FIND_MY_STRUCTURES)
@@ -96,13 +104,13 @@ export const loop = ErrorMapper.wrapLoop(() => {
             return structure.structureType === STRUCTURE_EXTENSION;
           }).length;
         if (extensionsCount === maxExtensions) {
-          info(`Requesting containers around sources`, InfoType.build);
+          logger.info(`Requesting containers around sources`, InfoType.build);
           // constructMinerContainers(room, -1);
           Memory.status.builtAllSourceContainers = true;
         } else {
-          info(
+          logger.info(
             `Waiting for max extensions to request containers around sources`,
-            InfoType.build
+            InfoType.build,
           );
         }
       }
@@ -111,7 +119,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
         // If the controller has leveled up, level up the room
         if (controller.level !== room.memory.level) {
           room.memory.level = controller.level;
-          info(`Updating room memory level to ${room.memory.level}`);
+          logger.info(`Updating room memory level to ${room.memory.level}`);
           if (room.memory.level === 3) {
             // Level 3: Build tower
             buildTower(room.name);
@@ -131,7 +139,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
             // There should be a tower (or construction site)
             room.memory.towers = getTowersInRoom(room);
             if (room.memory.towers.length === 0) {
-              warn(`Room ${room.name} should have a tower but none were found`);
+              logger.warn(
+                `Room ${room.name} should have a tower but none were found`,
+              );
             }
           }
         }
@@ -141,15 +151,17 @@ export const loop = ErrorMapper.wrapLoop(() => {
             const storage = room
               .find(FIND_MY_STRUCTURES)
               .find(
-                (structure) => structure.structureType === STRUCTURE_STORAGE
+                (structure) => structure.structureType === STRUCTURE_STORAGE,
               ) as StructureStorage | undefined;
             if (storage !== undefined) {
-              info(
-                `Setting storage ${storage.id} as room ${room.name} primary storage`
+              logger.info(
+                `Setting storage ${storage.id} as room ${room.name} primary storage`,
               );
               room.memory.storage = storage.id;
             } else {
-              info(`No candidate for primary storage for room ${room.name}`);
+              logger.info(
+                `No candidate for primary storage for room ${room.name}`,
+              );
             }
           }
         }
@@ -157,9 +169,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
     }
   }
 
+  // Debug testing for energy harvested
+  debugEnergyHarvested();
+
   const cpuUsed = Game.cpu.getUsed();
   if (cpuUsed >= 5) {
-    warn(`Used ${cpuUsed} cpu`);
+    logger.warn(`Used ${cpuUsed} cpu`);
   }
 
   // screeps-multimeter watcher

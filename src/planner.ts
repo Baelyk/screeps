@@ -1,9 +1,15 @@
 import { error, info, warn } from "utils/logger";
 import { buildStructure, getSurroundingTiles } from "construct";
 import { roomPositionArrayRemoveDuplicates } from "utils/utilities";
+import {
+  GetByIdError,
+  GetPositionError,
+  RoomMemoryError,
+  ScriptError,
+} from "utils/errors";
 
 export function getExitWallsAndRamparts(
-  room: Room
+  room: Room,
 ): [RoomPosition[], RoomPosition[]] {
   info(`Building walls for room ${room.name}`);
 
@@ -76,7 +82,7 @@ export function getExitWallsAndRamparts(
           seals[7] = exit;
         }
       } else {
-        error(`Unable to get wall position for exit ${JSON.stringify(exit)}`);
+        warn(`Unable to get wall position for exit ${JSON.stringify(exit)}`);
       }
     }
   });
@@ -88,8 +94,7 @@ export function getExitWallsAndRamparts(
     const begin = seals[i * 2];
     const end = seals[i * 2 + 1];
     if (begin == undefined || end == undefined) {
-      error(`Failed to find seal for exit ${i}`);
-      return [[], []];
+      throw new ScriptError(`Failed to find seal for exit ${i}`);
     }
     let beginSeal;
     let endSeal;
@@ -116,20 +121,18 @@ export function getExitWallsAndRamparts(
       }
       for (let x = begin.x - 2; x <= end.x + 2; x++) {
         const wall = room.getPositionAt(x, y);
-        if (wall != undefined) {
-          walls.push(wall);
-        } else {
-          error(
-            `Failed to find wall position at (${x}, ${y}) in room ${room.name} for i ${i}`
+        if (wall == undefined) {
+          throw new GetPositionError(
+            { x, y, roomName: room.name },
+            `For i ${i}`,
           );
-          return [[], []];
         }
+        walls.push(wall);
       }
       if (endSeal != undefined) {
         endIndex = walls.push(endSeal);
       } else {
-        error(`Failed to find end seal for exit ${i}`);
-        return [[], []];
+        throw new ScriptError(`Failed to find end seal for exit ${i}`);
       }
 
       middleIndex = Math.floor((endIndex + beginIndex) / 2);
@@ -137,8 +140,7 @@ export function getExitWallsAndRamparts(
       while (!passedChecks) {
         middleIndex--;
         if (middleIndex === beginIndex) {
-          error(`Unable to find entryway for ${i}`);
-          return [[], []];
+          throw new ScriptError(`Unable to find entryway for ${i}`);
         }
         passedChecks = true;
         for (let offset = -1; offset <= 1; offset++) {
@@ -152,12 +154,11 @@ export function getExitWallsAndRamparts(
             doorstep = room.getPositionAt(walls[middleIndex + offset].x, 48);
           }
           if (exit == undefined || doorstep == undefined) {
-            error(
+            throw new ScriptError(
               `Failed to get exit/doorstep at ${JSON.stringify(
-                walls[middleIndex]
-              )}`
+                walls[middleIndex],
+              )}`,
             );
-            return [[], []];
           }
           if (
             terrain.get(exit.x, exit.y) !== 0 ||
@@ -194,17 +195,16 @@ export function getExitWallsAndRamparts(
         if (wall != undefined) {
           walls.push(wall);
         } else {
-          error(
-            `Failed to find wall position at (${x}, ${y}) in room ${room.name} for i ${i}`
+          throw new GetPositionError(
+            { x, y, roomName: room.name },
+            `for i ${i}`,
           );
-          return [[], []];
         }
       }
       if (endSeal != undefined) {
         endIndex = walls.push(endSeal);
       } else {
-        error(`Failed to find end seal for exit ${i}`);
-        return [[], []];
+        throw new ScriptError(`Failed to find end seal for exit ${i}`);
       }
 
       middleIndex = Math.floor((endIndex + beginIndex) / 2);
@@ -212,8 +212,7 @@ export function getExitWallsAndRamparts(
       while (!passedChecks) {
         middleIndex--;
         if (middleIndex === beginIndex) {
-          error(`Unable to find entryway for ${i}`);
-          return [[], []];
+          throw new ScriptError(`Unable to find entryway for ${i}`);
         }
         passedChecks = true;
         for (let offset = -1; offset <= 1; offset++) {
@@ -227,12 +226,11 @@ export function getExitWallsAndRamparts(
             doorstep = room.getPositionAt(1, walls[middleIndex + offset].y);
           }
           if (exit == undefined || doorstep == undefined) {
-            error(
+            throw new ScriptError(
               `Failed to get exit/doorstep at ${JSON.stringify(
-                walls[middleIndex]
-              )}`
+                walls[middleIndex],
+              )}`,
             );
-            return [[], []];
           }
           if (
             terrain.get(exit.x, exit.y) !== 0 ||
@@ -247,8 +245,7 @@ export function getExitWallsAndRamparts(
         const removed = walls.splice(middleIndex - 1, 3);
         ramparts.push(...removed);
       } else {
-        error(`Failed to find entryway for ${i}`);
-        return [[], []];
+        throw new ScriptError(`Failed to find entryway for ${i}`);
       }
     }
   }
@@ -277,8 +274,7 @@ function getTowerSpots(room: Room): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   const offsets: [number, number][] = [
@@ -295,23 +291,23 @@ function getTowerSpots(room: Room): RoomPosition[] {
 
 function offsetToPosition(
   origin: RoomPosition,
-  offsets: [number, number][]
+  offsets: [number, number][],
 ): RoomPosition[] {
   const room = Game.rooms[origin.roomName];
   const positions: RoomPosition[] = [];
   offsets.forEach((offset) => {
     const position = room.getPositionAt(
       origin.x + offset[0],
-      origin.y + offset[1]
+      origin.y + offset[1],
     );
     if (position != undefined) {
       positions.push(position);
     } else {
-      error(
-        `Unable to find position (${origin.x + offset[0]}, ${
-          origin.y + offset[0]
-        }) in room ${room.name}`
-      );
+      throw new GetPositionError({
+        x: origin.x + offset[0],
+        y: origin.y + offset[1],
+        roomName: room.name,
+      });
     }
   });
 
@@ -323,8 +319,7 @@ function getLinkSpots(room: Room): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   const positions: RoomPosition[] = [];
@@ -353,8 +348,7 @@ function getLinkSpots(room: Room): RoomPosition[] {
 function getControllerSetupSpots(room: Room): RoomPosition | undefined {
   const controller = room.controller;
   if (controller == undefined) {
-    error(`Couldn't find controller for room ${room.name}`);
-    return;
+    throw new ScriptError(`Couldn't find controller for room ${room.name}`);
   }
 
   const terrain = room.getTerrain();
@@ -382,10 +376,9 @@ function getControllerSetupSpots(room: Room): RoomPosition | undefined {
 
   // If the room failed to find the position above the container
   if (link == undefined) {
-    error(
-      `Failed to find suitable location for controller link in room ${room.name}`
+    throw new ScriptError(
+      `Failed to find suitable location for controller link in room ${room.name}`,
     );
-    return;
   }
 
   return link;
@@ -396,8 +389,7 @@ function getStorageSpots(room: Room): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   return offsetToPosition(spawn.pos, [[-2, -1]]);
@@ -415,8 +407,7 @@ export function getExtensionSpots(room: Room): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   info(`Find extension spots for spawn ${spawn.name}`);
@@ -427,72 +418,66 @@ export function getExtensionSpots(room: Room): RoomPosition[] {
   // This is the primary road interesection that forms that heart of the podgroup
   const groupCenter = spawn.room.getPositionAt(
     spawn.pos.x + 3,
-    spawn.pos.y + 3
+    spawn.pos.y + 3,
   );
   if (groupCenter === null) {
-    error(
-      `Unable to get first group center position (${spawn.pos.x + 3}, ${
-        spawn.pos.y + 3
-      })`
-    );
-    return [];
+    throw new GetPositionError({
+      x: spawn.pos.x + 3,
+      y: spawn.pos.y + 3,
+      roomName: room.name,
+    });
   }
   // These are the three pod centers, the spots the creep will sit to refill
   const firstCenter = spawn.room.getPositionAt(
     spawn.pos.x + 2,
-    spawn.pos.y + 4
+    spawn.pos.y + 4,
   );
   if (firstCenter === null) {
-    error(
-      `Unable to get first center position (${spawn.pos.x + 2}, ${
-        spawn.pos.y + 4
-      })`
-    );
-    return [];
+    throw new GetPositionError({
+      x: spawn.pos.x + 2,
+      y: spawn.pos.y + 4,
+      roomName: room.name,
+    });
   }
   const secondCenter = spawn.room.getPositionAt(
     spawn.pos.x + 4,
-    spawn.pos.y + 4
+    spawn.pos.y + 4,
   );
   if (secondCenter === null) {
-    error(
-      `Unable to get second center position (${spawn.pos.x + 4}, ${
-        spawn.pos.y + 4
-      })`
-    );
-    return [];
+    throw new GetPositionError({
+      x: spawn.pos.x + 4,
+      y: spawn.pos.y + 4,
+      roomName: room.name,
+    });
   }
   const thirdCenter = spawn.room.getPositionAt(
     spawn.pos.x + 4,
-    spawn.pos.y + 2
+    spawn.pos.y + 2,
   );
   if (thirdCenter === null) {
-    error(
-      `Unable to get third center position (${spawn.pos.x + 4}, ${
-        spawn.pos.y + 2
-      })`
-    );
-    return [];
+    throw new GetPositionError({
+      x: spawn.pos.x + 4,
+      y: spawn.pos.y + 2,
+      roomName: room.name,
+    });
   }
   // The two exits, the extra spots lacking extensions off of the first and
   // third pods
   const firstExit = spawn.room.getPositionAt(spawn.pos.x + 1, spawn.pos.y + 5);
   if (firstExit === null) {
-    error(
-      `Unable to get first exit position (${spawn.pos.x + 1}, ${
-        spawn.pos.y + 5
-      })`
-    );
-    return [];
+    throw new GetPositionError({
+      x: spawn.pos.x + 1,
+      y: spawn.pos.y + 5,
+      roomName: room.name,
+    });
   }
   const secondExit = spawn.room.getPositionAt(spawn.pos.x + 5, spawn.pos.y + 1);
   if (secondExit === null) {
-    error(
-      `Unable to get second exit position (${spawn.pos.x + 5}, ${
-        spawn.pos.y + 1
-      })`
-    );
-    return [];
+    throw new GetPositionError({
+      x: spawn.pos.x + 5,
+      y: spawn.pos.y + 1,
+      roomName: room.name,
+    });
   }
 
   // Remove the group center
@@ -535,10 +520,14 @@ export function getExtensionSpots(room: Room): RoomPosition[] {
     // The y-coord is spawn.y minus the y-offset of the spot and spawn
     const reflected = spawn.room.getPositionAt(
       spot.x,
-      spawn.pos.y - (spot.y - spawn.pos.y)
+      spawn.pos.y - (spot.y - spawn.pos.y),
     );
     if (reflected === null) {
-      error(`Unable to get horizontal reflection of ${spot}`);
+      throw new GetPositionError({
+        x: spot.x,
+        y: spawn.pos.y - (spot.y - spawn.pos.y),
+        roomName: spawn.room.name,
+      });
     } else {
       horizontalReflection.push(reflected);
     }
@@ -552,10 +541,14 @@ export function getExtensionSpots(room: Room): RoomPosition[] {
     // The x-coord is spawn.x minus the x-offset of the spot and spawn
     const reflected = spawn.room.getPositionAt(
       spawn.pos.x - (spot.x - spawn.pos.x),
-      spot.y
+      spot.y,
     );
     if (reflected === null) {
-      error(`Unable to get vertical reflection of ${spot}`);
+      throw new GetPositionError({
+        x: spawn.pos.x - (spot.x - spawn.pos.x),
+        y: spot.y,
+        roomName: spawn.room.name,
+      });
     } else {
       verticalReflection.push(reflected);
     }
@@ -570,8 +563,7 @@ export function getExtensionRoadSpots(room: Room): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   info(`Finding extension road spots for spawn ${spawn.name}`);
@@ -591,7 +583,7 @@ export function getExtensionRoadSpots(room: Room): RoomPosition[] {
   offsets.forEach((spot) => {
     const position = spawn.room.getPositionAt(
       spawn.pos.x + spot[0],
-      spawn.pos.y + spot[1]
+      spawn.pos.y + spot[1],
     );
     if (position !== null) {
       positions.push(position);
@@ -604,10 +596,14 @@ export function getExtensionRoadSpots(room: Room): RoomPosition[] {
     // The y-coord is spawn.y minus the y-offset of the spot and spawn
     const reflected = spawn.room.getPositionAt(
       spot.x,
-      spawn.pos.y - (spot.y - spawn.pos.y)
+      spawn.pos.y - (spot.y - spawn.pos.y),
     );
     if (reflected === null) {
-      error(`Unable to get horizontal reflection of ${spot}`);
+      throw new GetPositionError({
+        x: spot.x,
+        y: spawn.pos.y - (spot.y - spawn.pos.y),
+        roomName: spawn.room.name,
+      });
     } else {
       horizontalReflection.push(reflected);
     }
@@ -621,10 +617,14 @@ export function getExtensionRoadSpots(room: Room): RoomPosition[] {
     // The x-coord is spawn.x minus the x-offset of the spot and spawn
     const reflected = spawn.room.getPositionAt(
       spawn.pos.x - (spot.x - spawn.pos.x),
-      spot.y
+      spot.y,
     );
     if (reflected === null) {
-      error(`Unable to get vertical reflection of ${spot}`);
+      throw new GetPositionError({
+        x: spawn.pos.x - (spot.x - spawn.pos.x),
+        y: spot.y,
+        roomName: spawn.room.name,
+      });
     } else {
       verticalReflection.push(reflected);
     }
@@ -640,8 +640,7 @@ export function roadSpots(room: Room): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   // Ring of roads around the spawn
@@ -655,7 +654,7 @@ export function roadSpots(room: Room): RoomPosition[] {
       [6, 0],
       [0, 6],
       [-6, 0],
-    ])
+    ]),
   );
   // The above are 40 roads
 
@@ -678,9 +677,9 @@ export function minerContainers(room: Room): RoomPosition[] {
       }
     });
     if (count === 0) {
-      error(
+      throw new ScriptError(
         `Unable to find suitable container location for source at (${source.pos.x}, ` +
-          `${source.pos.y})`
+          `${source.pos.y})`,
       );
     }
   });
@@ -693,8 +692,7 @@ function roadToSources(room: Room, planMatrix?: CostMatrix): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   const road: RoomPosition[] = [];
@@ -710,15 +708,13 @@ function roadToController(room: Room, planMatrix?: CostMatrix): RoomPosition[] {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return [];
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   const road: RoomPosition[] = [];
   const controller = room.controller;
   if (controller == undefined) {
-    error(`Couldn't find controller for room ${room.name}`);
-    return [];
+    throw new ScriptError(`Couldn't find controller for room ${room.name}`);
   }
 
   // Turn the path into RoomPositions and add it to the road
@@ -728,7 +724,7 @@ function roadToController(room: Room, planMatrix?: CostMatrix): RoomPosition[] {
 function pathToRoomPosition(room: Room, path: PathStep[]): RoomPosition[] {
   const spots = path.map((step) => room.getPositionAt(step.x, step.y));
   const positions = spots.filter(
-    (position) => position != undefined
+    (position) => position != undefined,
   ) as RoomPosition[];
   return positions;
 }
@@ -737,7 +733,7 @@ function planPath(
   room: Room,
   start: RoomPosition,
   end: RoomPosition,
-  matrix: CostMatrix | undefined
+  matrix: CostMatrix | undefined,
 ): RoomPosition[] {
   const path = start.findPathTo(end, {
     costCallback: (roomName, pathMatrix) => {
@@ -764,7 +760,7 @@ function roomPositionToPlanCoord(positions: RoomPosition[]): PlannerCoord[] {
 
 function planCoordToRoomPosition(
   room: Room,
-  coords: PlannerCoord[]
+  coords: PlannerCoord[],
 ): RoomPosition[] {
   const positions: RoomPosition[] = [];
   coords.forEach((coord) => {
@@ -773,7 +769,7 @@ function planCoordToRoomPosition(
       positions.push(position);
     } else {
       warn(
-        `Unable to convert coord (${coord.x}, ${coord.y}) to position in room ${room.name}`
+        `Unable to convert coord (${coord.x}, ${coord.y}) to position in room ${room.name}`,
       );
     }
   });
@@ -783,7 +779,7 @@ function planCoordToRoomPosition(
 function batchSetMatrix(
   matrix: CostMatrix,
   positions: RoomPosition[],
-  cost = 255
+  cost = 255,
 ): CostMatrix {
   positions.forEach((position) => {
     matrix.set(position.x, position.y, cost);
@@ -793,7 +789,7 @@ function batchSetMatrix(
 
 function getPositionsInArea(
   topLeft: RoomPosition,
-  bottomRight: RoomPosition
+  bottomRight: RoomPosition,
 ): RoomPosition[] {
   const top = topLeft.y;
   const left = topLeft.x;
@@ -805,8 +801,7 @@ function getPositionsInArea(
     for (let x = left; x <= right; x++) {
       const pos = room.getPositionAt(x, y);
       if (pos == undefined) {
-        error(`Unable to find position for (${x}, ${y}) in room ${room.name}`);
-        continue;
+        throw new GetPositionError({ x, y, roomName: room.name });
       }
       positions.push(pos);
     }
@@ -835,8 +830,7 @@ export function makePlan(room: Room): boolean {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(`Couldn't find spawn for tower spots in room ${room.name}`);
-    return false;
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   const plan: PlannerPlan = {};
@@ -850,7 +844,7 @@ export function makePlan(room: Room): boolean {
     [-6, 1],
   ]);
   const spawnArea = getPositionsInArea(spawnBounds[0], spawnBounds[1]).concat(
-    getPositionsInArea(towerBounds[0], towerBounds[1])
+    getPositionsInArea(towerBounds[0], towerBounds[1]),
   );
   // Block off the spawn area
   planMatrix = batchSetMatrix(planMatrix, spawnArea, 255);
@@ -858,7 +852,7 @@ export function makePlan(room: Room): boolean {
   // - - - Structures - - -
   const wallsAndRamparts: [
     RoomPosition[],
-    RoomPosition[]
+    RoomPosition[],
   ] = getExitWallsAndRamparts(room);
   const extensions: RoomPosition[] = getExtensionSpots(room);
   const containers: RoomPosition[] = getContainerSpots(room);
@@ -905,7 +899,7 @@ export function makePlan(room: Room): boolean {
 function buildStructurePlan(
   room: Room,
   structureType: BuildableStructureConstant,
-  plan: PlannerStructurePlan
+  plan: PlannerStructurePlan,
 ): boolean {
   const positions = planCoordToRoomPosition(room, plan.pos);
   positions.forEach((pos) => buildStructure(pos, structureType));
@@ -923,12 +917,12 @@ function buildStructurePlan(
 function getPartOfPlan(
   plan: PlannerStructurePlan,
   start: number,
-  end: number
+  end: number,
 ): PlannerStructurePlan {
   const slice = plan.pos.slice(start, end + 1);
   if (slice.length != end - start + 1) {
     warn(
-      `Plan has length ${plan.pos.length} but requested slice starts at ${start} and ends at ${end}`
+      `Plan has length ${plan.pos.length} but requested slice starts at ${start} and ends at ${end}`,
     );
   }
   return { pos: slice };
@@ -937,12 +931,10 @@ function getPartOfPlan(
 export function executePlan(room: Room, levelOverride = -1): boolean {
   info(`Executing plan for room ${room.name}`);
   if (room.memory.level == undefined) {
-    error(`Room ${room.name} has no level`);
-    return false;
+    throw new RoomMemoryError(room, "level");
   }
   if (room.memory.planner == undefined) {
-    error(`Room ${room.name} has no plan`);
-    return false;
+    throw new RoomMemoryError(room, "planner");
   }
   // The level to execute the plan at
   let level = room.memory.level;

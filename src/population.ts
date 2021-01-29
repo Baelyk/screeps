@@ -1,8 +1,9 @@
 import { getSurroundingTiles, queueLength, repairQueueLength } from "construct";
-import { info, error } from "utils/logger";
+import { info } from "utils/logger";
 import { generateBodyByRole } from "spawns";
 import { bodyCost, countBodyPart } from "creeps";
 import { getRoomAvailableEnergy } from "rooms";
+import { GetByIdError } from "utils/errors";
 
 /**
  * Reasses population limits
@@ -67,7 +68,7 @@ function minerLimit(room: Room): number {
         miners++;
       }
     } else {
-      error(`Unable to find source ${sourceId}`);
+      throw new GetByIdError(sourceId, "source");
     }
   });
   return miners;
@@ -76,19 +77,18 @@ function minerLimit(room: Room): number {
 function upgraderLimit(room: Room): number {
   const spawn = Game.getObjectById(room.memory.spawn) as StructureSpawn;
   if (spawn == undefined) {
-    error(
-      `Failed to get spawn of id ${room.memory.spawn} for room ${room.name}`
-    );
-    return 0;
+    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
+
   const energy = getRoomAvailableEnergy(room);
   if (energy == undefined) {
     info(
-      `Room ${room.name} not ready for advance upgrader population limiting`
+      `Room ${room.name} not ready for advance upgrader population limiting`,
     );
     // Default to 1 upgrader
     return 1;
   }
+
   const body = generateBodyByRole(spawn, CreepRole.upgrader);
   const cost = bodyCost(body);
   const workParts = countBodyPart(body, WORK);

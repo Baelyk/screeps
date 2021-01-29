@@ -1,5 +1,5 @@
 import { nameCreep, countRole } from "creeps";
-import { errorConstant, stringifyBody, info, error, warn } from "utils/logger";
+import { errorConstant, stringifyBody, info, warn } from "utils/logger";
 import {
   buildRoad,
   buildStructure,
@@ -9,6 +9,7 @@ import {
 } from "construct";
 import { getExtensionSpots, getExtensionRoadSpots } from "planner";
 import { getRoomAvailableEnergy } from "rooms";
+import { GetPositionError, ScriptError, SpawnMemoryError } from "utils/errors";
 
 /**
  * Process spawn behavior
@@ -30,13 +31,13 @@ export function spawnManager(spawn: StructureSpawn): void {
     if (allowSpawn) {
       info(
         `${spawn.name}     requesting ${CreepRole.harvester}`,
-        InfoType.spawn
+        InfoType.spawn,
       );
       spawnCreep(spawn, CreepRole.harvester);
     } else {
       info(
         `${spawn.name} NOT requesting ${CreepRole.harvester}`,
-        InfoType.spawn
+        InfoType.spawn,
       );
     }
     allowSpawn = false;
@@ -58,7 +59,7 @@ export function spawnManager(spawn: StructureSpawn): void {
         const structures = place.lookFor(LOOK_STRUCTURES);
         return (
           structures.find(
-            (structure) => structure.structureType === STRUCTURE_CONTAINER
+            (structure) => structure.structureType === STRUCTURE_CONTAINER,
           ) !== undefined
         );
       });
@@ -101,10 +102,9 @@ export function spawnManager(spawn: StructureSpawn): void {
       const id = Number(nameCreep(memory).replace("hauler_", ""));
       const associated_miner = Game.creeps[`miner_${id}`];
       if (associated_miner === undefined) {
-        error(
-          `Spawn ${spawn.name} can't find associated miner for hauler id ${id}`
+        throw new ScriptError(
+          `Spawn ${spawn.name} can't find associated miner for hauler id ${id}`,
         );
-        return;
       }
       spawnCreep(spawn, CreepRole.hauler, {
         spot: associated_miner.memory.spot,
@@ -122,13 +122,13 @@ export function spawnManager(spawn: StructureSpawn): void {
     if (allowSpawn) {
       info(
         `${spawn.name}     requesting ${CreepRole.upgrader}`,
-        InfoType.spawn
+        InfoType.spawn,
       );
       spawnCreep(spawn, CreepRole.upgrader);
     } else {
       info(
         `${spawn.name} NOT requesting ${CreepRole.upgrader}`,
-        InfoType.spawn
+        InfoType.spawn,
       );
     }
     allowSpawn = false;
@@ -169,7 +169,7 @@ export function spawnManager(spawn: StructureSpawn): void {
 function spawnCreep(
   spawn: StructureSpawn,
   role: CreepRole,
-  overrides?: Partial<CreepMemory>
+  overrides?: Partial<CreepMemory>,
 ) {
   const memory = generateMemoryByRole(role, spawn.room);
   if (overrides != undefined) {
@@ -185,7 +185,7 @@ function spawnCreep(
   info(
     `${spawn.name} spawning creep ${name} (${stringifyBody(body)}): ` +
       `${errorConstant(response)}`,
-    InfoType.spawn
+    InfoType.spawn,
   );
 }
 
@@ -198,7 +198,7 @@ function spawnCreep(
  */
 export function generateBodyByRole(
   spawn: StructureSpawn,
-  role: CreepRole
+  role: CreepRole,
 ): BodyPartConstant[] {
   switch (role) {
     case CreepRole.miner: {
@@ -206,7 +206,7 @@ export function generateBodyByRole(
       // The capacity minus the carry and move part cost divided by the work part cost
       const workParts = Math.min(
         7,
-        Math.floor((getSpawnCapacity(spawn) - 100) / 100)
+        Math.floor((getSpawnCapacity(spawn) - 100) / 100),
       );
       for (let i = 0; i < workParts; i++) {
         body.push(WORK);
@@ -274,8 +274,7 @@ export function generateBodyByRole(
       return [MOVE, CARRY, WORK];
     }
     default:
-      error(`getBodyPartsFromRole invalid role ${role}`);
-      return [];
+      throw new ScriptError(`getBodyPartsFromRole invalid role ${role}`);
   }
 }
 
@@ -294,30 +293,29 @@ function requestExtentions(spawn: StructureSpawn) {
   // Only request an extension when there is nothing in the build/repair queues
   if (queueLength() === 0 && repairQueueLength() === 0) {
     if (spawn.memory.extensionSpots === undefined) {
-      error(`Spawn ${spawn.name} has no extension spots in its memory`);
-      return;
+      throw new SpawnMemoryError(spawn, "extensionSpots");
     }
     const spot = spawn.memory.extensionSpots.shift();
-    if (spot === undefined) {
-      error(`Spawn ${spawn.name} has run out of extension spots`);
-      return;
+    if (spot == undefined) {
+      throw new ScriptError(
+        `Spawn ${spawn.name} has run out of extension spots`,
+      );
     }
     const position = spawn.room.getPositionAt(spot.x, spot.y);
-    if (position === null) {
-      error(`Spawn ${spawn.name} can't locate position (${spot.x}, ${spot.y})`);
-      return;
+    if (position == undefined) {
+      throw new GetPositionError(spot);
     }
     info(
       `Spawn ${spawn.name} requesting extention at ${JSON.stringify(position)}`,
-      InfoType.build
+      InfoType.build,
     );
     if (buildStructure(position, STRUCTURE_EXTENSION)) {
       spawn.memory.extensions.push(position);
     } else {
       warn(
         `Spawn ${spawn.name} failed extention request at ${JSON.stringify(
-          position
-        )}`
+          position,
+        )}`,
       );
     }
   }
@@ -379,7 +377,7 @@ export function initSpawn(spawn: StructureSpawn): void {
   const extensionRoads = getExtensionRoadSpots(spawn.room);
   info(
     `Spawn extension road: ${JSON.stringify(extensionRoads)}`,
-    InfoType.build
+    InfoType.build,
   );
   buildRoad(extensionRoads);
 

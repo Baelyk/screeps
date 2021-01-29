@@ -4,8 +4,9 @@ import {
   getSurroundingTiles,
   updateWallRepair,
 } from "construct";
-import { error, errorConstant, info, warn } from "utils/logger";
+import { errorConstant, info, warn } from "utils/logger";
 import { countBodyPart, hasBodyPart } from "creeps";
+import { GetPositionError } from "utils/errors";
 
 export function towerManager(tower: StructureTower): void {
   // const tower = Game.getObjectById(towerId) as StructureTower;
@@ -76,7 +77,7 @@ export function towerManager(tower: StructureTower): void {
     // Target is a hostile creep
     const response = errorConstant(tower.attack(target));
     warn(
-      `Tower ${tower.id} is attacking ${target.owner.username}'s creep ${target.name}: ${response}`
+      `Tower ${tower.id} is attacking ${target.owner.username}'s creep ${target.name}: ${response}`,
     );
   }
 }
@@ -88,8 +89,11 @@ export function buildTower(roomName: string): void {
   const pos = room.getPositionAt(spawn.pos.x - 5, spawn.pos.y);
 
   if (pos === null) {
-    error(`Tower location unavailable`);
-    return;
+    throw new GetPositionError({
+      x: spawn.pos.x - 5,
+      y: spawn.pos.y,
+      roomName,
+    });
   }
 
   const response = build(pos, STRUCTURE_TOWER);
@@ -175,7 +179,7 @@ declare const enum TowerAction {
 function calculateTowerFalloff(
   tower: StructureTower,
   target: Creep | PowerCreep | Structure,
-  action: TowerAction
+  action: TowerAction,
 ): number {
   const range = tower.pos.getRangeTo(target);
   let amount = 0;

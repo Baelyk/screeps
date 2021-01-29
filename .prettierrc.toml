@@ -1,4 +1,4 @@
 # .prettierrc.toml
-trailingComma: "all"
-proseWrap: "always"
-jsdocParser: "true"
+trailingComma = "all"
+proseWrap = "always"
+jsdocParser = true

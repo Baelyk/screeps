@@ -1,4 +1,5 @@
-import { error, info, warn } from "utils/logger";
+import { info, warn } from "utils/logger";
+import { GetPositionError, RoomMemoryError, ScriptError } from "utils/errors";
 
 // Manages construction
 
@@ -34,9 +35,9 @@ export function initConstruction(spawn: StructureSpawn): void {
       .path;
     info(
       `Controller road from ${spawn.pos} to ${controller.pos}: ${JSON.stringify(
-        path
+        path,
       )}`,
-      InfoType.build
+      InfoType.build,
     );
     buildRoad(path);
   }
@@ -56,7 +57,7 @@ export function buildRoad(path: RoomPosition[]) {
 
 function buildWithoutChecks(
   position: RoomPosition,
-  structureType: BuildableStructureConstant
+  structureType: BuildableStructureConstant,
 ) {
   if (
     position.createConstructionSite &&
@@ -77,7 +78,7 @@ function buildWithoutChecks(
  */
 export function build(
   position: RoomPosition,
-  structureType: BuildableStructureConstant
+  structureType: BuildableStructureConstant,
 ): boolean {
   // Attempt to create the construction site
   const response = position.createConstructionSite(structureType);
@@ -92,23 +93,23 @@ export function build(
     });
     if (structures.length > 0 || sites.length > 0) {
       warn(
-        `build attempted to build ${structureType} over site/structure of same type at ${position}`
+        `build attempted to build ${structureType} over site/structure of same type at ${position}`,
       );
     } else {
-      error(
+      warn(
         `build attempted to build ${structureType} over invalid terrain at ` +
-          `(${response}) ${position}`
+          `(${response}) ${position}`,
       );
     }
   } else if (response === ERR_FULL) {
-    error(`build exceded construction capacity`);
+    warn(`build exceded construction capacity`);
   } else if (response === ERR_RCL_NOT_ENOUGH) {
-    error(
+    warn(
       `build attempted to build ${structureType} with insufficient RCL: ` +
         `${
           (Game.rooms[position.roomName].controller as StructureController)
             .level
-        }`
+        }`,
     );
   } else if (response === OK) {
     // Construction site successfullly created
@@ -138,7 +139,7 @@ export function fromQueue(): string | undefined {
   if (queueItem == undefined) return;
   const position = Game.rooms[queueItem.roomName].getPositionAt(
     queueItem.x,
-    queueItem.y
+    queueItem.y,
   );
   if (position == undefined) return;
   const sites = position.lookFor(LOOK_CONSTRUCTION_SITES).map((site) => {
@@ -174,7 +175,7 @@ export function queueLength(): number {
 function getSurroundingCoords(
   x: number,
   y: number,
-  radius = 1
+  radius = 1,
 ): { x: number; y: number }[] {
   if (radius === 0) return [{ x, y }];
 
@@ -212,13 +213,13 @@ function getSurroundingCoords(
 
 export function getSurroundingTiles(
   position: RoomPosition,
-  radius = 0
+  radius = 0,
 ): RoomPosition[] {
   const coords = getSurroundingCoords(position.x, position.y, radius);
   return coords.map((coord) => {
     return Game.rooms[position.roomName].getPositionAt(
       coord.x,
-      coord.y
+      coord.y,
     ) as RoomPosition;
   });
 }
@@ -226,14 +227,14 @@ export function getSurroundingTiles(
 export function unassignConstruction(name: string) {
   const memory = Memory.creeps[name];
   const site = Game.getObjectById(
-    memory.assignedConstruction || ""
+    memory.assignedConstruction || "",
   ) as ConstructionSite | null;
   if (site != undefined) {
     Memory.constructionQueue.unshift(site.pos);
     delete memory.assignedConstruction;
   } else {
     warn(
-      `Attempted to delete undefined assigned construction for creep ${name}`
+      `Attempted to delete undefined assigned construction for creep ${name}`,
     );
   }
 }
@@ -283,12 +284,12 @@ export function resetRepairQueue(room: Room) {
  */
 export function fromRepairQueue(): Id<Structure> | undefined {
   let repair = Game.getObjectById(
-    Memory.repairQueue.shift() || ""
+    Memory.repairQueue.shift() || "",
   ) as Structure | null;
   if (repair == undefined) return;
   while (repair.hits === repair.hitsMax) {
     repair = Game.getObjectById(
-      Memory.repairQueue.shift() || ""
+      Memory.repairQueue.shift() || "",
     ) as Structure | null;
     if (repair == undefined) return;
   }
@@ -297,7 +298,7 @@ export function fromRepairQueue(): Id<Structure> | undefined {
 
 export function surroundingTilesAreEmpty(
   position: RoomPosition,
-  exceptions?: StructureConstant[]
+  exceptions?: StructureConstant[],
 ): boolean {
   const terrain = Game.map.getRoomTerrain(position.roomName);
   let empty = true;
@@ -340,11 +341,10 @@ export function repairQueueLength(): number {
 
 export function buildStructure(
   position: RoomPosition,
-  type: BuildableStructureConstant
+  type: BuildableStructureConstant,
 ): boolean {
   if (RoomPosition === undefined) {
-    error(`Asked to build ${type} at undefined position`);
-    return false;
+    throw new ScriptError(`Asked to build ${type} at undefined position`);
   }
   return build(position, type);
 }
@@ -353,17 +353,19 @@ export function buildStorage(roomName: string): void {
   const room = Game.rooms[roomName];
   const spawn = Game.getObjectById(room.memory.spawn) as StructureSpawn;
   if (spawn === null) {
-    error(
-      `Asked to build storage in room ${roomName} but it doesn't know its spawn`
+    throw new RoomMemoryError(
+      room,
+      "spawn",
+      "Room was asked to build spawn so it should know its spawn",
     );
-    return;
   }
   const position = room.getPositionAt(spawn.pos.x - 2, spawn.pos.y - 1);
   if (position === null) {
-    error(
-      `Failed to get RoomPosition at (${spawn.pos.x - 2}, ${spawn.pos.y - 1})`
-    );
-    return;
+    throw new GetPositionError({
+      x: spawn.pos.x - 2,
+      y: spawn.pos.y - 1,
+      roomName,
+    });
   }
   info(`Building storage at ${JSON.stringify(position)}`);
   buildStructure(position, STRUCTURE_STORAGE);
@@ -380,7 +382,7 @@ export function updateWallRepair(room: Room): void {
       (structure) =>
         (structure.structureType === STRUCTURE_WALL ||
           structure.structureType === STRUCTURE_RAMPART) &&
-        structure.hits < 1e6
+        structure.hits < 1e6,
     )
     .sort((a, b) => a.hits - b.hits)
     .map((wall) => wall.id) as Id<StructureRampart | StructureWall>[];

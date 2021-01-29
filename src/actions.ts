@@ -1,7 +1,8 @@
 import { fromRepairQueue, getSurroundingTiles } from "construct";
 import { error, errorConstant, warn, info } from "utils/logger";
-import { countRole } from "creeps";
+import { countBodyPart, countRole } from "creeps";
 import { getNextTombInRoom } from "rooms";
+import { CreepMemoryError, ScriptError } from "utils/errors";
 
 /**
  * Harvest energy from a specified Source or find the first Source in the room.
@@ -43,13 +44,23 @@ export function harvestEnergy(creep: Creep, source?: Source): void {
     } else {
       creep.moveTo(source);
     }
-  // Don't warn about the source being empty
+    // Don't warn about the source being empty
   } else if (response !== OK && response !== ERR_NOT_ENOUGH_RESOURCES) {
     warn(
       `Creep ${creep.name} harvesting ${
         source.pos
-      } with response ${errorConstant(response)}`
+      } with response ${errorConstant(response)}`,
     );
+  } else if (response === OK) {
+    const harvested = countBodyPart(creep.body, WORK) * HARVEST_POWER;
+    if (Memory.debug.energyHarvested != undefined) {
+      Memory.debug.energyHarvested.amount += harvested;
+    } else {
+      Memory.debug.energyHarvested = {
+        startTick: Game.time,
+        amount: harvested,
+      };
+    }
   }
 }
 
@@ -60,13 +71,13 @@ export function harvestEnergy(creep: Creep, source?: Source): void {
  */
 export function getEnergy(
   creep: Creep,
-  target?: Structure | Tombstone | Ruin
+  target?: Structure | Tombstone | Ruin,
 ): ScreepsReturnCode {
   let response: ScreepsReturnCode;
   // If target isn't specified, try the room's primary storage
   if (target == undefined) {
     const primaryStorage = Game.getObjectById(
-      creep.room.memory.storage || ""
+      creep.room.memory.storage || "",
     ) as StructureStorage | null;
     // If their is a primary storage, make sure it has energy first
     if (
@@ -98,7 +109,7 @@ export function getEnergy(
       });
     if (structures[0] == undefined) {
       warn(
-        `Creep ${creep.name} unable to find suitable structure for getEnergy`
+        `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
       if (countRole(CreepRole.miner) === 0) harvestEnergy(creep);
       return ERR_NOT_FOUND;
@@ -117,7 +128,7 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} getting energy ${
           structure.pos
-        } with response ${errorConstant(response)}`
+        } with response ${errorConstant(response)}`,
       );
     }
   } else {
@@ -131,7 +142,7 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} getting energy ${
           target.pos
-        } with response ${errorConstant(response)}`
+        } with response ${errorConstant(response)}`,
       );
     }
   }
@@ -164,11 +175,11 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
   )[];
   // Prioritize: Spawn -> Extension -> Tower -> Link
   let target = targets.find(
-    (structure) => structure.structureType === STRUCTURE_SPAWN
+    (structure) => structure.structureType === STRUCTURE_SPAWN,
   );
   if (target == undefined) {
     target = targets.find(
-      (structure) => structure.structureType === STRUCTURE_EXTENSION
+      (structure) => structure.structureType === STRUCTURE_EXTENSION,
     );
   }
   if (target == undefined) {
@@ -176,7 +187,7 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
     target = targets.find(
       (structure) =>
         structure.structureType === STRUCTURE_TOWER &&
-        structure.store.getUsedCapacity(RESOURCE_ENERGY) < TOWER_CAPACITY / 2
+        structure.store.getUsedCapacity(RESOURCE_ENERGY) < TOWER_CAPACITY / 2,
     );
   }
   if (target == undefined) {
@@ -193,7 +204,7 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
         }
       } else {
         error(
-          `Unable to get spawn link of id ${spawnLinkId} in room ${creep.room.name}`
+          `Unable to get spawn link of id ${spawnLinkId} in room ${creep.room.name}`,
         );
       }
     }
@@ -213,7 +224,7 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
       warn(
         `Creep ${creep.name} depositing ${
           target.pos
-        } with response ${errorConstant(response)}`
+        } with response ${errorConstant(response)}`,
       );
     }
     return true;
@@ -259,7 +270,7 @@ export function storeEnergy(creep: Creep, target?: Structure): void {
       });
     if (structures[0] == undefined) {
       warn(
-        `Creep ${creep.name} unable to find suitable structure for storeEnergy, depositing`
+        `Creep ${creep.name} unable to find suitable structure for storeEnergy, depositing`,
       );
       depositEnergy(creep);
       return;
@@ -282,7 +293,7 @@ export function storeEnergy(creep: Creep, target?: Structure): void {
     warn(
       `Creep ${creep.name} getting energy ${
         structure.pos
-      } with response ${errorConstant(response)}`
+      } with response ${errorConstant(response)}`,
     );
   }
 }
@@ -297,7 +308,7 @@ export function upgradeController(creep: Creep): void {
   const controller = creep.room.controller;
   // Ensure `controller` is a StructureController
   if (controller == undefined) {
-    throw new Error("upgradeController: creep.room.controller undefined");
+    throw new ScriptError("upgradeController: creep.room.controller undefined");
   }
 
   // Attempt to upgrade the controller, and save the response (OK or error)
@@ -306,7 +317,7 @@ export function upgradeController(creep: Creep): void {
     creep.moveTo(controller);
   } else if (response !== OK) {
     warn(
-      `Creep ${creep.name} attempting to upgrade controller with response ${response}`
+      `Creep ${creep.name} attempting to upgrade controller with response ${response}`,
     );
   }
 }
@@ -319,10 +330,15 @@ export function upgradeController(creep: Creep): void {
 export function build(creep: Creep, building?: ConstructionSite): void {
   if (building == undefined) {
     if (creep.memory.assignedConstruction == undefined) {
-      throw new Error("build creep has no assigned construction site");
+      throw new CreepMemoryError(
+        creep,
+        "assignedConstruction",
+        "Action build called with no supplied construction site, " +
+          "so assignedConstruction must be defined",
+      );
     } else {
       building = Game.getObjectById(
-        creep.memory.assignedConstruction
+        creep.memory.assignedConstruction,
       ) as ConstructionSite;
     }
   }
@@ -334,7 +350,7 @@ export function build(creep: Creep, building?: ConstructionSite): void {
     warn(
       `Creep ${creep.name} building ${
         building.pos
-      } with response ${errorConstant(response)}`
+      } with response ${errorConstant(response)}`,
     );
   }
 }
@@ -355,7 +371,7 @@ export function repair(creep: Creep, repair?: Structure): void {
     } else {
       repair =
         (Game.getObjectById(
-          creep.memory.assignedRepairs
+          creep.memory.assignedRepairs,
         ) as Structure | null) || undefined;
     }
   }
@@ -372,7 +388,7 @@ export function repair(creep: Creep, repair?: Structure): void {
     warn(
       `Creep ${creep.name} repairing ${
         repair.pos
-      } with response ${errorConstant(response)}`
+      } with response ${errorConstant(response)}`,
     );
   }
 }
@@ -388,7 +404,7 @@ export function idle(creep: Creep, position?: RoomPosition): void {
 
 export function haul(
   creep: Creep,
-  target: Creep | PowerCreep | Structure
+  target: Creep | PowerCreep | Structure,
 ): void {
   const response = creep.transfer(target, RESOURCE_ENERGY);
   if (response === ERR_NOT_IN_RANGE) {
@@ -398,7 +414,7 @@ export function haul(
     warn(
       `Creep ${creep.name} hauling to ${
         target.pos
-      } with response ${errorConstant(response)}`
+      } with response ${errorConstant(response)}`,
     );
   }
 }
@@ -435,7 +451,7 @@ export function recoverEnergy(creep: Creep, range = 1): ScreepsReturnCode {
     .sort(
       (a, b) =>
         b.store.getUsedCapacity(RESOURCE_ENERGY) -
-        a.store.getUsedCapacity(RESOURCE_ENERGY)
+        a.store.getUsedCapacity(RESOURCE_ENERGY),
     )
     .find((tomb) => tomb.store.getUsedCapacity(RESOURCE_ENERGY) > 0);
   if (tomb != undefined) {
@@ -474,11 +490,11 @@ function recoverNearbyEnergy(creep: Creep): ScreepsReturnCode {
   const surrounding = getSurroundingTiles(creep.pos, 1);
   surrounding.push(creep.pos);
   const tombPos = surrounding.find(
-    (tile) => tile.lookFor(LOOK_TOMBSTONES).length > 0
+    (tile) => tile.lookFor(LOOK_TOMBSTONES).length > 0,
   );
   if (tombPos == undefined) {
     const pilePos = surrounding.find(
-      (tile) => tile.lookFor(LOOK_RESOURCES).length > 0
+      (tile) => tile.lookFor(LOOK_RESOURCES).length > 0,
     );
     if (pilePos != undefined) {
       const pile = pilePos.lookFor(LOOK_RESOURCES)[0];

@@ -100,3 +100,26 @@ function resetPopLimits(): void {
     break;
   }
 }
+
+export function debugEnergyHarvested(): void {
+  // Only print harvest statistics in harvestStats flag is true
+  if (!Memory.debug.harvestStats) return;
+
+  // If energyharvested is undefined for some reason, initialize it
+  if (Memory.debug.energyHarvested == undefined) {
+    Memory.debug.energyHarvested = { startTick: Game.time, amount: 0 };
+  }
+  // Every 10 ticks, print harvested energy stats
+  if (Game.time % 10 === 0) {
+    const { startTick, amount } = Memory.debug.energyHarvested;
+    const ticks = Game.time - startTick + 1;
+    // Round per tick amount to 2 decimal places
+    const perTick = Math.round((amount / ticks) * 100) / 100;
+    info(
+      `Harvesting ${perTick} / t (${amount} total in ${ticks} t since ${startTick})`,
+    );
+  }
+  // Note about statistics:
+  // Sources have 3000 energy and regenerate every 300 ticks. Therefore, I want
+  // to harvest as close to 10 energy / tick / source as possible.
+}

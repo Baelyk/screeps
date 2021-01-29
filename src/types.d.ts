@@ -37,6 +37,13 @@ interface DebugMemory {
   testWallPlanner?: boolean;
   resetPlanner?: boolean;
   executePlan?: boolean;
+  harvestStats?: boolean;
+  energyHarvested?: DebugEnergyHarvested;
+}
+
+interface DebugEnergyHarvested {
+  startTick: number;
+  amount: number;
 }
 
 interface LogSettings {

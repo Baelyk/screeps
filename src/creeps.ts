@@ -18,6 +18,15 @@ import {
 } from "construct";
 import { error, errorConstant, info, warn } from "utils/logger";
 import { generateBodyByRole, getSpawnCapacity, getSpawnEnergy } from "spawns";
+import {
+  CreepRoleMemoryError,
+  ScriptError,
+  GetByIdError,
+  GetPositionError,
+  InvalidCreepTaskError,
+  InvalidCreepRoleError,
+} from "utils/errors";
+
 /**
  * Behavior for a harvester creep (CreepRole.harvester)
  *
@@ -53,10 +62,10 @@ function harvester(creep: Creep) {
     }
     // The creep is neither harvesting nor depositing, i.e. it has an invalid task
     default: {
-      throw new Error(
-        "harvester creep.memory.task should be harvest or deposit, not " +
-          creep.memory.task
-      );
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.harvest,
+        CreepTask.deposit,
+      ]);
     }
   }
 }
@@ -79,63 +88,20 @@ function miner(creep: Creep) {
   if (creep.memory.spot) {
     spot = Game.rooms[creep.memory.spot.roomName].getPositionAt(
       creep.memory.spot.x,
-      creep.memory.spot.y
+      creep.memory.spot.y,
     );
   }
   if (spot && (creep.pos.x !== spot.x || creep.pos.y !== spot.y)) {
     const response = errorConstant(creep.moveTo(spot));
     info(
-      `Creep ${creep.name} moving to spot ${JSON.stringify(spot)}: ${response}`
+      `Creep ${creep.name} moving to spot ${JSON.stringify(spot)}: ${response}`,
     );
     return;
   }
   const source: Source | null = Game.getObjectById(
-    creep.memory.assignedSource || ""
+    creep.memory.assignedSource || "",
   );
   harvestEnergy(creep, source || undefined);
-
-  /* // Old miner
-  switch (creep.memory.task) {
-    // The creep is harvesting
-    case CreepTask.harvest: {
-      // Move to this miners spot (if it exists)
-      if (creep.memory.spot && creep.pos !== creep.memory.spot) {
-        creep.moveTo(creep.memory.spot);
-        return;
-      }
-      // Proceed as normal once at spot (or spot doesn't exist)
-      const source = Game.getObjectById(creep.memory.assignedSource) as Source;
-      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-        // If the creep has more free energy, keep harvesting
-        harvestEnergy(creep, source);
-      } else {
-        // If the creep has no free energy, begin depositing
-        switchTaskAndDoRoll(creep, CreepTask.deposit);
-        return;
-      }
-      break;
-    }
-    // The creep is depositing
-    case CreepTask.deposit: {
-      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        // If the creep has energy, keep depositing
-        storeEnergy(creep);
-      } else {
-        // If the creep has no energy, begin harvesting
-        switchTaskAndDoRoll(creep, CreepTask.harvest);
-        return;
-      }
-      break;
-    }
-    // The creep is neither harvesting nor depositing, i.e. it has an invalid task
-    default: {
-      throw new Error(
-        "miner creep.memory.task should be harvest or deposit, not " +
-          creep.memory.task
-      );
-    }
-  }
-  */
 }
 
 /**
@@ -168,33 +134,33 @@ function builder(creep: Creep) {
     case CreepTask.build: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has more energy, continue building
-        if (creep.memory.assignedConstruction || queueLength() > 0) {
-          if (
-            creep.memory.assignedConstruction == undefined ||
-            Game.getObjectById(creep.memory.assignedConstruction) == undefined
-          ) {
-            creep.memory.assignedConstruction = fromQueue();
-            if (creep.memory.assignedConstruction == undefined) {
-              error(
-                `queueLength was positive but creep ${creep.name} unable to get assignment`
-              );
-              // End the behavior function
-              return;
-            }
+
+        // If the creep is assigned a construction site that still exists, build
+        // it.
+        if (creep.memory.assignedConstruction) {
+          if (Game.getObjectById(creep.memory.assignedConstruction)) {
+            build(creep);
+            return;
           }
-          // Perform the build action
+        }
+        // If the creep is assigned a construction site that no longer exists or
+        // doesn't have an assigned construction site, get one from the queue.
+        creep.memory.assignedConstruction = fromQueue();
+        // If a construction site was successfully obtained from the queue,
+        // build it.
+        if (creep.memory.assignedConstruction != undefined) {
           build(creep);
-        } else {
-          // If there is nothing to build, repair
-          info(`No items in the construction queue`, InfoType.general);
-          switchTaskAndDoRoll(creep, CreepTask.repair);
           return;
         }
+        // If the creep was unable to obtain a construction site, switch tasks
+        // to repairing.
+        info(`No items in the construction queue`, InfoType.general);
+        switchTaskAndDoRoll(creep, CreepTask.repair);
+        return;
       } else {
         switchTaskAndDoRoll(creep, CreepTask.getEnergy);
         return;
       }
-      break;
     }
     case CreepTask.idle: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
@@ -247,7 +213,7 @@ function builder(creep: Creep) {
 
         repair(
           creep,
-          Game.getObjectById(creep.memory.assignedRepairs) as Structure
+          Game.getObjectById(creep.memory.assignedRepairs) as Structure,
         );
       } else {
         switchTaskAndDoRoll(creep, CreepTask.getEnergy);
@@ -257,10 +223,11 @@ function builder(creep: Creep) {
     }
     // The creep  has an invalid task
     default: {
-      error(
-        `builder creep.memory.task should be ${CreepTask.getEnergy} or ` +
-          `${CreepTask.build}, not ${creep.memory.task}`
-      );
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.getEnergy,
+        CreepTask.build,
+        CreepTask.repair,
+      ]);
     }
   }
 }
@@ -294,9 +261,7 @@ function upgrader(creep: Creep) {
               }
             }
           } else {
-            error(
-              `Unable to get controller link of id ${controllerLinkId} in room ${creep.room.name}`
-            );
+            throw new GetByIdError(controllerLinkId, STRUCTURE_LINK);
           }
         }
         // If there isn't a controller link
@@ -324,12 +289,13 @@ function upgrader(creep: Creep) {
       }
       break;
     }
-    // The creep is neither harvesting nor depositing, i.e. it has an invalid task
+    // The creep is neither getting energy nor depositing, i.e. it has an
+    // invalid task
     default: {
-      error(
-        `Creep ${creep} should have tasks ${CreepTask.getEnergy} or ${CreepTask.deposit}, ` +
-          `not ${creep.memory.task}`
-      );
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.getEnergy,
+        CreepTask.deposit,
+      ]);
     }
   }
 }
@@ -346,20 +312,17 @@ function hauler(creep: Creep) {
     case CreepTask.getEnergy: {
       if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
         if (creep.memory.spot === undefined) {
-          error(`Hauler creep ${creep.name} has no assigned spot`);
-          return;
+          throw new CreepRoleMemoryError(creep, "spot");
         }
         const spot = creep.room.getPositionAt(
           creep.memory.spot.x,
-          creep.memory.spot.y
+          creep.memory.spot.y,
         );
         if (spot === null) {
-          error(
-            `Hauler creep ${
-              creep.name
-            } unable to get assigned spot ${JSON.stringify(creep.memory.spot)}`
+          throw new GetPositionError(
+            creep.memory.spot,
+            `The position is ${creep.name}'s assigned spot`,
           );
-          return;
         }
         const structure = spot
           .lookFor(LOOK_STRUCTURES)
@@ -367,8 +330,9 @@ function hauler(creep: Creep) {
           | StructureContainer
           | undefined;
         if (structure === undefined) {
-          error(`Hauler creep ${creep.name} unable to get container`);
-          return;
+          throw new ScriptError(
+            `Hauler creep ${creep.name} unable to get container`,
+          );
         }
 
         // Every 10 ticks check for nearby energy to recover. Otherwise, get
@@ -391,11 +355,11 @@ function hauler(creep: Creep) {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         const storage =
           (Game.getObjectById(
-            creep.room.memory.storage || ""
+            creep.room.memory.storage || "",
           ) as StructureStorage) || null;
         if (storage == undefined) {
           warn(
-            `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`
+            `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`,
           );
           storeEnergy(creep);
         } else {
@@ -407,6 +371,12 @@ function hauler(creep: Creep) {
         return;
       }
       break;
+    }
+    default: {
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.getEnergy,
+        CreepTask.deposit,
+      ]);
     }
   }
 }
@@ -444,6 +414,12 @@ function tender(creep: Creep) {
       }
       break;
     }
+    default: {
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.getEnergy,
+        CreepTask.deposit,
+      ]);
+    }
   }
 }
 
@@ -459,7 +435,7 @@ function switchTaskAndDoRoll(creep: Creep, task: CreepTask) {
   creep.memory.task = task;
   info(
     `Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`,
-    InfoType.task
+    InfoType.task,
   );
   doRole(creep);
 }
@@ -502,16 +478,14 @@ function renewCreep(creep: Creep): void {
     | StructureSpawn
     | undefined;
   if (spawn == undefined) {
-    error(
-      `Couldn't find spawn in room ${creep.room.name} to renew creep ${creep.name}`
-    );
-    return;
+    throw new GetByIdError(creep.room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   // The energy required for each renew
   const energyCost = Math.ceil(bodyCost(creep.body) / 2.5 / creep.body.length);
   // The ratio of energy available to energy capacity of the spawn
-  const energyRatio = creep.room.energyAvailable / creep.room.energyCapacityAvailable;
+  const energyRatio =
+    creep.room.energyAvailable / creep.room.energyCapacityAvailable;
 
   // Only renew the creep if it has less than 1400 ticks to live and the spawn
   // has more than 50% of the energy it can have. This second part is largely
@@ -554,10 +528,7 @@ function renewCheck(creep: Creep): void {
     | undefined;
   // If the spawn can't be found, log an error and do nothing.
   if (spawn == undefined) {
-    error(
-      `Couldn't get spawn in room ${creep.room.name} to set renew task for creep ${creep.name}`
-    );
-    return;
+    throw new GetByIdError(creep.room.memory.spawn, STRUCTURE_SPAWN);
   }
 
   // If the spawn is spawning, don't renew
@@ -620,7 +591,7 @@ export function doRole(creep: Creep): void {
       tender(creep);
       break;
     default:
-      throw new Error("doRole invalid role " + creep.memory.role);
+      throw new InvalidCreepRoleError(creep);
   }
 }
 
@@ -669,7 +640,7 @@ export function hasBodyPart(creep: Creep, partType: BodyPartConstant): boolean {
 
 export function countBodyPart(
   body: BodyPartDefinition[] | BodyPartConstant[],
-  partType: BodyPartConstant
+  partType: BodyPartConstant,
 ): number {
   let count = 0;
   if (body.length === 0) {
@@ -691,7 +662,7 @@ export function countBodyPart(
 }
 
 export function bodyCost(
-  body: BodyPartDefinition[] | BodyPartConstant[]
+  body: BodyPartDefinition[] | BodyPartConstant[],
 ): number {
   let cost = 0;
   BODYPARTS_ALL.forEach((partType) => {
