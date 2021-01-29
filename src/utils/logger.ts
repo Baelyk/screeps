@@ -48,14 +48,27 @@ export function errorConstant(error: ScreepsReturnCode): string {
   }
 }
 
+const ERROR_COLOR = "red";
+// Deep sky blue
+const INFO_COLOR = "#00BFFF";
+// Gold
+const TICK_COLOR = "#FFD700";
+// Gold
+const WARN_COLOR = "#FFD700";
+
+function withColor(color: string, msg?: any): string {
+  return `<span style="color: ${color}">${msg}</span>`;
+}
+
 /**
  * Logs a message in blue
  *
  * @param msg The message
  */
 export function info(msg?: any, type = InfoType.general) {
-  if (Memory.debug.log.infoSettings[type])
-    console.log(`{cyan-fg}Info: ${msg}{/cyan-fg}`);
+  if (Memory.debug.log.infoSettings[type]) {
+    console.log(withColor(INFO_COLOR, `  ${msg}`));
+  }
 }
 
 /**
@@ -64,7 +77,7 @@ export function info(msg?: any, type = InfoType.general) {
  * @param msg The message
  */
 export function error(msg?: any) {
-  console.log(`{red-fg}Error: ${msg}{/red-fg}`);
+  console.log(withColor(ERROR_COLOR, `  ${msg}`));
 }
 
 /**
@@ -73,7 +86,7 @@ export function error(msg?: any) {
  * @param msg The message
  */
 export function warn(msg?: any) {
-  console.log(`{yellow-fg}Warn: ${msg}{/yellow-fg}`);
+  console.log(withColor(WARN_COLOR, `  ${msg}`));
 }
 
 /**
@@ -105,7 +118,7 @@ export function stringifyBody(body: BodyPartConstant[]): string {
 /** Log the current tick */
 export function tick(format?: string): void {
   if (format == undefined) {
-    format = `{bold}{yellow-bg}`;
+    format = `color: black; background: ${TICK_COLOR}; font-weight: bold`;
   }
-  console.log(`${format}tick: ${Game.time}`);
+  console.log(`<span style="${format}">[ ${Game.time} ]</span>`);
 }
