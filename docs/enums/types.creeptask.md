@@ -23,7 +23,7 @@
 
 • **build**: = "build"
 
-Defined in: [src/types.d.ts:89](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L89)
+Defined in: [src/types.d.ts:76](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L76)
 
 ___
 
@@ -31,7 +31,7 @@ ___
 
 • **deposit**: = "deposit"
 
-Defined in: [src/types.d.ts:87](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L87)
+Defined in: [src/types.d.ts:74](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L74)
 
 ___
 
@@ -41,7 +41,7 @@ ___
 
 Role indicating the creep is freshly spawned (i.e. uninit)
 
-Defined in: [src/types.d.ts:83](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L83)
+Defined in: [src/types.d.ts:70](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L70)
 
 ___
 
@@ -49,7 +49,7 @@ ___
 
 • **getEnergy**: = "get\_energy"
 
-Defined in: [src/types.d.ts:88](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L88)
+Defined in: [src/types.d.ts:75](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L75)
 
 ___
 
@@ -57,7 +57,7 @@ ___
 
 • **harvest**: = "harvest"
 
-Defined in: [src/types.d.ts:86](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L86)
+Defined in: [src/types.d.ts:73](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L73)
 
 ___
 
@@ -67,7 +67,7 @@ ___
 
 Task indicating the creep is waiting for further instructions/state change
 
-Defined in: [src/types.d.ts:85](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L85)
+Defined in: [src/types.d.ts:72](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L72)
 
 ___
 
@@ -75,7 +75,7 @@ ___
 
 • **renew**: = "renew"
 
-Defined in: [src/types.d.ts:91](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L91)
+Defined in: [src/types.d.ts:78](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L78)
 
 ___
 
@@ -83,4 +83,4 @@ ___
 
 • **repair**: = "repair"
 
-Defined in: [src/types.d.ts:90](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L90)
+Defined in: [src/types.d.ts:77](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L77)

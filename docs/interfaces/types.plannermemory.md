@@ -21,7 +21,7 @@
 
 • **costMatrix**: *undefined* \| *number*[]
 
-Defined in: [src/types.d.ts:150](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L150)
+Defined in: [src/types.d.ts:145](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L145)
 
 ___
 
@@ -29,4 +29,4 @@ ___
 
 • **plan**: [*PlannerPlan*](../modules/types.md#plannerplan)
 
-Defined in: [src/types.d.ts:151](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L151)
+Defined in: [src/types.d.ts:146](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L146)

@@ -20,4 +20,4 @@
 
 • **pos**: [*PlannerCoord*](types.plannercoord.md)[]
 
-Defined in: [src/types.d.ts:159](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L159)
+Defined in: [src/types.d.ts:154](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L154)

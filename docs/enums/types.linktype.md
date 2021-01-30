@@ -19,7 +19,7 @@
 
 • **controller**: = "controller"
 
-Defined in: [src/types.d.ts:186](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L186)
+Defined in: [src/types.d.ts:181](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L181)
 
 ___
 
@@ -27,7 +27,7 @@ ___
 
 • **source**: = "source"
 
-Defined in: [src/types.d.ts:187](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L187)
+Defined in: [src/types.d.ts:182](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L182)
 
 ___
 
@@ -35,7 +35,7 @@ ___
 
 • **spawn**: = "spawn"
 
-Defined in: [src/types.d.ts:185](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L185)
+Defined in: [src/types.d.ts:180](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L180)
 
 ___
 
@@ -43,4 +43,4 @@ ___
 
 • **unknown**: = "unknown"
 
-Defined in: [src/types.d.ts:188](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L188)
+Defined in: [src/types.d.ts:183](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L183)

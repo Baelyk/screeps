@@ -34,7 +34,7 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:330](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L330)
+Defined in: [src/actions.ts:330](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L330)
 
 ___
 
@@ -55,7 +55,7 @@ Name | Type | Default value | Description |
 
 True if depositing, false if not depositing and not upgrading
 
-Defined in: [src/actions.ts:160](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L160)
+Defined in: [src/actions.ts:160](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L160)
 
 ___
 
@@ -74,7 +74,7 @@ Name | Type | Description |
 
 **Returns:** ScreepsReturnCode
 
-Defined in: [src/actions.ts:72](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L72)
+Defined in: [src/actions.ts:72](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L72)
 
 ___
 
@@ -93,7 +93,7 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:13](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L13)
+Defined in: [src/actions.ts:13](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L13)
 
 ___
 
@@ -110,7 +110,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:405](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L405)
+Defined in: [src/actions.ts:405](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L405)
 
 ___
 
@@ -127,7 +127,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:396](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L396)
+Defined in: [src/actions.ts:396](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L396)
 
 ___
 
@@ -149,7 +149,7 @@ Name | Type | Default value | Description |
 The response code to the action take or ERR_NOT_FOUND if no valid
   tombs/piles were found
 
-Defined in: [src/actions.ts:430](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L430)
+Defined in: [src/actions.ts:430](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L430)
 
 ___
 
@@ -168,7 +168,7 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:364](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L364)
+Defined in: [src/actions.ts:364](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L364)
 
 ___
 
@@ -187,7 +187,7 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:247](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L247)
+Defined in: [src/actions.ts:247](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L247)
 
 ___
 
@@ -205,4 +205,4 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/actions.ts:306](https://github.com/Baelyk/screeps/blob/9bfed96/src/actions.ts#L306)
+Defined in: [src/actions.ts:306](https://github.com/Baelyk/screeps/blob/c7b9358/src/actions.ts#L306)

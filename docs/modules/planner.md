@@ -30,7 +30,7 @@ Name | Type | Default value |
 
 **Returns:** *boolean*
 
-Defined in: [src/planner.ts:931](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L931)
+Defined in: [src/planner.ts:931](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L931)
 
 ___
 
@@ -46,7 +46,7 @@ Name | Type |
 
 **Returns:** [RoomPosition[], RoomPosition[]]
 
-Defined in: [src/planner.ts:11](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L11)
+Defined in: [src/planner.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L11)
 
 ___
 
@@ -62,7 +62,7 @@ Name | Type |
 
 **Returns:** RoomPosition[]
 
-Defined in: [src/planner.ts:561](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L561)
+Defined in: [src/planner.ts:561](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L561)
 
 ___
 
@@ -83,7 +83,7 @@ Name | Type |
 
 An array of the RoomPositions
 
-Defined in: [src/planner.ts:405](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L405)
+Defined in: [src/planner.ts:405](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L405)
 
 ___
 
@@ -99,7 +99,7 @@ Name | Type |
 
 **Returns:** *boolean*
 
-Defined in: [src/planner.ts:824](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L824)
+Defined in: [src/planner.ts:824](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L824)
 
 ___
 
@@ -115,7 +115,7 @@ Name | Type |
 
 **Returns:** RoomPosition[]
 
-Defined in: [src/planner.ts:664](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L664)
+Defined in: [src/planner.ts:664](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L664)
 
 ___
 
@@ -131,7 +131,7 @@ Name | Type |
 
 **Returns:** RoomPosition[]
 
-Defined in: [src/planner.ts:637](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L637)
+Defined in: [src/planner.ts:637](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L637)
 
 ___
 
@@ -151,4 +151,4 @@ Name | Type | Description |
 
 The RoomPositions to build the towers, in order
 
-Defined in: [src/planner.ts:268](https://github.com/Baelyk/screeps/blob/9bfed96/src/planner.ts#L268)
+Defined in: [src/planner.ts:268](https://github.com/Baelyk/screeps/blob/c7b9358/src/planner.ts#L268)

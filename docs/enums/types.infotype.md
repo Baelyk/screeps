@@ -20,7 +20,7 @@
 
 • **build**: = "build"
 
-Defined in: [src/types.d.ts:116](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L116)
+Defined in: [src/types.d.ts:103](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L103)
 
 ___
 
@@ -28,7 +28,7 @@ ___
 
 • **general**: = "general"
 
-Defined in: [src/types.d.ts:112](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L112)
+Defined in: [src/types.d.ts:99](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L99)
 
 ___
 
@@ -36,7 +36,7 @@ ___
 
 • **idleCreep**: = "idleCreep"
 
-Defined in: [src/types.d.ts:115](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L115)
+Defined in: [src/types.d.ts:102](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L102)
 
 ___
 
@@ -44,7 +44,7 @@ ___
 
 • **spawn**: = "spawn"
 
-Defined in: [src/types.d.ts:113](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L113)
+Defined in: [src/types.d.ts:100](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L100)
 
 ___
 
@@ -52,4 +52,4 @@ ___
 
 • **task**: = "task"
 
-Defined in: [src/types.d.ts:114](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L114)
+Defined in: [src/types.d.ts:101](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L101)

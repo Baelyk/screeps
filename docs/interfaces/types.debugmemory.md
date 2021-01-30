@@ -30,7 +30,7 @@
 
 • `Optional` **disableMiners**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:30](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L30)
+Defined in: [src/types.d.ts:17](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L17)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 • `Optional` **energyHarvested**: *undefined* \| [*DebugEnergyHarvested*](types.debugenergyharvested.md)
 
-Defined in: [src/types.d.ts:41](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L41)
+Defined in: [src/types.d.ts:28](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L28)
 
 ___
 
@@ -46,7 +46,7 @@ ___
 
 • `Optional` **executePlan**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:39](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L39)
+Defined in: [src/types.d.ts:26](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L26)
 
 ___
 
@@ -54,7 +54,7 @@ ___
 
 • `Optional` **harvestStats**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:40](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L40)
+Defined in: [src/types.d.ts:27](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L27)
 
 ___
 
@@ -62,7 +62,7 @@ ___
 
 • **log**: [*LogSettings*](types.logsettings.md)
 
-Defined in: [src/types.d.ts:33](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L33)
+Defined in: [src/types.d.ts:20](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L20)
 
 ___
 
@@ -70,7 +70,7 @@ ___
 
 • `Optional` **resetExtensions**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:34](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L34)
+Defined in: [src/types.d.ts:21](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L21)
 
 ___
 
@@ -78,7 +78,7 @@ ___
 
 • `Optional` **resetPlanner**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:38](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L38)
+Defined in: [src/types.d.ts:25](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L25)
 
 ___
 
@@ -86,7 +86,7 @@ ___
 
 • `Optional` **resetPopLimits**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:36](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L36)
+Defined in: [src/types.d.ts:23](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L23)
 
 ___
 
@@ -94,7 +94,7 @@ ___
 
 • `Optional` **resetRoomMemory**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:35](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L35)
+Defined in: [src/types.d.ts:22](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L22)
 
 ___
 
@@ -104,7 +104,7 @@ ___
 
 Whether creeps should `.say()` their task
 
-Defined in: [src/types.d.ts:32](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L32)
+Defined in: [src/types.d.ts:19](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L19)
 
 ___
 
@@ -112,4 +112,4 @@ ___
 
 • `Optional` **testWallPlanner**: *undefined* \| *boolean*
 
-Defined in: [src/types.d.ts:37](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L37)
+Defined in: [src/types.d.ts:24](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L24)

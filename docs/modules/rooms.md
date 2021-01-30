@@ -6,32 +6,16 @@
 
 ### Functions
 
-- [getLinksInRoom](rooms.md#getlinksinroom)
 - [getNextTombInRoom](rooms.md#getnexttombinroom)
 - [getRoomAvailableEnergy](rooms.md#getroomavailableenergy)
 - [getSourcesInRoom](rooms.md#getsourcesinroom)
 - [getTowersInRoom](rooms.md#gettowersinroom)
 - [initRoom](rooms.md#initroom)
 - [resetRoomLinksMemory](rooms.md#resetroomlinksmemory)
+- [roomManager](rooms.md#roommanager)
 - [updateRoomMemory](rooms.md#updateroommemory)
 
 ## Functions
-
-### getLinksInRoom
-
-▸ **getLinksInRoom**(`room`: Room): *Record*<*string*, StructureLink\>
-
-#### Parameters:
-
-Name | Type |
------- | ------ |
-`room` | Room |
-
-**Returns:** *Record*<*string*, StructureLink\>
-
-Defined in: [src/rooms.ts:117](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L117)
-
-___
 
 ### getNextTombInRoom
 
@@ -49,7 +33,7 @@ Name | Type | Description |
 
 The tombstone, or undefined if the no valid tombstone was found
 
-Defined in: [src/rooms.ts:79](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L79)
+Defined in: [src/rooms.ts:90](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L90)
 
 ___
 
@@ -65,7 +49,7 @@ Name | Type |
 
 **Returns:** *number* \| *undefined*
 
-Defined in: [src/rooms.ts:104](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L104)
+Defined in: [src/rooms.ts:115](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L115)
 
 ___
 
@@ -85,7 +69,7 @@ Name | Type | Description |
 
 A string[] of source ids, possibly empty if none were found
 
-Defined in: [src/rooms.ts:62](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L62)
+Defined in: [src/rooms.ts:73](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L73)
 
 ___
 
@@ -105,7 +89,7 @@ Name | Type | Description |
 
 A string[] of tower ids, possibly empty if none were found
 
-Defined in: [src/rooms.ts:49](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L49)
+Defined in: [src/rooms.ts:60](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L60)
 
 ___
 
@@ -121,7 +105,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/rooms.ts:5](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L5)
+Defined in: [src/rooms.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L9)
 
 ___
 
@@ -141,7 +125,17 @@ Name | Type | Description |
 
 A string[] of link ids, possibly empty if none were found
 
-Defined in: [src/rooms.ts:136](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L136)
+Defined in: [src/rooms.ts:134](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L134)
+
+___
+
+### roomManager
+
+▸ **roomManager**(): *void*
+
+**Returns:** *void*
+
+Defined in: [src/rooms.ts:156](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L156)
 
 ___
 
@@ -157,4 +151,4 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/rooms.ts:11](https://github.com/Baelyk/screeps/blob/9bfed96/src/rooms.ts#L11)
+Defined in: [src/rooms.ts:15](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L15)

@@ -16,4 +16,4 @@
 
 **Returns:** *void*
 
-Defined in: [src/main.ts:17](https://github.com/Baelyk/screeps/blob/9bfed96/src/main.ts#L17)
+Defined in: [src/main.ts:13](https://github.com/Baelyk/screeps/blob/c7b9358/src/main.ts#L13)

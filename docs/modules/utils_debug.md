@@ -8,6 +8,7 @@
 
 - [debugEnergyHarvested](utils_debug.md#debugenergyharvested)
 - [debugLoop](utils_debug.md#debugloop)
+- [debugPostLoop](utils_debug.md#debugpostloop)
 
 ## Functions
 
@@ -17,7 +18,7 @@
 
 **Returns:** *void*
 
-Defined in: [src/utils/debug.ts:104](https://github.com/Baelyk/screeps/blob/9bfed96/src/utils/debug.ts#L104)
+Defined in: [src/utils/debug.ts:98](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/debug.ts#L98)
 
 ___
 
@@ -27,4 +28,14 @@ ___
 
 **Returns:** *void*
 
-Defined in: [src/utils/debug.ts:11](https://github.com/Baelyk/screeps/blob/9bfed96/src/utils/debug.ts#L11)
+Defined in: [src/utils/debug.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/debug.ts#L11)
+
+___
+
+### debugPostLoop
+
+▸ **debugPostLoop**(): *void*
+
+**Returns:** *void*
+
+Defined in: [src/utils/debug.ts:121](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/debug.ts#L121)

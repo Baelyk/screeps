@@ -24,4 +24,4 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/population.ts:13](https://github.com/Baelyk/screeps/blob/9bfed96/src/population.ts#L13)
+Defined in: [src/population.ts:12](https://github.com/Baelyk/screeps/blob/c7b9358/src/population.ts#L12)

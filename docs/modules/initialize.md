@@ -16,4 +16,4 @@
 
 **Returns:** *void*
 
-Defined in: [src/initialize.ts:8](https://github.com/Baelyk/screeps/blob/9bfed96/src/initialize.ts#L8)
+Defined in: [src/initialize.ts:8](https://github.com/Baelyk/screeps/blob/c7b9358/src/initialize.ts#L8)

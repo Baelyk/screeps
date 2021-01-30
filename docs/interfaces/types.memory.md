@@ -12,31 +12,17 @@
 
 ### Properties
 
-- [constructionQueue](types.memory.md#constructionqueue)
 - [creeps](types.memory.md#creeps)
 - [debug](types.memory.md#debug)
 - [flags](types.memory.md#flags)
 - [initialSpawn](types.memory.md#initialspawn)
-- [populationLimit](types.memory.md#populationlimit)
 - [powerCreeps](types.memory.md#powercreeps)
-- [repairQueue](types.memory.md#repairqueue)
 - [rooms](types.memory.md#rooms)
 - [spawns](types.memory.md#spawns)
-- [status](types.memory.md#status)
 - [uninitialized](types.memory.md#uninitialized)
 - [watch](types.memory.md#watch)
 
 ## Properties
-
-### constructionQueue
-
-• **constructionQueue**: [*ConstructionQueue*](../modules/types.md#constructionqueue)
-
-The construction queue: an array of ConstructionSite positions
-
-Defined in: [src/types.d.ts:11](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L11)
-
-___
 
 ### creeps
 
@@ -50,7 +36,7 @@ ___
 
 • **debug**: [*DebugMemory*](types.debugmemory.md)
 
-Defined in: [src/types.d.ts:18](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L18)
+Defined in: [src/types.d.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L11)
 
 ___
 
@@ -70,15 +56,7 @@ The name of the spawn to use when Initializing.
 
 E.g., Game.spawns[Memory.initialSpawn]
 
-Defined in: [src/types.d.ts:9](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L9)
-
-___
-
-### populationLimit
-
-• **populationLimit**: [*MemoryPopulationLimit*](../modules/types.md#memorypopulationlimit)
-
-Defined in: [src/types.d.ts:19](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L19)
+Defined in: [src/types.d.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L9)
 
 ___
 
@@ -87,17 +65,6 @@ ___
 • **powerCreeps**: { [name: string]: PowerCreepMemory;  }
 
 Defined in: node_modules/@types/screeps/index.d.ts:3197
-
-___
-
-### repairQueue
-
-• **repairQueue**: [*RepairQueue*](../modules/types.md#repairqueue)
-
-The repair queue: an array of Structure ids that need repairs, sorted by
-least hits to most
-
-Defined in: [src/types.d.ts:16](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L16)
 
 ___
 
@@ -117,21 +84,13 @@ Defined in: node_modules/@types/screeps/index.d.ts:3200
 
 ___
 
-### status
-
-• **status**: [*StatusMemory*](types.statusmemory.md)
-
-Defined in: [src/types.d.ts:20](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L20)
-
-___
-
 ### uninitialized
 
 • **uninitialized**: *boolean*
 
 Whether the colony needs to be initialized
 
-Defined in: [src/types.d.ts:3](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L3)
+Defined in: [src/types.d.ts:3](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L3)
 
 ___
 
@@ -139,4 +98,4 @@ ___
 
 • **watch**: [*ScreepsMultimeterWatch*](types.screepsmultimeterwatch.md)
 
-Defined in: [src/types.d.ts:17](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L17)
+Defined in: [src/types.d.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L10)

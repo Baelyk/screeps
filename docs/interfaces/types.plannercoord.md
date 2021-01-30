@@ -21,7 +21,7 @@
 
 • **x**: *number*
 
-Defined in: [src/types.d.ts:163](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L163)
+Defined in: [src/types.d.ts:158](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L158)
 
 ___
 
@@ -29,4 +29,4 @@ ___
 
 • **y**: *number*
 
-Defined in: [src/types.d.ts:164](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L164)
+Defined in: [src/types.d.ts:159](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L159)

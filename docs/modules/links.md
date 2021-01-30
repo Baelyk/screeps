@@ -24,23 +24,23 @@ Name | Type |
 
 **Returns:** *boolean*
 
-Defined in: [src/links.ts:158](https://github.com/Baelyk/screeps/blob/9bfed96/src/links.ts#L158)
+Defined in: [src/links.ts:163](https://github.com/Baelyk/screeps/blob/c7b9358/src/links.ts#L163)
 
 ___
 
 ### linkManager
 
-▸ **linkManager**(`link`: StructureLink): *void*
+▸ **linkManager**(`room`: Room): *void*
 
 #### Parameters:
 
 Name | Type |
 ------ | ------ |
-`link` | StructureLink |
+`room` | Room |
 
 **Returns:** *void*
 
-Defined in: [src/links.ts:33](https://github.com/Baelyk/screeps/blob/9bfed96/src/links.ts#L33)
+Defined in: [src/links.ts:180](https://github.com/Baelyk/screeps/blob/c7b9358/src/links.ts#L180)
 
 ___
 
@@ -56,4 +56,4 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/links.ts:6](https://github.com/Baelyk/screeps/blob/9bfed96/src/links.ts#L6)
+Defined in: [src/links.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/links.ts#L11)

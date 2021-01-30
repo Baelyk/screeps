@@ -20,4 +20,4 @@
 
 • **target**: *undefined* \| *string*
 
-Defined in: [src/types.d.ts:133](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L133)
+Defined in: [src/types.d.ts:120](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L120)

@@ -7,6 +7,7 @@
 ### Functions
 
 - [buildTower](towers.md#buildtower)
+- [towerBehavior](towers.md#towerbehavior)
 - [towerManager](towers.md#towermanager)
 
 ## Functions
@@ -23,13 +24,13 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/towers.ts:85](https://github.com/Baelyk/screeps/blob/9bfed96/src/towers.ts#L85)
+Defined in: [src/towers.ts:89](https://github.com/Baelyk/screeps/blob/c7b9358/src/towers.ts#L89)
 
 ___
 
-### towerManager
+### towerBehavior
 
-▸ **towerManager**(`tower`: StructureTower): *void*
+▸ **towerBehavior**(`tower`: StructureTower): *void*
 
 #### Parameters:
 
@@ -39,4 +40,20 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/towers.ts:11](https://github.com/Baelyk/screeps/blob/9bfed96/src/towers.ts#L11)
+Defined in: [src/towers.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/towers.ts#L11)
+
+___
+
+### towerManager
+
+▸ **towerManager**(`room`: Room): *void*
+
+#### Parameters:
+
+Name | Type |
+------ | ------ |
+`room` | Room |
+
+**Returns:** *void*
+
+Defined in: [src/towers.ts:208](https://github.com/Baelyk/screeps/blob/c7b9358/src/towers.ts#L208)

@@ -49,7 +49,7 @@ Name | Type |
 
 Inherited from: [CreepRoleMemoryError](utils_errors.creeprolememoryerror.md)
 
-Defined in: [src/utils/errors.ts:107](https://github.com/Baelyk/screeps/blob/9bfed96/src/utils/errors.ts#L107)
+Defined in: [src/utils/errors.ts:107](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L107)
 
 ## Properties
 
@@ -59,7 +59,7 @@ Defined in: [src/utils/errors.ts:107](https://github.com/Baelyk/screeps/blob/9bf
 
 Inherited from: [CreepRoleMemoryError](utils_errors.creeprolememoryerror.md).[displayName](utils_errors.creeprolememoryerror.md#displayname)
 
-Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/9bfed96/src/utils/errors.ts#L10)
+Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L10)
 
 ___
 
@@ -123,7 +123,7 @@ ___
 
 Inherited from: [CreepRoleMemoryError](utils_errors.creeprolememoryerror.md).[type](utils_errors.creeprolememoryerror.md#type)
 
-Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/9bfed96/src/utils/errors.ts#L9)
+Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L9)
 
 ## Methods
 
@@ -156,4 +156,4 @@ ___
 
 Inherited from: [CreepRoleMemoryError](utils_errors.creeprolememoryerror.md)
 
-Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/9bfed96/src/utils/errors.ts#L20)
+Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L20)

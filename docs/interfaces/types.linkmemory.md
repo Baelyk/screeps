@@ -21,7 +21,7 @@
 
 • **mode**: [*LinkMode*](../enums/types.linkmode.md)
 
-Defined in: [src/types.d.ts:174](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L174)
+Defined in: [src/types.d.ts:169](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L169)
 
 ___
 
@@ -29,4 +29,4 @@ ___
 
 • **type**: [*LinkType*](../enums/types.linktype.md)
 
-Defined in: [src/types.d.ts:175](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L175)
+Defined in: [src/types.d.ts:170](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L170)

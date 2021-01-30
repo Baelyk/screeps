@@ -21,7 +21,7 @@
 
 • **extensionSpots**: *undefined* \| RoomPosition[]
 
-Defined in: [src/types.d.ts:128](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L128)
+Defined in: [src/types.d.ts:115](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L115)
 
 ___
 
@@ -29,4 +29,4 @@ ___
 
 • **extensions**: *undefined* \| RoomPosition[]
 
-Defined in: [src/types.d.ts:127](https://github.com/Baelyk/screeps/blob/9bfed96/src/types.d.ts#L127)
+Defined in: [src/types.d.ts:114](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L114)

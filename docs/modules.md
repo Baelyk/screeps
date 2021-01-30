@@ -21,6 +21,7 @@
 - [utils/ErrorMapper](modules/utils_errormapper.md)
 - [utils/debug](modules/utils_debug.md)
 - [utils/errors](modules/utils_errors.md)
+- [utils/helpers](modules/utils_helpers.md)
 - [utils/logger](modules/utils_logger.md)
 - [utils/utilities](modules/utils_utilities.md)
 - [utils/watch-client](modules/utils_watch_client.md)

@@ -15,7 +15,6 @@
 - [getSurroundingTiles](construct.md#getsurroundingtiles)
 - [initConstruction](construct.md#initconstruction)
 - [queueLength](construct.md#queuelength)
-- [repairQueueLength](construct.md#repairqueuelength)
 - [resetRepairQueue](construct.md#resetrepairqueue)
 - [surroundingTilesAreEmpty](construct.md#surroundingtilesareempty)
 - [unassignConstruction](construct.md#unassignconstruction)
@@ -40,7 +39,7 @@ Name | Type | Description |
 
 Returns true if the construction site was successfully created
 
-Defined in: [src/construct.ts:79](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L79)
+Defined in: [src/construct.ts:53](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L53)
 
 ___
 
@@ -58,7 +57,7 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/construct.ts:51](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L51)
+Defined in: [src/construct.ts:25](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L25)
 
 ___
 
@@ -74,7 +73,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/construct.ts:352](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L352)
+Defined in: [src/construct.ts:315](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L315)
 
 ___
 
@@ -91,34 +90,46 @@ Name | Type |
 
 **Returns:** *boolean*
 
-Defined in: [src/construct.ts:342](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L342)
+Defined in: [src/construct.ts:305](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L305)
 
 ___
 
 ### fromQueue
 
-▸ **fromQueue**(): *string* \| *undefined*
+▸ **fromQueue**(`room`: Room): *string* \| *undefined*
 
 Gets and removes the first construction site from the queue
+
+#### Parameters:
+
+Name | Type |
+------ | ------ |
+`room` | Room |
 
 **Returns:** *string* \| *undefined*
 
 The id of the construction site if the queue is not empty
 
-Defined in: [src/construct.ts:137](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L137)
+Defined in: [src/construct.ts:110](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L110)
 
 ___
 
 ### fromRepairQueue
 
-▸ **fromRepairQueue**(): *Id*<Structure\> \| *undefined*
+▸ **fromRepairQueue**(`room`: Room): *Id*<Structure\> \| *undefined*
 
 Return a structure id from the repair queue. If there are none in the queue
 that aren't full hits, returns undefined.
 
+#### Parameters:
+
+Name | Type |
+------ | ------ |
+`room` | Room |
+
 **Returns:** *Id*<Structure\> \| *undefined*
 
-Defined in: [src/construct.ts:285](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L285)
+Defined in: [src/construct.ts:257](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L257)
 
 ___
 
@@ -135,7 +146,7 @@ Name | Type | Default value |
 
 **Returns:** RoomPosition[]
 
-Defined in: [src/construct.ts:214](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L214)
+Defined in: [src/construct.ts:187](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L187)
 
 ___
 
@@ -153,35 +164,27 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/construct.ts:14](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L14)
+Defined in: [src/construct.ts:14](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L14)
 
 ___
 
 ### queueLength
 
-▸ **queueLength**(): *number*
+▸ **queueLength**(`room`: Room): *number*
 
 Gets the length of the construction queue
+
+#### Parameters:
+
+Name | Type |
+------ | ------ |
+`room` | Room |
 
 **Returns:** *number*
 
 The length of the construction queue
 
-Defined in: [src/construct.ts:163](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L163)
-
-___
-
-### repairQueueLength
-
-▸ **repairQueueLength**(): *number*
-
-Gets the length of the construction queue
-
-**Returns:** *number*
-
-The length of the construction queue
-
-Defined in: [src/construct.ts:338](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L338)
+Defined in: [src/construct.ts:136](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L136)
 
 ___
 
@@ -197,7 +200,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/construct.ts:269](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L269)
+Defined in: [src/construct.ts:246](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L246)
 
 ___
 
@@ -214,7 +217,7 @@ Name | Type |
 
 **Returns:** *boolean*
 
-Defined in: [src/construct.ts:299](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L299)
+Defined in: [src/construct.ts:271](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L271)
 
 ___
 
@@ -230,7 +233,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/construct.ts:227](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L227)
+Defined in: [src/construct.ts:200](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L200)
 
 ___
 
@@ -246,4 +249,4 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/construct.ts:374](https://github.com/Baelyk/screeps/blob/9bfed96/src/construct.ts#L374)
+Defined in: [src/construct.ts:337](https://github.com/Baelyk/screeps/blob/c7b9358/src/construct.ts#L337)

@@ -32,7 +32,7 @@ Name | Type | Description |
 
 An array of BodyPartConstants representing the creep's body
 
-Defined in: [src/spawns.ts:199](https://github.com/Baelyk/screeps/blob/9bfed96/src/spawns.ts#L199)
+Defined in: [src/spawns.ts:200](https://github.com/Baelyk/screeps/blob/c7b9358/src/spawns.ts#L200)
 
 ___
 
@@ -48,7 +48,7 @@ Name | Type |
 
 **Returns:** *number*
 
-Defined in: [src/spawns.ts:364](https://github.com/Baelyk/screeps/blob/9bfed96/src/spawns.ts#L364)
+Defined in: [src/spawns.ts:368](https://github.com/Baelyk/screeps/blob/c7b9358/src/spawns.ts#L368)
 
 ___
 
@@ -64,7 +64,7 @@ Name | Type |
 
 **Returns:** *number*
 
-Defined in: [src/spawns.ts:342](https://github.com/Baelyk/screeps/blob/9bfed96/src/spawns.ts#L342)
+Defined in: [src/spawns.ts:346](https://github.com/Baelyk/screeps/blob/c7b9358/src/spawns.ts#L346)
 
 ___
 
@@ -80,7 +80,7 @@ Name | Type |
 
 **Returns:** *number*
 
-Defined in: [src/spawns.ts:356](https://github.com/Baelyk/screeps/blob/9bfed96/src/spawns.ts#L356)
+Defined in: [src/spawns.ts:360](https://github.com/Baelyk/screeps/blob/c7b9358/src/spawns.ts#L360)
 
 ___
 
@@ -96,22 +96,14 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/spawns.ts:368](https://github.com/Baelyk/screeps/blob/9bfed96/src/spawns.ts#L368)
+Defined in: [src/spawns.ts:372](https://github.com/Baelyk/screeps/blob/c7b9358/src/spawns.ts#L372)
 
 ___
 
 ### spawnManager
 
-▸ **spawnManager**(`spawn`: StructureSpawn): *void*
-
-Process spawn behavior
-
-#### Parameters:
-
-Name | Type | Description |
------- | ------ | ------ |
-`spawn` | StructureSpawn | The spawn to process    |
+▸ **spawnManager**(): *void*
 
 **Returns:** *void*
 
-Defined in: [src/spawns.ts:19](https://github.com/Baelyk/screeps/blob/9bfed96/src/spawns.ts#L19)
+Defined in: [src/spawns.ts:395](https://github.com/Baelyk/screeps/blob/c7b9358/src/spawns.ts#L395)
