@@ -1,6 +1,10 @@
 import { info, warn } from "utils/logger";
-import { isControllerLink, resetLinkMemory } from "links";
-import { GetByIdError } from "utils/errors";
+import { isControllerLink, resetLinkMemory, linkManager } from "links";
+import { GetByIdError, wrapper } from "utils/errors";
+import { towerManager } from "towers";
+import { executePlan } from "planner";
+import { census } from "population";
+import { updateWallRepair, resetRepairQueue } from "construct";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
@@ -38,6 +42,13 @@ export function updateRoomMemory(room: Room): void {
     all: {},
   };
   resetRoomLinksMemory(room);
+  // Reset build and repair queues
+  room.memory.constructionQueue = [];
+  room.memory.repairQueue = [];
+  resetRepairQueue(room);
+  // Update population limits
+  room.memory.populationLimit = {};
+  census(room);
 }
 
 /**
@@ -114,19 +125,6 @@ export function getRoomAvailableEnergy(room: Room): number | undefined {
   return storage.store.getUsedCapacity(RESOURCE_ENERGY);
 }
 
-export function getLinksInRoom(room: Room): Record<string, StructureLink> {
-  const links: Record<string, StructureLink> = {};
-  for (const linkId in room.memory.links.all) {
-    const link = Game.getObjectById(linkId as Id<StructureLink>);
-    if (link != undefined) {
-      links[linkId] = link;
-    } else {
-      throw new GetByIdError(linkId, STRUCTURE_LINK);
-    }
-  }
-  return links;
-}
-
 /**
  * Get the ids of the links in the room.
  *
@@ -153,4 +151,62 @@ export function resetRoomLinksMemory(room: Room): void {
         room.memory.links.controller = link.id;
       }
     });
+}
+
+export function roomManager(): void {
+  for (const roomName in Game.rooms) {
+    const room = Game.rooms[roomName];
+    wrapper(
+      () => roomBehavior(room),
+      `Error processing behavior for room ${roomName}`,
+    );
+  }
+}
+
+function roomBehavior(room: Room): void {
+  if (room.memory.level >= 3) {
+    // Process tower behavior
+    wrapper(
+      () => towerManager(room),
+      `Error managing links for room ${room.name}`,
+    );
+  }
+
+  if (room.memory.level >= 4) {
+    // Process link behavior
+    wrapper(
+      () => linkManager(room),
+      `Error managing links for room ${room.name}`,
+    );
+  }
+
+  // Infrequent actions:
+  wrapper(
+    () => infrequentRoomActions(room),
+    `Error during infrequent room actions for room ${room.name}`,
+  );
+}
+
+function infrequentRoomActions(room: Room) {
+  if (Game.time % 100 === 0) {
+    const controller = room.controller;
+    // If there isn't a controller in this room, this isn't a room that needs
+    // these infrequent actions
+    if (controller == undefined) {
+      return;
+    }
+
+    // TODO: This will not work with multiple rooms, despite the way I've made it
+    // Update repair queue and pop limits every 100 ticks
+    resetRepairQueue(room);
+    updateWallRepair(room);
+    census(room);
+
+    // If the controller has leveled up, level up the room
+    if (controller.level !== room.memory.level) {
+      room.memory.level = controller.level;
+      info(`Updating room memory level to ${room.memory.level}`);
+      executePlan(room);
+    }
+  }
 }

@@ -46,8 +46,6 @@ function resetMemory(): void {
   warn("Reseting memory");
   Memory.uninitialized = true;
   Memory.initialSpawn = "Spawn1";
-  Memory.constructionQueue = [];
-  Memory.repairQueue = [];
   Memory.watch = {};
   Memory.debug = {
     log: {
@@ -60,10 +58,6 @@ function resetMemory(): void {
       },
     },
   };
-  Memory.populationLimit = {
-    builder: 1,
-  };
-  Memory.status = {};
 }
 
 function resetExtensionSpots(): void {
@@ -122,4 +116,15 @@ export function debugEnergyHarvested(): void {
   // Note about statistics:
   // Sources have 3000 energy and regenerate every 300 ticks. Therefore, I want
   // to harvest as close to 10 energy / tick / source as possible.
+}
+
+export function debugPostLoop(): void {
+  // Debug testing for energy harvested
+  debugEnergyHarvested();
+
+  // Warn if more than 5 CPU used during this tick
+  const cpuUsed = Game.cpu.getUsed();
+  if (cpuUsed >= 5) {
+    warn(`Used ${cpuUsed} cpu`);
+  }
 }

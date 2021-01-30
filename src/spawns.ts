@@ -1,28 +1,26 @@
-import { nameCreep, countRole } from "creeps";
+import { nameCreep, countRole } from "utils/helpers";
 import { errorConstant, stringifyBody, info, warn } from "utils/logger";
-import {
-  buildRoad,
-  buildStructure,
-  getSurroundingTiles,
-  queueLength,
-  repairQueueLength,
-} from "construct";
+import { buildRoad, buildStructure, getSurroundingTiles } from "construct";
 import { getExtensionSpots, getExtensionRoadSpots } from "planner";
-import { getRoomAvailableEnergy } from "rooms";
-import { GetPositionError, ScriptError, SpawnMemoryError } from "utils/errors";
+import {
+  GetPositionError,
+  ScriptError,
+  SpawnMemoryError,
+  wrapper,
+} from "utils/errors";
 
 /**
  * Process spawn behavior
  *
  * @param spawn The spawn to process
  */
-export function spawnManager(spawn: StructureSpawn): void {
+function spawnBehavior(spawn: StructureSpawn): void {
   // Currently no spawn queue, so we can only queue one creep per tick
   let allowSpawn = true;
 
   // Spawn harvester creeps
-  const maxHarvesters = Memory.populationLimit.harvester || 0;
-  const harvestersCount = countRole(CreepRole.harvester);
+  const maxHarvesters = spawn.room.memory.populationLimit.harvester || 0;
+  const harvestersCount = countRole(spawn.room, CreepRole.harvester);
   // Also, if there are no creeps, emergency spawn a harvester
   if (
     harvestersCount < maxHarvesters ||
@@ -45,8 +43,8 @@ export function spawnManager(spawn: StructureSpawn): void {
 
   // Spawn miner creeps
   const sources = spawn.room.find(FIND_SOURCES);
-  const minerCount = countRole(CreepRole.miner);
-  const maxMiners = Memory.populationLimit.miner || 0;
+  const minerCount = countRole(spawn.room, CreepRole.miner);
+  const maxMiners = spawn.room.memory.populationLimit.miner || 0;
   if (minerCount < maxMiners) {
     if (allowSpawn) {
       info(`${spawn.name}     requesting ${CreepRole.miner}`, InfoType.spawn);
@@ -78,8 +76,8 @@ export function spawnManager(spawn: StructureSpawn): void {
   }
 
   // Spawn tender creeps
-  const tenderCount = countRole(CreepRole.tender);
-  const maxTenders = Memory.populationLimit.tender || 0;
+  const tenderCount = countRole(spawn.room, CreepRole.tender);
+  const maxTenders = spawn.room.memory.populationLimit.tender || 0;
   if (tenderCount < maxTenders) {
     if (allowSpawn) {
       info(`${spawn.name}     requesting ${CreepRole.tender}`, InfoType.spawn);
@@ -91,8 +89,8 @@ export function spawnManager(spawn: StructureSpawn): void {
   }
 
   // Spawn hauler creeps
-  const haulerCount = countRole(CreepRole.hauler);
-  const maxHaulers = Memory.populationLimit.hauler || 0;
+  const haulerCount = countRole(spawn.room, CreepRole.hauler);
+  const maxHaulers = spawn.room.memory.populationLimit.hauler || 0;
   if (haulerCount < maxHaulers) {
     if (allowSpawn) {
       info(`${spawn.name}     requesting ${CreepRole.hauler}`, InfoType.spawn);
@@ -116,8 +114,8 @@ export function spawnManager(spawn: StructureSpawn): void {
   }
 
   // Spawn upgrader creeps
-  const maxUpgraders = Memory.populationLimit.upgrader || 0;
-  const upgraderCount = countRole(CreepRole.upgrader);
+  const maxUpgraders = spawn.room.memory.populationLimit.upgrader || 0;
+  const upgraderCount = countRole(spawn.room, CreepRole.upgrader);
   if (upgraderCount < maxUpgraders) {
     if (allowSpawn) {
       info(
@@ -135,8 +133,8 @@ export function spawnManager(spawn: StructureSpawn): void {
   }
 
   // Spawn builder creeps
-  const builderCount = countRole(CreepRole.builder);
-  const maxBuilders = Memory.populationLimit.builder || 0;
+  const builderCount = countRole(spawn.room, CreepRole.builder);
+  const maxBuilders = spawn.room.memory.populationLimit.builder || 0;
   if (builderCount < maxBuilders) {
     if (allowSpawn) {
       info(`${spawn.name}     requesting ${CreepRole.builder}`, InfoType.spawn);
@@ -153,12 +151,15 @@ export function spawnManager(spawn: StructureSpawn): void {
   if (spawn.memory.extensions) {
     extensionCount = spawn.memory.extensions.length;
   }
-  const availableEnergy = getRoomAvailableEnergy(spawn.room);
-  // If available energy is undefined (i.e. no room primary storage) or there is
-  // enough available energy to construct an extension, and there is less than
-  // the max number of extensions.
+
+  const availableEnergy = spawn.room.storage
+    ? spawn.room.storage.store.getUsedCapacity(RESOURCE_ENERGY)
+    : -1;
+  // Build an extension if there is less than the maximum number. However, if
+  // there is a room storage, make sure there is enough energy in it for the
+  // cost of the extension.
   if (
-    (availableEnergy == undefined ||
+    (availableEnergy === -1 ||
       availableEnergy > CONSTRUCTION_COST[STRUCTURE_EXTENSION]) &&
     extensionCount < getMaxExtensions(controller)
   ) {
@@ -291,7 +292,10 @@ function requestExtentions(spawn: StructureSpawn) {
     spawn.memory.extensions = [];
   }
   // Only request an extension when there is nothing in the build/repair queues
-  if (queueLength() === 0 && repairQueueLength() === 0) {
+  if (
+    spawn.room.memory.constructionQueue.length === 0 &&
+    spawn.room.memory.repairQueue.length === 0
+  ) {
     if (spawn.memory.extensionSpots === undefined) {
       throw new SpawnMemoryError(spawn, "extensionSpots");
     }
@@ -386,4 +390,14 @@ export function initSpawn(spawn: StructureSpawn): void {
   spawn.memory.extensionSpots = extensionSpots;
 
   info(`Finished initizalizing spawn ${spawn.name}`);
+}
+
+export function spawnManager(): void {
+  for (const spawnName in Game.spawns) {
+    const spawn = Game.spawns[spawnName];
+    wrapper(
+      () => spawnBehavior(spawn),
+      `Error processing spawn behavior for spawn ${spawn.name}`,
+    );
+  }
 }

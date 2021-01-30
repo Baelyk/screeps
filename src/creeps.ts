@@ -14,7 +14,6 @@ import {
   queueLength,
   unassignConstruction,
   fromRepairQueue,
-  repairQueueLength,
 } from "construct";
 import { error, errorConstant, info, warn } from "utils/logger";
 import { generateBodyByRole, getSpawnCapacity, getSpawnEnergy } from "spawns";
@@ -25,7 +24,9 @@ import {
   GetPositionError,
   InvalidCreepTaskError,
   InvalidCreepRoleError,
+  wrapper,
 } from "utils/errors";
+import { bodyCost, countRole } from "utils/helpers";
 
 /**
  * Behavior for a harvester creep (CreepRole.harvester)
@@ -145,7 +146,7 @@ function builder(creep: Creep) {
         }
         // If the creep is assigned a construction site that no longer exists or
         // doesn't have an assigned construction site, get one from the queue.
-        creep.memory.assignedConstruction = fromQueue();
+        creep.memory.assignedConstruction = fromQueue(creep.room);
         // If a construction site was successfully obtained from the queue,
         // build it.
         if (creep.memory.assignedConstruction != undefined) {
@@ -167,11 +168,17 @@ function builder(creep: Creep) {
         // If the creep has no energy, it should get energy
         switchTaskAndDoRoll(creep, CreepTask.getEnergy);
         return;
-      } else if (creep.memory.assignedConstruction || queueLength() > 0) {
+      } else if (
+        creep.memory.assignedConstruction ||
+        creep.room.memory.constructionQueue.length > 0
+      ) {
         // Build
         switchTaskAndDoRoll(creep, CreepTask.build);
         return;
-      } else if (creep.memory.assignedRepairs || repairQueueLength() > 0) {
+      } else if (
+        creep.memory.assignedRepairs ||
+        creep.room.memory.repairQueue.length > 0
+      ) {
         // Repair
         switchTaskAndDoRoll(creep, CreepTask.repair);
         return;
@@ -185,7 +192,7 @@ function builder(creep: Creep) {
     case CreepTask.repair: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         if (creep.memory.assignedRepairs == undefined) {
-          creep.memory.assignedRepairs = fromRepairQueue();
+          creep.memory.assignedRepairs = fromRepairQueue(creep.room);
           if (creep.memory.assignedRepairs == undefined) {
             // If there is nothing to repair, idle
             info(`No items in the repair queue`, InfoType.general);
@@ -199,7 +206,9 @@ function builder(creep: Creep) {
           repairStructure == undefined ||
           repairStructure.hits === repairStructure.hitsMax
         ) {
-          repairStructure = Game.getObjectById(fromRepairQueue() || "");
+          repairStructure = Game.getObjectById(
+            fromRepairQueue(creep.room) || "",
+          );
           // If we've reached the end of the repairQueue without a valid repair,
           if (repairStructure == undefined) {
             // Delete the creeps assigned repair
@@ -277,7 +286,7 @@ function upgrader(creep: Creep) {
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If hauler creeps exist, upgraders should exclusively upgrade
-        if (countRole(CreepRole.hauler) > 0) {
+        if (countRole(creep.room, CreepRole.hauler) > 0) {
           upgradeController(creep);
         } else {
           depositEnergy(creep);
@@ -437,39 +446,7 @@ function switchTaskAndDoRoll(creep: Creep, task: CreepTask) {
     `Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`,
     InfoType.task,
   );
-  doRole(creep);
-}
-
-/**
- * Count the number of creeps of a certain role
- *
- * @param role The role to count
- * @returns The number of creeps
- */
-export function countRole(role: CreepRole): number {
-  let count = 0;
-  for (const name in Game.creeps) {
-    if (Game.creeps[name].memory.role === role) count++;
-  }
-  return count;
-}
-
-/**
- * Generates a name for the creep based on its memory
- *
- * @param memory The memory of the creep-to-be
- * @returns A name
- */
-export function nameCreep(memory: CreepMemory): string {
-  // Start the name with the creeps role
-  const name = memory.role + "_";
-  // Since there will be multiple creeps per role, a number will be need since names must be unique
-  let number = 0;
-  // While there is a creep with the same name, increment number
-  while (Game.creeps[name + number] !== undefined) {
-    number++;
-  }
-  return name + number;
+  creepBehavior(creep);
 }
 
 function renewCreep(creep: Creep): void {
@@ -515,8 +492,11 @@ function renewCheck(creep: Creep): void {
   }
 
   // If the creep's role is above the population limit, let it die.
-  const roleLimit = Memory.populationLimit[creep.memory.role];
-  if (roleLimit == undefined || roleLimit < countRole(creep.memory.role)) {
+  const roleLimit = creep.room.memory.populationLimit[creep.memory.role];
+  if (
+    roleLimit == undefined ||
+    roleLimit < countRole(creep.room, creep.memory.role)
+  ) {
     // An option here would be to set the creep to not renew, but the limit may
     // change while the creep still has a chance to renew, like in the case of
     // the builder limit increasing due to a change in the construction queue.
@@ -559,7 +539,7 @@ function renewCheck(creep: Creep): void {
  *
  * @param creep The creep
  */
-export function doRole(creep: Creep): void {
+function creepBehavior(creep: Creep): void {
   if (creep.spawning) return;
   if (Memory.debug.sayTask) creep.say(creep.memory.task);
 
@@ -630,44 +610,23 @@ export function handleDead(name: string): void {
   }
 }
 
-export function hasBodyPart(creep: Creep, partType: BodyPartConstant): boolean {
-  const body = creep.body;
-  for (let i = 0; i < body.length; i++) {
-    if (partType === body[i].type) return true;
+export function creepManager() {
+  // Automatically delete memory of missing creeps
+  for (const name in Memory.creeps) {
+    if (!(name in Game.creeps)) {
+      wrapper(() => {
+        handleDead(name);
+        delete Memory.creeps[name];
+      }, `Error handling death of creep ${name}`);
+    }
   }
-  return false;
-}
 
-export function countBodyPart(
-  body: BodyPartDefinition[] | BodyPartConstant[],
-  partType: BodyPartConstant,
-): number {
-  let count = 0;
-  if (body.length === 0) {
-    return 0;
+  // Process creep behavior
+  for (const name in Game.creeps) {
+    const creep = Game.creeps[name];
+    wrapper(
+      () => creepBehavior(creep),
+      `Error processing creep ${name} behavior`,
+    );
   }
-  if (typeof body[0] === "object" && body[0] !== null) {
-    const partList = body as BodyPartDefinition[];
-
-    partList.forEach((part) => {
-      if (part.type === partType) count++;
-    });
-  } else {
-    const partList = body as BodyPartConstant[];
-    partList.forEach((part) => {
-      if (part === partType) count++;
-    });
-  }
-  return count;
-}
-
-export function bodyCost(
-  body: BodyPartDefinition[] | BodyPartConstant[],
-): number {
-  let cost = 0;
-  BODYPARTS_ALL.forEach((partType) => {
-    const count = countBodyPart(body, partType);
-    cost += count * BODYPART_COST[partType];
-  });
-  return cost;
 }

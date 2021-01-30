@@ -1,6 +1,6 @@
 import { fromRepairQueue, getSurroundingTiles } from "construct";
-import { error, errorConstant, warn, info } from "utils/logger";
-import { countBodyPart, countRole } from "creeps";
+import { error, errorConstant, warn } from "utils/logger";
+import { countBodyPart, countRole } from "utils/helpers";
 import { getNextTombInRoom } from "rooms";
 import { CreepMemoryError, ScriptError } from "utils/errors";
 
@@ -111,7 +111,7 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
-      if (countRole(CreepRole.miner) === 0) harvestEnergy(creep);
+      if (countRole(creep.room, CreepRole.miner) === 0) harvestEnergy(creep);
       return ERR_NOT_FOUND;
     }
     const structure = structures[0].structure as
@@ -364,7 +364,7 @@ export function build(creep: Creep, building?: ConstructionSite): void {
 export function repair(creep: Creep, repair?: Structure): void {
   if (repair == undefined) {
     if (creep.memory.assignedRepairs == undefined) {
-      const idToRepair = fromRepairQueue();
+      const idToRepair = fromRepairQueue(creep.room);
       repair =
         (Game.getObjectById(idToRepair || "") as Structure | null) || undefined;
       creep.memory.assignedRepairs = idToRepair;

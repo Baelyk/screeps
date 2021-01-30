@@ -12,35 +12,9 @@ import { GetPositionError, RoomMemoryError, ScriptError } from "utils/errors";
  * @param spawn The initial spawn
  */
 export function initConstruction(spawn: StructureSpawn): void {
+  const room = spawn.room;
   // Initialize an empty construction queue
-  Memory.constructionQueue = [];
-  /*
-  // Construct containers near the sources for miners
-  const containers = constructMinerContainers(spawn.room, 1);
-
-  // Construct a road from the spawn to the mining containers
-  containers.forEach((pos) => {
-    const path = PathFinder.search(spawn.pos, { pos: pos, range: 1 }).path;
-    info(
-      `Source road from ${spawn.pos} to ${pos}: ${JSON.stringify(path)}`,
-      InfoType.build
-    );
-    buildRoad(path);
-  });
-  */
-  // Construct a road from the spawn to the controller
-  const controller = spawn.room.controller;
-  if (controller != null) {
-    const path = PathFinder.search(spawn.pos, { pos: controller.pos, range: 1 })
-      .path;
-    info(
-      `Controller road from ${spawn.pos} to ${controller.pos}: ${JSON.stringify(
-        path,
-      )}`,
-      InfoType.build,
-    );
-    buildRoad(path);
-  }
+  room.memory.constructionQueue = [];
 }
 
 /**
@@ -48,7 +22,7 @@ export function initConstruction(spawn: StructureSpawn): void {
  *
  * @param path An array of `RoomPosition`s
  */
-export function buildRoad(path: RoomPosition[]) {
+export function buildRoad(path: RoomPosition[]): void {
   if (!Array.isArray(path) || path.length === 0) return;
   path.forEach((position) => {
     buildWithoutChecks(position as RoomPosition, STRUCTURE_ROAD);
@@ -80,6 +54,7 @@ export function build(
   position: RoomPosition,
   structureType: BuildableStructureConstant,
 ): boolean {
+  const room = Game.rooms[position.roomName];
   // Attempt to create the construction site
   const response = position.createConstructionSite(structureType);
 
@@ -106,10 +81,7 @@ export function build(
   } else if (response === ERR_RCL_NOT_ENOUGH) {
     warn(
       `build attempted to build ${structureType} with insufficient RCL: ` +
-        `${
-          (Game.rooms[position.roomName].controller as StructureController)
-            .level
-        }`,
+        `${room.memory.level}`,
     );
   } else if (response === OK) {
     // Construction site successfullly created
@@ -126,7 +98,8 @@ export function build(
  *   the construction queue
  */
 function addToQueue(position: RoomPosition) {
-  Memory.constructionQueue.push(position);
+  const room = Game.rooms[position.roomName];
+  room.memory.constructionQueue.push(position);
 }
 
 /**
@@ -134,8 +107,8 @@ function addToQueue(position: RoomPosition) {
  *
  * @returns The id of the construction site if the queue is not empty
  */
-export function fromQueue(): string | undefined {
-  const queueItem = Memory.constructionQueue.shift();
+export function fromQueue(room: Room): string | undefined {
+  const queueItem = room.memory.constructionQueue.shift();
   if (queueItem == undefined) return;
   const position = Game.rooms[queueItem.roomName].getPositionAt(
     queueItem.x,
@@ -160,8 +133,8 @@ export function fromQueue(): string | undefined {
  *
  * @returns The length of the construction queue
  */
-export function queueLength(): number {
-  return Memory.constructionQueue.length;
+export function queueLength(room: Room): number {
+  return room.memory.constructionQueue.length;
 }
 
 /**
@@ -224,13 +197,17 @@ export function getSurroundingTiles(
   });
 }
 
-export function unassignConstruction(name: string) {
+export function unassignConstruction(name: string): void {
   const memory = Memory.creeps[name];
   const site = Game.getObjectById(
     memory.assignedConstruction || "",
   ) as ConstructionSite | null;
   if (site != undefined) {
-    Memory.constructionQueue.unshift(site.pos);
+    const room = site.room;
+    if (room == undefined) {
+      throw new ScriptError(`Unable to obtain room of ${site.id} to requeue`);
+    }
+    room.memory.constructionQueue.unshift(site.pos);
     delete memory.assignedConstruction;
   } else {
     warn(
@@ -256,8 +233,8 @@ function getStructuresNeedingRepair(room: Room): Id<Structure>[] {
     });
 }
 
-function sortRepairQueue() {
-  Memory.repairQueue = Memory.repairQueue.sort((a, b) => {
+function sortRepairQueue(room: Room) {
+  room.memory.repairQueue = room.memory.repairQueue.sort((a, b) => {
     const structureA = Game.getObjectById(a) as Structure;
     const structureB = Game.getObjectById(b) as Structure;
     if (structureA.hits < structureB.hits) return -1;
@@ -266,30 +243,25 @@ function sortRepairQueue() {
   });
 }
 
-export function resetRepairQueue(room: Room) {
-  const oldQueue = Memory.repairQueue;
+export function resetRepairQueue(room: Room): void {
   info(`Resetting repair queue`);
   const structures = getStructuresNeedingRepair(room);
-  Memory.repairQueue = structures;
-  sortRepairQueue();
-  // Exactly how arrays were meant to be compared
-  if (JSON.stringify(oldQueue) === JSON.stringify(Memory.repairQueue)) {
-    warn(`Unnecessary repair queue reset`);
-  }
+  room.memory.repairQueue = structures;
+  sortRepairQueue(room);
 }
 
 /**
  * Return a structure id from the repair queue. If there are none in the queue
  * that aren't full hits, returns undefined.
  */
-export function fromRepairQueue(): Id<Structure> | undefined {
+export function fromRepairQueue(room: Room): Id<Structure> | undefined {
   let repair = Game.getObjectById(
-    Memory.repairQueue.shift() || "",
+    room.memory.repairQueue.shift() || "",
   ) as Structure | null;
   if (repair == undefined) return;
   while (repair.hits === repair.hitsMax) {
     repair = Game.getObjectById(
-      Memory.repairQueue.shift() || "",
+      room.memory.repairQueue.shift() || "",
     ) as Structure | null;
     if (repair == undefined) return;
   }
@@ -328,15 +300,6 @@ export function surroundingTilesAreEmpty(
   });
 
   return empty;
-}
-
-/**
- * Gets the length of the construction queue
- *
- * @returns The length of the construction queue
- */
-export function repairQueueLength(): number {
-  return Memory.repairQueue.length;
 }
 
 export function buildStructure(

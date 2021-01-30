@@ -1,7 +1,12 @@
 import { error, errorConstant, info, warn } from "utils/logger";
-import { getLinksInRoom } from "rooms";
+import { getLinksInRoom } from "utils/helpers";
 import { getSurroundingTiles } from "construct";
-import { GetByIdError, RoomMemoryError, ScriptError } from "utils/errors";
+import {
+  GetByIdError,
+  RoomMemoryError,
+  ScriptError,
+  wrapper,
+} from "utils/errors";
 
 export function resetLinkMemory(linkId: Id<StructureLink>): void {
   const link = Game.getObjectById(linkId);
@@ -30,7 +35,7 @@ export function resetLinkMemory(linkId: Id<StructureLink>): void {
   link.room.memory.links.all[linkId] = { mode: linkMode, type: linkType };
 }
 
-export function linkManager(link: StructureLink): void {
+function linkBehavior(link: StructureLink): void {
   if (getLinkMemory(link) == undefined) {
     warn(`Reseting memory of link ${link.id}`);
     resetLinkMemory(link.id);
@@ -170,4 +175,22 @@ export function isControllerLink(link: StructureLink): boolean {
     });
   });
   return foundController;
+}
+
+export function linkManager(room: Room): void {
+  for (const linkId in room.memory.links.all) {
+    const link = Game.getObjectById(linkId) as StructureLink | null;
+    if (link != undefined) {
+      wrapper(
+        () => linkBehavior(link),
+        `Error processing link ${linkId} behavior`,
+      );
+    } else {
+      throw new GetByIdError(
+        linkId,
+        STRUCTURE_LINK,
+        `The link should be in room ${room.name}`,
+      );
+    }
+  }
 }

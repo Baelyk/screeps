@@ -5,10 +5,10 @@ import {
   updateWallRepair,
 } from "construct";
 import { errorConstant, info, warn } from "utils/logger";
-import { countBodyPart, hasBodyPart } from "creeps";
-import { GetPositionError } from "utils/errors";
+import { countBodyPart, hasBodyPart } from "utils/helpers";
+import { GetByIdError, GetPositionError, wrapper } from "utils/errors";
 
-export function towerManager(tower: StructureTower): void {
+export function towerBehavior(tower: StructureTower): void {
   // const tower = Game.getObjectById(towerId) as StructureTower;
 
   let target: Creep | Structure | null = aquireHostileTarget(tower);
@@ -34,13 +34,17 @@ export function towerManager(tower: StructureTower): void {
       // like if the tender dies (and is taking a while to spawn, or can't spawn).
       if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > 200) {
         // Intentionally not using fromRepairQueue() as to not remove from the queue
-        target = Game.getObjectById(Memory.repairQueue[0]) as Structure;
+        target = Game.getObjectById(
+          tower.room.memory.repairQueue[0],
+        ) as Structure;
         // If the target is full health, take it off the queue
         while (target !== null && target.hits === target.hitsMax) {
           if (target.hits === target.hitsMax) {
-            Memory.repairQueue.shift();
+            tower.room.memory.repairQueue.shift();
           }
-          target = Game.getObjectById(Memory.repairQueue[0]) as Structure;
+          target = Game.getObjectById(
+            tower.room.memory.repairQueue[0],
+          ) as Structure;
         }
 
         // There are no creeps, structures to target
@@ -199,4 +203,24 @@ function calculateTowerFalloff(
     (amount * TOWER_FALLOFF * (range - TOWER_OPTIMAL_RANGE)) /
       (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE)
   );
+}
+
+export function towerManager(room: Room): void {
+  for (const towerIndex in room.memory.towers) {
+    const tower = Game.getObjectById(
+      room.memory.towers[towerIndex],
+    ) as StructureTower;
+    if (tower !== null) {
+      wrapper(
+        () => towerBehavior(tower),
+        `Error processing tower ${tower.id} behavior`,
+      );
+    } else {
+      throw new GetByIdError(
+        room.memory.towers[towerIndex],
+        STRUCTURE_TOWER,
+        `The tower should be in room ${room.name}`,
+      );
+    }
+  }
 }

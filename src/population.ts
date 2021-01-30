@@ -1,8 +1,7 @@
-import { getSurroundingTiles, queueLength, repairQueueLength } from "construct";
+import { getSurroundingTiles } from "construct";
 import { info } from "utils/logger";
 import { generateBodyByRole } from "spawns";
-import { bodyCost, countBodyPart } from "creeps";
-import { getRoomAvailableEnergy } from "rooms";
+import { bodyCost, countBodyPart } from "utils/helpers";
 import { GetByIdError } from "utils/errors";
 
 /**
@@ -10,7 +9,7 @@ import { GetByIdError } from "utils/errors";
  *
  * @param room The room
  */
-export function census(room: Room) {
+export function census(room: Room): void {
   info(`Updating population limits`, InfoType.spawn);
   // Recalculate miners
   const miners = minerLimit(room);
@@ -21,10 +20,13 @@ export function census(room: Room) {
   let haulers = 0;
   let tenders = 0;
   // One builder per two construction queue items
-  let builders = queueLength() > 0 ? 1 : 0;
+  let builders = room.memory.constructionQueue.length > 0 ? 1 : 0;
   // If there isn't a tower, builders must repair too
   if (room.memory.level < 3) {
-    builders = Math.max(Math.floor(repairQueueLength() / 2), builders);
+    builders = Math.max(
+      Math.floor(room.memory.constructionQueue.length / 2),
+      builders,
+    );
   }
   if (miners === 0) {
     // If we have no miners, we need harvesters
@@ -42,12 +44,12 @@ export function census(room: Room) {
     haulers = miners;
   }
 
-  Memory.populationLimit.miner = miners;
-  Memory.populationLimit.harvester = harvesters;
-  Memory.populationLimit.upgrader = upgraders;
-  Memory.populationLimit.builder = builders;
-  Memory.populationLimit.hauler = haulers;
-  Memory.populationLimit.tender = tenders;
+  room.memory.populationLimit.miner = miners;
+  room.memory.populationLimit.harvester = harvesters;
+  room.memory.populationLimit.upgrader = upgraders;
+  room.memory.populationLimit.builder = builders;
+  room.memory.populationLimit.hauler = haulers;
+  room.memory.populationLimit.tender = tenders;
 }
 
 function minerLimit(room: Room): number {
@@ -80,14 +82,16 @@ function upgraderLimit(room: Room): number {
     throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
   }
 
-  const energy = getRoomAvailableEnergy(room);
-  if (energy == undefined) {
+  const storage = room.storage;
+  if (storage == undefined) {
     info(
       `Room ${room.name} not ready for advance upgrader population limiting`,
     );
     // Default to 1 upgrader
     return 1;
   }
+
+  const energy = storage.store.getUsedCapacity(RESOURCE_ENERGY);
 
   const body = generateBodyByRole(spawn, CreepRole.upgrader);
   const cost = bodyCost(body);
