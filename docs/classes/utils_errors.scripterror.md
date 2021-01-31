@@ -50,7 +50,7 @@ Name | Type |
 
 **Returns:** [*ScriptError*](utils_errors.scripterror.md)
 
-Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L10)
+Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L10)
 
 ## Properties
 
@@ -58,7 +58,7 @@ Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/c7b9
 
 • **displayName**: *string*= "Error"
 
-Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L10)
+Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L10)
 
 ___
 
@@ -90,7 +90,7 @@ ___
 
 • **type**: default
 
-Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L9)
+Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L9)
 
 ___
 
@@ -120,7 +120,7 @@ Defined in: node_modules/@types/node/globals.d.ts:142
 
 **Returns:** *string*
 
-Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L20)
+Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L20)
 
 ___
 

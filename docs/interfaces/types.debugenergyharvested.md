@@ -21,7 +21,7 @@
 
 • **amount**: *number*
 
-Defined in: [src/types.d.ts:33](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L33)
+Defined in: [src/types.d.ts:33](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L33)
 
 ___
 
@@ -29,4 +29,4 @@ ___
 
 • **startTick**: *number*
 
-Defined in: [src/types.d.ts:32](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L32)
+Defined in: [src/types.d.ts:32](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L32)

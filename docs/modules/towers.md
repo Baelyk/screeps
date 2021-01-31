@@ -24,7 +24,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/towers.ts:89](https://github.com/Baelyk/screeps/blob/c7b9358/src/towers.ts#L89)
+Defined in: [src/towers.ts:89](https://github.com/Baelyk/screeps/blob/94a340d/src/towers.ts#L89)
 
 ___
 
@@ -40,7 +40,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/towers.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/towers.ts#L11)
+Defined in: [src/towers.ts:11](https://github.com/Baelyk/screeps/blob/94a340d/src/towers.ts#L11)
 
 ___
 
@@ -56,4 +56,4 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/towers.ts:208](https://github.com/Baelyk/screeps/blob/c7b9358/src/towers.ts#L208)
+Defined in: [src/towers.ts:208](https://github.com/Baelyk/screeps/blob/94a340d/src/towers.ts#L208)

@@ -16,4 +16,4 @@
 
 **Returns:** *void*
 
-Defined in: [src/utils/watch-client.ts:1](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/watch-client.ts#L1)
+Defined in: [src/utils/watch-client.ts:1](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/watch-client.ts#L1)

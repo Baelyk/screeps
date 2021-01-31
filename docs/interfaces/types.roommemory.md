@@ -33,7 +33,7 @@
 
 The construction queue: an array of ConstructionSite positions
 
-Defined in: [src/types.d.ts:135](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L135)
+Defined in: [src/types.d.ts:135](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L135)
 
 ___
 
@@ -41,7 +41,7 @@ ___
 
 • **level**: *number*
 
-Defined in: [src/types.d.ts:124](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L124)
+Defined in: [src/types.d.ts:124](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L124)
 
 ___
 
@@ -49,7 +49,7 @@ ___
 
 • **links**: [*RoomLinksMemory*](types.roomlinksmemory.md)
 
-Defined in: [src/types.d.ts:132](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L132)
+Defined in: [src/types.d.ts:132](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L132)
 
 ___
 
@@ -57,7 +57,7 @@ ___
 
 • **planner**: *undefined* \| [*PlannerMemory*](types.plannermemory.md)
 
-Defined in: [src/types.d.ts:131](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L131)
+Defined in: [src/types.d.ts:131](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L131)
 
 ___
 
@@ -65,7 +65,7 @@ ___
 
 • **populationLimit**: [*MemoryPopulationLimit*](../modules/types.md#memorypopulationlimit)
 
-Defined in: [src/types.d.ts:133](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L133)
+Defined in: [src/types.d.ts:133](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L133)
 
 ___
 
@@ -76,7 +76,7 @@ ___
 The repair queue: an array of Structure ids that need repairs, sorted by
 least hits to most
 
-Defined in: [src/types.d.ts:140](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L140)
+Defined in: [src/types.d.ts:140](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L140)
 
 ___
 
@@ -84,7 +84,7 @@ ___
 
 • **sources**: *Id*<*Source*\>[]
 
-Defined in: [src/types.d.ts:127](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L127)
+Defined in: [src/types.d.ts:127](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L127)
 
 ___
 
@@ -92,7 +92,7 @@ ___
 
 • **spawn**: *Id*<*StructureSpawn*\>
 
-Defined in: [src/types.d.ts:125](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L125)
+Defined in: [src/types.d.ts:125](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L125)
 
 ___
 
@@ -100,7 +100,7 @@ ___
 
 • **storage**: *undefined* \| *Id*<*StructureStorage*\>
 
-Defined in: [src/types.d.ts:129](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L129)
+Defined in: [src/types.d.ts:129](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L129)
 
 ___
 
@@ -108,7 +108,7 @@ ___
 
 • **tombs**: *Id*<*Tombstone*\>[]
 
-Defined in: [src/types.d.ts:128](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L128)
+Defined in: [src/types.d.ts:128](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L128)
 
 ___
 
@@ -116,7 +116,7 @@ ___
 
 • **towers**: *Id*<*StructureTower*\>[]
 
-Defined in: [src/types.d.ts:126](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L126)
+Defined in: [src/types.d.ts:126](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L126)
 
 ___
 
@@ -124,4 +124,4 @@ ___
 
 • **wallRepairQueue**: *Id*<*StructureRampart* \| *StructureWall*\>[]
 
-Defined in: [src/types.d.ts:130](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L130)
+Defined in: [src/types.d.ts:130](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L130)

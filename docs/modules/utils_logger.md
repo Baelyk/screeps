@@ -29,7 +29,7 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/utils/logger.ts:79](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/logger.ts#L79)
+Defined in: [src/utils/logger.ts:79](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/logger.ts#L79)
 
 ___
 
@@ -50,7 +50,7 @@ Name | Type | Description |
 The constant name of the error code, or an empty string if the
   error code does not exist
 
-Defined in: [src/utils/logger.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/logger.ts#L10)
+Defined in: [src/utils/logger.ts:10](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/logger.ts#L10)
 
 ___
 
@@ -69,7 +69,7 @@ Name | Type | Default value | Description |
 
 **Returns:** *void*
 
-Defined in: [src/utils/logger.ts:68](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/logger.ts#L68)
+Defined in: [src/utils/logger.ts:68](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/logger.ts#L68)
 
 ___
 
@@ -89,7 +89,7 @@ Name | Type | Description |
 
 A string representing the body
 
-Defined in: [src/utils/logger.ts:98](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/logger.ts#L98)
+Defined in: [src/utils/logger.ts:98](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/logger.ts#L98)
 
 ___
 
@@ -107,7 +107,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/utils/logger.ts:119](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/logger.ts#L119)
+Defined in: [src/utils/logger.ts:119](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/logger.ts#L119)
 
 ___
 
@@ -125,4 +125,4 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/utils/logger.ts:88](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/logger.ts#L88)
+Defined in: [src/utils/logger.ts:88](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/logger.ts#L88)

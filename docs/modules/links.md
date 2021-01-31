@@ -24,7 +24,7 @@ Name | Type |
 
 **Returns:** *boolean*
 
-Defined in: [src/links.ts:163](https://github.com/Baelyk/screeps/blob/c7b9358/src/links.ts#L163)
+Defined in: [src/links.ts:163](https://github.com/Baelyk/screeps/blob/94a340d/src/links.ts#L163)
 
 ___
 
@@ -40,7 +40,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/links.ts:180](https://github.com/Baelyk/screeps/blob/c7b9358/src/links.ts#L180)
+Defined in: [src/links.ts:180](https://github.com/Baelyk/screeps/blob/94a340d/src/links.ts#L180)
 
 ___
 
@@ -56,4 +56,4 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/links.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/links.ts#L11)
+Defined in: [src/links.ts:11](https://github.com/Baelyk/screeps/blob/94a340d/src/links.ts#L11)

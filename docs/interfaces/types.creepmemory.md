@@ -33,7 +33,7 @@
 
 A construction site assigned to this creep by id
 
-Defined in: [src/types.d.ts:58](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L58)
+Defined in: [src/types.d.ts:58](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L58)
 
 ___
 
@@ -43,7 +43,7 @@ ___
 
 A structuring needing repairs that this creep is repairing
 
-Defined in: [src/types.d.ts:60](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L60)
+Defined in: [src/types.d.ts:60](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L60)
 
 ___
 
@@ -53,7 +53,7 @@ ___
 
 A source assigned to this creep by id
 
-Defined in: [src/types.d.ts:56](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L56)
+Defined in: [src/types.d.ts:56](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L56)
 
 ___
 
@@ -63,7 +63,7 @@ ___
 
 Whether to prevent this creep from being renewed
 
-Defined in: [src/types.d.ts:64](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L64)
+Defined in: [src/types.d.ts:64](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L64)
 
 ___
 
@@ -71,7 +71,7 @@ ___
 
 • **role**: [*CreepRole*](../enums/types.creeprole.md)
 
-Defined in: [src/types.d.ts:51](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L51)
+Defined in: [src/types.d.ts:51](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L51)
 
 ___
 
@@ -79,7 +79,7 @@ ___
 
 • **room**: *undefined* \| *string*
 
-Defined in: [src/types.d.ts:54](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L54)
+Defined in: [src/types.d.ts:54](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L54)
 
 ___
 
@@ -89,7 +89,7 @@ ___
 
 A spot assigned to this creep
 
-Defined in: [src/types.d.ts:62](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L62)
+Defined in: [src/types.d.ts:62](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L62)
 
 ___
 
@@ -97,4 +97,4 @@ ___
 
 • **task**: [*CreepTask*](../enums/types.creeptask.md)
 
-Defined in: [src/types.d.ts:52](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L52)
+Defined in: [src/types.d.ts:52](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L52)

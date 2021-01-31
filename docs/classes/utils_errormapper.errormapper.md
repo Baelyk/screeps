@@ -42,7 +42,7 @@
 
 ▪ `Private` `Optional` `Static` **\_consumer**: *undefined* \| *SourceMapConsumer*
 
-Defined in: [src/utils/ErrorMapper.ts:6](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/ErrorMapper.ts#L6)
+Defined in: [src/utils/ErrorMapper.ts:6](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/ErrorMapper.ts#L6)
 
 ___
 
@@ -50,7 +50,7 @@ ___
 
 ▪ `Static` **cache**: { [key: string]: *string*;  }
 
-Defined in: [src/utils/ErrorMapper.ts:17](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/ErrorMapper.ts#L17)
+Defined in: [src/utils/ErrorMapper.ts:17](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/ErrorMapper.ts#L17)
 
 ## Accessors
 
@@ -60,7 +60,7 @@ Defined in: [src/utils/ErrorMapper.ts:17](https://github.com/Baelyk/screeps/blob
 
 **Returns:** *SourceMapConsumer*
 
-Defined in: [src/utils/ErrorMapper.ts:8](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/ErrorMapper.ts#L8)
+Defined in: [src/utils/ErrorMapper.ts:8](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/ErrorMapper.ts#L8)
 
 ## Methods
 
@@ -83,7 +83,7 @@ Name | Type | Description |
 
 The source-mapped stack trace
 
-Defined in: [src/utils/ErrorMapper.ts:28](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/ErrorMapper.ts#L28)
+Defined in: [src/utils/ErrorMapper.ts:28](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/ErrorMapper.ts#L28)
 
 ___
 
@@ -99,4 +99,4 @@ Name | Type |
 
 **Returns:** *function*
 
-Defined in: [src/utils/ErrorMapper.ts:72](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/ErrorMapper.ts#L72)
+Defined in: [src/utils/ErrorMapper.ts:72](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/ErrorMapper.ts#L72)

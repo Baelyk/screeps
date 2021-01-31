@@ -27,7 +27,7 @@ Name | Type |
 
 **Returns:** *number*
 
-Defined in: [src/utils/helpers.ts:34](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/helpers.ts#L34)
+Defined in: [src/utils/helpers.ts:34](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/helpers.ts#L34)
 
 ___
 
@@ -44,7 +44,7 @@ Name | Type |
 
 **Returns:** *number*
 
-Defined in: [src/utils/helpers.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/helpers.ts#L11)
+Defined in: [src/utils/helpers.ts:11](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/helpers.ts#L11)
 
 ___
 
@@ -65,7 +65,7 @@ Name | Type | Description |
 
 The number of creeps
 
-Defined in: [src/utils/helpers.ts:51](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/helpers.ts#L51)
+Defined in: [src/utils/helpers.ts:51](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/helpers.ts#L51)
 
 ___
 
@@ -81,7 +81,7 @@ Name | Type |
 
 **Returns:** *Record*<*string*, StructureLink\>
 
-Defined in: [src/utils/helpers.ts:78](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/helpers.ts#L78)
+Defined in: [src/utils/helpers.ts:78](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/helpers.ts#L78)
 
 ___
 
@@ -98,7 +98,7 @@ Name | Type |
 
 **Returns:** *boolean*
 
-Defined in: [src/utils/helpers.ts:3](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/helpers.ts#L3)
+Defined in: [src/utils/helpers.ts:3](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/helpers.ts#L3)
 
 ___
 
@@ -118,4 +118,4 @@ Name | Type | Description |
 
 A name
 
-Defined in: [src/utils/helpers.ts:66](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/helpers.ts#L66)
+Defined in: [src/utils/helpers.ts:66](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/helpers.ts#L66)

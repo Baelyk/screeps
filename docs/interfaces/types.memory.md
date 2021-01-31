@@ -36,7 +36,7 @@ ___
 
 • **debug**: [*DebugMemory*](types.debugmemory.md)
 
-Defined in: [src/types.d.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L11)
+Defined in: [src/types.d.ts:11](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L11)
 
 ___
 
@@ -56,7 +56,7 @@ The name of the spawn to use when Initializing.
 
 E.g., Game.spawns[Memory.initialSpawn]
 
-Defined in: [src/types.d.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L9)
+Defined in: [src/types.d.ts:9](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L9)
 
 ___
 
@@ -90,7 +90,7 @@ ___
 
 Whether the colony needs to be initialized
 
-Defined in: [src/types.d.ts:3](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L3)
+Defined in: [src/types.d.ts:3](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L3)
 
 ___
 
@@ -98,4 +98,4 @@ ___
 
 • **watch**: [*ScreepsMultimeterWatch*](types.screepsmultimeterwatch.md)
 
-Defined in: [src/types.d.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L10)
+Defined in: [src/types.d.ts:10](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L10)

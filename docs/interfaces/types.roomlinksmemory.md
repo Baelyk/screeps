@@ -22,7 +22,7 @@
 
 • **all**: { [id: string]: [*LinkMemory*](types.linkmemory.md);  }
 
-Defined in: [src/types.d.ts:163](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L163)
+Defined in: [src/types.d.ts:163](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L163)
 
 ___
 
@@ -30,7 +30,7 @@ ___
 
 • `Optional` **controller**: *undefined* \| *Id*<*StructureLink*\>
 
-Defined in: [src/types.d.ts:165](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L165)
+Defined in: [src/types.d.ts:165](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L165)
 
 ___
 
@@ -38,4 +38,4 @@ ___
 
 • `Optional` **spawn**: *undefined* \| *Id*<*StructureLink*\>
 
-Defined in: [src/types.d.ts:164](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L164)
+Defined in: [src/types.d.ts:164](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L164)

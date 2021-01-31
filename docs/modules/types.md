@@ -47,7 +47,7 @@
 
 Ƭ **ConstructionQueue**: RoomPosition[]
 
-Defined in: [src/types.d.ts:46](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L46)
+Defined in: [src/types.d.ts:46](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L46)
 
 ___
 
@@ -55,7 +55,7 @@ ___
 
 Ƭ **MemoryPopulationLimit**: { [key in CreepRole]?: number}
 
-Defined in: [src/types.d.ts:14](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L14)
+Defined in: [src/types.d.ts:14](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L14)
 
 ___
 
@@ -63,7 +63,7 @@ ___
 
 Ƭ **PlannerPlan**: { [key in BuildableStructureConstant]?: PlannerStructurePlan}
 
-Defined in: [src/types.d.ts:149](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L149)
+Defined in: [src/types.d.ts:149](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L149)
 
 ___
 
@@ -71,7 +71,7 @@ ___
 
 Ƭ **RepairQueue**: *Id*<Structure\>[]
 
-Defined in: [src/types.d.ts:47](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L47)
+Defined in: [src/types.d.ts:47](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L47)
 
 ## Variables
 

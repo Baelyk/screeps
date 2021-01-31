@@ -18,7 +18,7 @@
 
 • **none**: = "none"
 
-Defined in: [src/types.d.ts:174](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L174)
+Defined in: [src/types.d.ts:174](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L174)
 
 ___
 
@@ -26,7 +26,7 @@ ___
 
 • **recieve**: = "recieve"
 
-Defined in: [src/types.d.ts:176](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L176)
+Defined in: [src/types.d.ts:176](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L176)
 
 ___
 
@@ -34,4 +34,4 @@ ___
 
 • **send**: = "send"
 
-Defined in: [src/types.d.ts:175](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L175)
+Defined in: [src/types.d.ts:175](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L175)

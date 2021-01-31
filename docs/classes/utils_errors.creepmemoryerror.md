@@ -49,7 +49,7 @@ Name | Type |
 
 **Returns:** [*CreepMemoryError*](utils_errors.creepmemoryerror.md)
 
-Defined in: [src/utils/errors.ts:68](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L68)
+Defined in: [src/utils/errors.ts:68](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L68)
 
 ## Properties
 
@@ -57,7 +57,7 @@ Defined in: [src/utils/errors.ts:68](https://github.com/Baelyk/screeps/blob/c7b9
 
 • **displayName**: *string*= "Error"
 
-Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L10)
+Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L10)
 
 ___
 
@@ -109,7 +109,7 @@ ___
 
 • **type**: default
 
-Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L9)
+Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L9)
 
 ## Methods
 
@@ -138,4 +138,4 @@ ___
 
 **Returns:** *string*
 
-Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L20)
+Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L20)

@@ -22,7 +22,7 @@
 
 • `Optional` **room**: *undefined* \| *string*
 
-Defined in: [src/types.d.ts:109](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L109)
+Defined in: [src/types.d.ts:109](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L109)
 
 ___
 
@@ -30,7 +30,7 @@ ___
 
 • **x**: *number*
 
-Defined in: [src/types.d.ts:107](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L107)
+Defined in: [src/types.d.ts:107](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L107)
 
 ___
 
@@ -38,4 +38,4 @@ ___
 
 • **y**: *number*
 
-Defined in: [src/types.d.ts:108](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L108)
+Defined in: [src/types.d.ts:108](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L108)

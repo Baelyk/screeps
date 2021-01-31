@@ -26,4 +26,4 @@ Name | Type | Description |
 
 A new array without duplicates
 
-Defined in: [src/utils/utilities.ts:7](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/utilities.ts#L7)
+Defined in: [src/utils/utilities.ts:7](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/utilities.ts#L7)

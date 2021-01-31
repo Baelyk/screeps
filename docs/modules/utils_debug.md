@@ -18,7 +18,7 @@
 
 **Returns:** *void*
 
-Defined in: [src/utils/debug.ts:98](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/debug.ts#L98)
+Defined in: [src/utils/debug.ts:98](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/debug.ts#L98)
 
 ___
 
@@ -28,7 +28,7 @@ ___
 
 **Returns:** *void*
 
-Defined in: [src/utils/debug.ts:11](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/debug.ts#L11)
+Defined in: [src/utils/debug.ts:11](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/debug.ts#L11)
 
 ___
 
@@ -38,4 +38,4 @@ ___
 
 **Returns:** *void*
 
-Defined in: [src/utils/debug.ts:121](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/debug.ts#L121)
+Defined in: [src/utils/debug.ts:121](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/debug.ts#L121)

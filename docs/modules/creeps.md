@@ -17,7 +17,7 @@
 
 **Returns:** *void*
 
-Defined in: [src/creeps.ts:613](https://github.com/Baelyk/screeps/blob/c7b9358/src/creeps.ts#L613)
+Defined in: [src/creeps.ts:613](https://github.com/Baelyk/screeps/blob/94a340d/src/creeps.ts#L613)
 
 ___
 
@@ -35,4 +35,4 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/creeps.ts:583](https://github.com/Baelyk/screeps/blob/c7b9358/src/creeps.ts#L583)
+Defined in: [src/creeps.ts:583](https://github.com/Baelyk/screeps/blob/94a340d/src/creeps.ts#L583)

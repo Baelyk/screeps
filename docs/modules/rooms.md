@@ -33,7 +33,7 @@ Name | Type | Description |
 
 The tombstone, or undefined if the no valid tombstone was found
 
-Defined in: [src/rooms.ts:90](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L90)
+Defined in: [src/rooms.ts:90](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L90)
 
 ___
 
@@ -49,7 +49,7 @@ Name | Type |
 
 **Returns:** *number* \| *undefined*
 
-Defined in: [src/rooms.ts:115](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L115)
+Defined in: [src/rooms.ts:115](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L115)
 
 ___
 
@@ -69,7 +69,7 @@ Name | Type | Description |
 
 A string[] of source ids, possibly empty if none were found
 
-Defined in: [src/rooms.ts:73](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L73)
+Defined in: [src/rooms.ts:73](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L73)
 
 ___
 
@@ -89,7 +89,7 @@ Name | Type | Description |
 
 A string[] of tower ids, possibly empty if none were found
 
-Defined in: [src/rooms.ts:60](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L60)
+Defined in: [src/rooms.ts:60](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L60)
 
 ___
 
@@ -105,7 +105,7 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/rooms.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L9)
+Defined in: [src/rooms.ts:9](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L9)
 
 ___
 
@@ -125,7 +125,7 @@ Name | Type | Description |
 
 A string[] of link ids, possibly empty if none were found
 
-Defined in: [src/rooms.ts:134](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L134)
+Defined in: [src/rooms.ts:134](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L134)
 
 ___
 
@@ -135,7 +135,7 @@ ___
 
 **Returns:** *void*
 
-Defined in: [src/rooms.ts:156](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L156)
+Defined in: [src/rooms.ts:156](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L156)
 
 ___
 
@@ -151,4 +151,4 @@ Name | Type |
 
 **Returns:** *void*
 
-Defined in: [src/rooms.ts:15](https://github.com/Baelyk/screeps/blob/c7b9358/src/rooms.ts#L15)
+Defined in: [src/rooms.ts:15](https://github.com/Baelyk/screeps/blob/94a340d/src/rooms.ts#L15)

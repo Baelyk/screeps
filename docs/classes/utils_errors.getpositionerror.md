@@ -48,7 +48,7 @@ Name | Type |
 
 Inherited from: [ScriptError](utils_errors.scripterror.md)
 
-Defined in: [src/utils/errors.ts:126](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L126)
+Defined in: [src/utils/errors.ts:126](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L126)
 
 ## Properties
 
@@ -58,7 +58,7 @@ Defined in: [src/utils/errors.ts:126](https://github.com/Baelyk/screeps/blob/c7b
 
 Inherited from: [ScriptError](utils_errors.scripterror.md).[displayName](utils_errors.scripterror.md#displayname)
 
-Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L10)
+Defined in: [src/utils/errors.ts:10](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L10)
 
 ___
 
@@ -118,7 +118,7 @@ ___
 
 Inherited from: [ScriptError](utils_errors.scripterror.md).[type](utils_errors.scripterror.md#type)
 
-Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L9)
+Defined in: [src/utils/errors.ts:9](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L9)
 
 ## Methods
 
@@ -149,4 +149,4 @@ ___
 
 Inherited from: [ScriptError](utils_errors.scripterror.md)
 
-Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L20)
+Defined in: [src/utils/errors.ts:20](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L20)

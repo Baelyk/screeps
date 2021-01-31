@@ -21,7 +21,7 @@
 
 • `Optional` **expressions**: *undefined* \| *object*
 
-Defined in: [src/types.d.ts:42](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L42)
+Defined in: [src/types.d.ts:42](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L42)
 
 ___
 
@@ -29,4 +29,4 @@ ___
 
 • `Optional` **values**: *undefined* \| { [index: string]: *any*;  }
 
-Defined in: [src/types.d.ts:43](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L43)
+Defined in: [src/types.d.ts:43](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L43)

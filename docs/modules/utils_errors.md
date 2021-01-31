@@ -38,4 +38,4 @@ Name | Type | Description |
 
 **Returns:** *void*
 
-Defined in: [src/utils/errors.ts:173](https://github.com/Baelyk/screeps/blob/c7b9358/src/utils/errors.ts#L173)
+Defined in: [src/utils/errors.ts:173](https://github.com/Baelyk/screeps/blob/94a340d/src/utils/errors.ts#L173)

@@ -24,7 +24,7 @@
 
 Creep that constructs buildings
 
-Defined in: [src/types.d.ts:87](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L87)
+Defined in: [src/types.d.ts:87](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L87)
 
 ___
 
@@ -34,7 +34,7 @@ ___
 
 Creep that moves to other rooms to claim them
 
-Defined in: [src/types.d.ts:93](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L93)
+Defined in: [src/types.d.ts:93](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L93)
 
 ___
 
@@ -44,7 +44,7 @@ ___
 
 Simple creep that performs the harvest and deposit actions
 
-Defined in: [src/types.d.ts:83](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L83)
+Defined in: [src/types.d.ts:83](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L83)
 
 ___
 
@@ -54,7 +54,7 @@ ___
 
 Creep that hauls energy between sources and deposits energy
 
-Defined in: [src/types.d.ts:91](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L91)
+Defined in: [src/types.d.ts:91](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L91)
 
 ___
 
@@ -64,7 +64,7 @@ ___
 
 Creep that mines into a container near to the source
 
-Defined in: [src/types.d.ts:85](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L85)
+Defined in: [src/types.d.ts:85](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L85)
 
 ___
 
@@ -74,7 +74,7 @@ ___
 
 Creep that keeps energy in spawns, extensions, and towers
 
-Defined in: [src/types.d.ts:95](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L95)
+Defined in: [src/types.d.ts:95](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L95)
 
 ___
 
@@ -84,4 +84,4 @@ ___
 
 Creep that gets energy and deposits energy to spawn then controller
 
-Defined in: [src/types.d.ts:89](https://github.com/Baelyk/screeps/blob/c7b9358/src/types.d.ts#L89)
+Defined in: [src/types.d.ts:89](https://github.com/Baelyk/screeps/blob/94a340d/src/types.d.ts#L89)
