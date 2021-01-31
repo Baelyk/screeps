@@ -1,4 +1,4 @@
-import { error, info, warn } from "utils/logger";
+import { info, warn } from "utils/logger";
 import { buildStructure, getSurroundingTiles } from "construct";
 import { roomPositionArrayRemoveDuplicates } from "utils/utilities";
 import {
@@ -992,5 +992,63 @@ export function executePlan(room: Room, levelOverride = -1): boolean {
     }
     default:
       return false;
+  }
+}
+
+/**
+ * Get the extension design. The origin is the entrance to the extension bank.
+ *
+ * @returns The extension plan in spot 0 and the road plan in spot 1
+ */
+function getExtensionDesign(origin: Coord): PlannerPlan {
+  // 0 is nothing, 1 is extension, 2 is road
+  const design = [
+    [0, 1, 2, 1, 0],
+    [1, 1, 2, 1, 1],
+    [1, 2, 1, 2, 1],
+    [1, 1, 2, 1, 1],
+    [1, 2, 1, 2, 1],
+    [1, 1, 2, 1, 1],
+    [1, 2, 1, 2, 1],
+    [1, 1, 2, 1, 1],
+    [0, 1, 1, 1, 0],
+  ];
+  return designToPlan(design, [STRUCTURE_EXTENSION, STRUCTURE_ROAD]);
+}
+
+function designToPlan(
+  design: number[][],
+  key: BuildableStructureConstant[],
+): PlannerPlan {
+  const plan: PlannerPlan = {};
+  key.forEach((structure) => (plan[structure] = { pos: [] }));
+  for (let y = 0; y < design.length; y++) {
+    for (let x = 0; x < design[y].length; x++) {
+      if (design[y][x] === 0) continue;
+
+      if (plan[key[design[y][x] - 1]] == undefined) {
+        throw new ScriptError(
+          `Design entry at (${x}, ${y}) = ${design[y][x]} should be structure ${
+            key[design[y][x]]
+          }, but is not in the plan`,
+        );
+      }
+
+      (plan[key[design[y][x] - 1]] as PlannerStructurePlan).pos.push({ x, y });
+    }
+  }
+  return plan;
+}
+
+function addToPlan(plan: PlannerPlan, addition: PlannerPlan): void {
+  for (const struc in addition) {
+    const structure = struc as BuildableStructureConstant;
+    if (plan[structure] == undefined) {
+      plan[structure] = addition[structure];
+    } else {
+      (plan[structure] as PlannerStructurePlan).pos.push(
+        ...(addition[structure] as PlannerStructurePlan).pos,
+      );
+    }
   }
 }
