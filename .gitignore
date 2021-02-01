@@ -1,7 +1,8 @@
 screeps.json
-*screeps-multimeter*
 node_modules
 .rpt2_cache
 .DS_Store
 # Ignore built AI
 dist
+# Ignore multimeter history
+.screeps-multimeter.history
