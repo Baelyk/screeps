@@ -145,6 +145,25 @@ function spawnBehavior(spawn: StructureSpawn): void {
     allowSpawn = false;
   }
 
+  // Spawn tender creeps
+  const extractorCount = countRole(spawn.room, CreepRole.extractor);
+  const maxExtractors = spawn.room.memory.populationLimit.extractor || 0;
+  if (extractorCount < maxExtractors) {
+    if (allowSpawn) {
+      info(
+        `${spawn.name}     requesting ${CreepRole.extractor}`,
+        InfoType.spawn,
+      );
+      spawnCreep(spawn, CreepRole.extractor);
+    } else {
+      info(
+        `${spawn.name} NOT requesting ${CreepRole.extractor}`,
+        InfoType.spawn,
+      );
+    }
+    allowSpawn = false;
+  }
+
   // Build extentions
   const controller = (spawn.room.controller as StructureController).level;
   let extensionCount = 0;
@@ -215,6 +234,7 @@ export function generateBodyByRole(
       return body;
     }
     // General body
+    case CreepRole.extractor:
     case CreepRole.builder:
     case CreepRole.upgrader: {
       const body: BodyPartConstant[] = [];

@@ -2,7 +2,7 @@ import { getSurroundingTiles } from "construct";
 import { info } from "utils/logger";
 import { generateBodyByRole } from "spawns";
 import { bodyCost, countBodyPart } from "utils/helpers";
-import { GetByIdError } from "utils/errors";
+import { GetByIdError, ScriptError } from "utils/errors";
 
 /**
  * Reasses population limits
@@ -19,6 +19,7 @@ export function census(room: Room): void {
   let upgraders = 0;
   let haulers = 0;
   let tenders = 0;
+  let extractors = 0;
   // One builder per two construction queue items
   let builders = room.memory.constructionQueue.length > 0 ? 1 : 0;
   // If there isn't a tower, builders must repair too
@@ -42,6 +43,8 @@ export function census(room: Room): void {
     tenders = Math.floor(upgraders / 4) || 1;
     // One hauler per miner
     haulers = miners;
+    // One extractor creep per extractor structure (also one max)
+    extractors = extractorLimit(room);
   }
 
   room.memory.populationLimit.miner = miners;
@@ -50,6 +53,7 @@ export function census(room: Room): void {
   room.memory.populationLimit.builder = builders;
   room.memory.populationLimit.hauler = haulers;
   room.memory.populationLimit.tender = tenders;
+  room.memory.populationLimit.extractor = extractors;
 }
 
 function minerLimit(room: Room): number {
@@ -103,4 +107,34 @@ function upgraderLimit(room: Room): number {
   // At least 1 upgrader, but up to as many as the storage can afford over
   // the creeps entire lifetime
   return Math.max(1, Math.floor(energy / lifetimeCost));
+}
+
+function extractorLimit(room: Room): number {
+  if (room.memory.level < 6) {
+    // Save some time, if an extractor couldn't exist, don't waste CPU looking
+    return 0;
+  }
+  // TODO: Only supports one extractor in a room. Is this a problem?
+  const extractor = room
+    .find(FIND_STRUCTURES)
+    .find((struc) => struc.structureType === STRUCTURE_EXTRACTOR);
+  if (extractor == undefined) {
+    // Extractor not built yet
+    return 0;
+  }
+  const mineral = extractor.pos.lookFor(LOOK_MINERALS)[0];
+  if (mineral == undefined) {
+    throw new ScriptError(
+      `Extractor built over not minerals at ${extractor.pos}`,
+    );
+  }
+  // If the mineral is exhausted and it will regen after the next census (100t)
+  // with about enough time to spawn an extractor then (~100t), keep the limit
+  // at 0.
+  if (mineral.mineralAmount === 0 && mineral.ticksToRegeneration > 200) {
+    return 0;
+  }
+
+  // Extractor built and mineral deposit has mineral let, so allow an extractor
+  return 1;
 }

@@ -8,14 +8,10 @@ import {
   repair,
   upgradeController,
   storeEnergy,
+  storeResource,
 } from "actions";
-import {
-  fromQueue,
-  queueLength,
-  unassignConstruction,
-  fromRepairQueue,
-} from "construct";
-import { error, errorConstant, info, warn } from "utils/logger";
+import { fromQueue, unassignConstruction, fromRepairQueue } from "construct";
+import { errorConstant, info, warn } from "utils/logger";
 import { generateBodyByRole, getSpawnCapacity, getSpawnEnergy } from "spawns";
 import {
   CreepRoleMemoryError,
@@ -94,9 +90,6 @@ function miner(creep: Creep) {
   }
   if (spot && (creep.pos.x !== spot.x || creep.pos.y !== spot.y)) {
     const response = errorConstant(creep.moveTo(spot));
-    info(
-      `Creep ${creep.name} moving to spot ${JSON.stringify(spot)}: ${response}`,
-    );
     return;
   }
   const source: Source | null = Game.getObjectById(
@@ -432,6 +425,83 @@ function tender(creep: Creep) {
   }
 }
 
+function extractor(creep: Creep): void {
+  if (creep.memory.task === CreepTask.fresh)
+    creep.memory.task = CreepTask.harvest;
+
+  // Tasks for this creep:
+  // 0. Move to spot. If it doesn't have a spot, find extractor's position and
+  //    assign it to the creep
+  // 1. CreepTask.harvest: harvest from assigned energy source
+  // 2. CreepTask.deposit: deposit harvested resource into storage
+  switch (creep.memory.task) {
+    case CreepTask.harvest: {
+      if (creep.store.getFreeCapacity() === 0) {
+        switchTaskAndDoRoll(creep, CreepTask.deposit);
+        break;
+      }
+      let spot: RoomPosition | null = null;
+      let mineral: Mineral | null = null;
+      if (creep.memory.spot) {
+        spot = Game.rooms[creep.memory.spot.roomName].getPositionAt(
+          creep.memory.spot.x,
+          creep.memory.spot.y,
+        );
+        if (spot == undefined) {
+          throw new GetPositionError(
+            creep.memory.spot,
+            `Invalid spot for ${creep.name}`,
+          );
+        }
+        mineral = spot.lookFor(LOOK_MINERALS)[0];
+        if (mineral == undefined) {
+          throw new CreepRoleMemoryError(
+            creep,
+            "spot",
+            `spot doesn't have mineral`,
+          );
+        }
+      } else {
+        // Spot is undefined, so find the extractor and assign it to the creep
+        // TODO: Is this going to cause problems if there are more than one mineral
+        // deposit in the room? Is that possible?
+        mineral = creep.room.find(FIND_MINERALS)[0];
+        if (mineral == undefined) {
+          throw new ScriptError(
+            `Unable to find mineral in room ${creep.room},\n` +
+              `but creep ${creep.name} is present as an ${creep.memory.role}`,
+          );
+        }
+        spot = mineral.pos;
+        creep.memory.spot = spot;
+      }
+      if (!creep.pos.inRangeTo(spot, 1)) {
+        creep.moveTo(spot);
+        return;
+      }
+      if (mineral.mineralAmount > 0) {
+        // Only try to harvest if there is mineral left
+        harvestEnergy(creep, mineral);
+      }
+      break;
+    }
+    case CreepTask.deposit: {
+      if (creep.store.getUsedCapacity() === 0) {
+        switchTaskAndDoRoll(creep, CreepTask.harvest);
+        break;
+      }
+      const storage = creep.room.storage;
+      if (storage == undefined) {
+        throw new ScriptError(
+          `Room ${creep.room.name} storage is undefined,` +
+            `but has an extractor creep ${creep.name}`,
+        );
+      }
+      storeResource(creep, storage);
+    }
+  }
+}
+
 // function claimer(creep: Creep) {}
 
 /**
@@ -569,6 +639,9 @@ function creepBehavior(creep: Creep): void {
       break;
     case CreepRole.tender:
       tender(creep);
+      break;
+    case CreepRole.extractor:
+      extractor(creep);
       break;
     default:
       throw new InvalidCreepRoleError(creep);

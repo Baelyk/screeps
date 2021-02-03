@@ -1,5 +1,5 @@
 import { fromRepairQueue, getSurroundingTiles } from "construct";
-import { error, errorConstant, warn } from "utils/logger";
+import { error, errorConstant, warn, info } from "utils/logger";
 import { countBodyPart, countRole } from "utils/helpers";
 import { getNextTombInRoom } from "rooms";
 import { CreepMemoryError, ScriptError } from "utils/errors";
@@ -10,7 +10,7 @@ import { CreepMemoryError, ScriptError } from "utils/errors";
  * @param creep The creep to harvest the energy
  * @param source The Source, or undefined
  */
-export function harvestEnergy(creep: Creep, source?: Source): void {
+export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
   // TODO: This currently permanently assigns a source to creeps that shouldn't have a permanent
   // source. Additionally, this is a LOT of CPU for harvesting. Even worse, this doesn't even solve
   // the problem I wrote it to solve, which was picking a source not blocked by another creep.
@@ -44,14 +44,19 @@ export function harvestEnergy(creep: Creep, source?: Source): void {
     } else {
       creep.moveTo(source);
     }
-    // Don't warn about the source being empty
-  } else if (response !== OK && response !== ERR_NOT_ENOUGH_RESOURCES) {
+    // Don't warn about the source being empty or the extractor/deposit being in
+    // cooldown
+  } else if (
+    response !== OK &&
+    response !== ERR_NOT_ENOUGH_RESOURCES &&
+    response !== ERR_TIRED
+  ) {
     warn(
       `Creep ${creep.name} harvesting ${
         source.pos
       } with response ${errorConstant(response)}`,
     );
-  } else if (response === OK) {
+  } else if (response === OK && creep.memory.role === CreepRole.miner) {
     const harvested = countBodyPart(creep.body, WORK) * HARVEST_POWER;
     if (Memory.debug.energyHarvested != undefined) {
       Memory.debug.energyHarvested.amount += harvested;
@@ -293,6 +298,26 @@ export function storeEnergy(creep: Creep, target?: Structure): void {
     warn(
       `Creep ${creep.name} getting energy ${
         structure.pos
+      } with response ${errorConstant(response)}`,
+    );
+  }
+}
+
+export function storeResource(
+  creep: Creep,
+  target: Structure,
+  resource?: ResourceConstant,
+): void {
+  // If the resource wasn't specified, get the "first" resource contained in the
+  // creep's store.
+  resource = resource || (Object.keys(creep.store)[0] as ResourceConstant);
+  const response = creep.transfer(target, resource);
+  if (response === ERR_NOT_IN_RANGE) {
+    creep.moveTo(target);
+  } else if (response !== OK) {
+    warn(
+      `Creep ${creep.name} storing ${resource} ${
+        target.pos
       } with response ${errorConstant(response)}`,
     );
   }

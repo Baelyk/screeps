@@ -93,6 +93,8 @@ declare const enum CreepRole {
   claimer = "claimer",
   /** Creep that keeps energy in spawns, extensions, and towers */
   tender = "tender",
+  /** Creep that works mineral deposits */
+  extractor = "extractor",
 }
 
 declare const enum InfoType {
