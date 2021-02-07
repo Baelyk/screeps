@@ -142,10 +142,10 @@ function aquireHostileTarget(tower: StructureTower): Creep | null {
   // Filter out creeps that can self heal away the damage
   potentials = potentials.filter((creep) => invalids.indexOf(creep) === -1);
 
-  while (target == undefined) {
+  // While there are potential targets left
+  while (potentials.length > 0) {
     if (target == undefined) {
       // By default, target the "first" creep
-      info(`Tower ${tower.id} targetting default creep`);
       target = potentials.shift();
     }
 
@@ -156,7 +156,9 @@ function aquireHostileTarget(tower: StructureTower): Creep | null {
       const healer = invalids.find((creep) => {
         let contained = false;
         surrounding.forEach((pos) => {
-          contained = pos.x === creep.pos.x && pos.y === creep.pos.y;
+          // Short circuit if contained is already true
+          contained =
+            contained || (pos.x === creep.pos.x && pos.y === creep.pos.y);
         });
         return contained;
       });
@@ -171,7 +173,8 @@ function aquireHostileTarget(tower: StructureTower): Creep | null {
     info(`Tower ${tower.id} unable to find worthwhile hostile to target`);
   }
 
-  return target;
+  // Convert undefined to null
+  return target || null;
 }
 
 declare const enum TowerAction {
