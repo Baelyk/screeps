@@ -143,7 +143,7 @@ function aquireHostileTarget(tower: StructureTower): Creep | null {
   potentials = potentials.filter((creep) => invalids.indexOf(creep) === -1);
 
   // While there are potential targets left
-  while (potentials.length > 0) {
+  while (target == undefined && potentials.length > 0) {
     if (target == undefined) {
       // By default, target the "first" creep
       target = potentials.shift();
