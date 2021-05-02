@@ -271,7 +271,7 @@ export function generateBodyByRole(
       // always have a tender. Although, this may lead to spawning "low-level"
       // tenders.
       if (role === CreepRole.tender) {
-        availableEnergy = getSpawnEnergy(spawn);
+        availableEnergy = spawn.room.energyAvailable;
       }
       // Haulers/tenders don't really need more thnat 30 body parts, allowing
       // them 1000 carry capacity and 1 move speed on roads empty and full.
@@ -375,14 +375,6 @@ export function getSpawnCapacity(spawn: StructureSpawn): number {
     capacity += EXTENSION_ENERGY_CAPACITY[spawn.room.memory.level];
   });
   return capacity;
-}
-
-export function getSpawnEnergy(spawn: StructureSpawn): number {
-  let energy = spawn.store.getUsedCapacity(RESOURCE_ENERGY);
-  getSpawnExtensions(spawn).forEach((extension) => {
-    energy += extension.store.getUsedCapacity(RESOURCE_ENERGY);
-  });
-  return energy;
 }
 
 export function getMaxExtensions(level: number): number {

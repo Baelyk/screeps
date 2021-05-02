@@ -12,7 +12,7 @@ import {
 } from "actions";
 import { fromQueue, unassignConstruction, fromRepairQueue } from "construct";
 import { errorConstant, info, warn } from "utils/logger";
-import { generateBodyByRole, getSpawnCapacity, getSpawnEnergy } from "spawns";
+import { generateBodyByRole } from "spawns";
 import {
   CreepRoleMemoryError,
   ScriptError,
@@ -587,7 +587,7 @@ function renewCheck(creep: Creep): void {
   }
 
   // If the spawn doesn't have full capacity, don't renew
-  if (getSpawnEnergy(spawn) !== getSpawnCapacity(spawn)) {
+  if (spawn.room.energyAvailable !== spawn.room.energyCapacityAvailable) {
     return;
   }
 
