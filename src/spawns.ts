@@ -238,7 +238,7 @@ export function generateBodyByRole(
     case CreepRole.builder:
     case CreepRole.upgrader: {
       const body: BodyPartConstant[] = [];
-      const bodyUnits = Math.floor(getSpawnCapacity(spawn) / 50);
+      const bodyUnits = Math.floor(spawn.room.energyCapacityAvailable / 50);
       // 1/3 each in priority order:
       // MOVE
       // WORK
@@ -266,7 +266,7 @@ export function generateBodyByRole(
     case CreepRole.tender:
     case CreepRole.hauler: {
       const body: BodyPartConstant[] = [];
-      let availableEnergy = getSpawnCapacity(spawn);
+      let availableEnergy = spawn.room.energyCapacityAvailable;
       // If the creep is a tender, only count truly available energy so we
       // always have a tender. Although, this may lead to spawning "low-level"
       // tenders.

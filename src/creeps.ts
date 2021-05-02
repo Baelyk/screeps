@@ -355,10 +355,7 @@ function hauler(creep: Creep) {
     }
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        const storage =
-          (Game.getObjectById(
-            creep.room.memory.storage || "",
-          ) as StructureStorage) || null;
+        const storage = creep.room.storage;
         if (storage == undefined) {
           warn(
             `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`,
