@@ -943,27 +943,180 @@ export function executePlan(room: Room, levelOverride = -1): boolean {
     info(`Executing plan for room ${room.name} with level override ${level}`);
   }
 
+  // Execute plan for all levels <= provided level
   switch (level) {
-    case 0:
-    case 1: {
-      // Level 0/1: Initial plan
-      // - Place roads
-      // - Place miner containers
-      const roads = room.memory.planner.plan[STRUCTURE_ROAD];
-      if (roads != undefined) buildStructurePlan(room, STRUCTURE_ROAD, roads);
-      const containers = room.memory.planner.plan[STRUCTURE_CONTAINER];
-      if (containers != undefined) {
-        // !! TODO: this *will not* work if there are less than two sources !!
-        // The miner containrs should be the first two planned contaiers, so
-        // get indices 0 through 1 both-inclusive.
-        const minerContainers = getPartOfPlan(containers, 0, 1);
-        buildStructurePlan(room, STRUCTURE_CONTAINER, minerContainers);
+    case 8: {
+      // Level 8:
+      // - +1 Spawn
+      // - +10 Extensions
+      // - +2 Links
+      // - +3 Towers
+      // - Observer
+      // - Power spawn
+      // - +4 Labs
+      // - Nuker
+      const spawns = room.memory.planner.plan[STRUCTURE_SPAWN];
+      if (spawns != undefined) {
+        buildStructurePlan(room, STRUCTURE_SPAWN, getPartOfPlan(spawns, 2, 2));
       } else {
-        warn(`Room ${room.name}'s plan is missing containers`);
+        warn(`Room ${room.name}'s plan is missing spawns`);
       }
-      return true;
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 50, 59),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
+      const links = room.memory.planner.plan[STRUCTURE_LINK];
+      if (links != undefined) {
+        buildStructurePlan(room, STRUCTURE_LINK, getPartOfPlan(links, 4, 5));
+      } else {
+        warn(`Room ${room.name}'s plan is missing links`);
+      }
+      const towers = room.memory.planner.plan[STRUCTURE_TOWER];
+      if (towers != undefined) {
+        buildStructurePlan(room, STRUCTURE_TOWER, getPartOfPlan(towers, 3, 5));
+      } else {
+        warn(`Room ${room.name}'s plan is missing towers`);
+      }
+      const observer = room.memory.planner.plan[STRUCTURE_OBSERVER];
+      if (observer != undefined) {
+        buildStructurePlan(room, STRUCTURE_OBSERVER, observer);
+      } else {
+        warn(`Room ${room.name}'s plan is missing an observer`);
+      }
+      const powerSpawn = room.memory.planner.plan[STRUCTURE_POWER_SPAWN];
+      if (powerSpawn != undefined) {
+        buildStructurePlan(room, STRUCTURE_POWER_SPAWN, powerSpawn);
+      } else {
+        warn(`Room ${room.name}'s plan is missing a power spawn`);
+      }
+      const labs = room.memory.planner.plan[STRUCTURE_LAB];
+      if (labs != undefined) {
+        buildStructurePlan(room, STRUCTURE_LAB, getPartOfPlan(labs, 6, 9));
+      } else {
+        warn(`Room ${room.name}'s plan is missing labs`);
+      }
+      const nuker = room.memory.planner.plan[STRUCTURE_NUKER];
+      if (nuker != undefined) {
+        buildStructurePlan(room, STRUCTURE_NUKER, nuker);
+      } else {
+        warn(`Room ${room.name}'s plan is missing a nuker`);
+      }
     }
+    // falls through
+    case 7: {
+      // Level 7:
+      // - +1 Spawn
+      // - +10 Extensions
+      // - +1 Link
+      // - +1 Tower
+      // - +3 Labs
+      // - 1 Factory
+      const spawns = room.memory.planner.plan[STRUCTURE_SPAWN];
+      if (spawns != undefined) {
+        buildStructurePlan(room, STRUCTURE_SPAWN, getPartOfPlan(spawns, 1, 1));
+      } else {
+        warn(`Room ${room.name}'s plan is missing spawns`);
+      }
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 40, 49),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
+      const links = room.memory.planner.plan[STRUCTURE_LINK];
+      if (links != undefined) {
+        buildStructurePlan(room, STRUCTURE_LINK, getPartOfPlan(links, 3, 3));
+      } else {
+        warn(`Room ${room.name}'s plan is missing links`);
+      }
+      const towers = room.memory.planner.plan[STRUCTURE_TOWER];
+      if (towers != undefined) {
+        buildStructurePlan(room, STRUCTURE_TOWER, getPartOfPlan(towers, 2, 2));
+      } else {
+        warn(`Room ${room.name}'s plan is missing towers`);
+      }
+      const labs = room.memory.planner.plan[STRUCTURE_LAB];
+      if (labs != undefined) {
+        buildStructurePlan(room, STRUCTURE_LAB, getPartOfPlan(labs, 3, 5));
+      } else {
+        warn(`Room ${room.name}'s plan is missing labs`);
+      }
+      const factory = room.memory.planner.plan[STRUCTURE_FACTORY];
+      if (factory != undefined) {
+        buildStructurePlan(room, STRUCTURE_FACTORY, factory);
+      } else {
+        warn(`Room ${room.name}'s plan is missing a factory`);
+      }
+    }
+    // falls through
+    case 6: {
+      // Level 6:
+      // - +10 Extensions
+      // - +1 Link
+      // - Extractor
+      // - Terminal
+      // - 3 labs
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 30, 39),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
+      const links = room.memory.planner.plan[STRUCTURE_LINK];
+      if (links != undefined) {
+        buildStructurePlan(room, STRUCTURE_LINK, getPartOfPlan(links, 2, 2));
+      } else {
+        warn(`Room ${room.name}'s plan is missing links`);
+      }
+      const extractor = room.memory.planner.plan[STRUCTURE_EXTRACTOR];
+      if (extractor != undefined) {
+        buildStructurePlan(room, STRUCTURE_EXTRACTOR, extractor);
+      } else {
+        warn(`Room ${room.name}'s plan is missing an extractor`);
+      }
+      const terminal = room.memory.planner.plan[STRUCTURE_TERMINAL];
+      if (terminal != undefined) {
+        buildStructurePlan(room, STRUCTURE_TERMINAL, terminal);
+      } else {
+        warn(`Room ${room.name}'s plan is missing a terminal`);
+      }
+      const labs = room.memory.planner.plan[STRUCTURE_LAB];
+      if (labs != undefined) {
+        buildStructurePlan(room, STRUCTURE_LAB, getPartOfPlan(labs, 0, 2));
+      } else {
+        warn(`Room ${room.name}'s plan is missing labs`);
+      }
+    }
+    // falls through
     case 5: {
+      // Level 5:
+      // - +10 Extensions
+      // - 2 Links
+      // - +1 Tower
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 20, 29),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
       const links = room.memory.planner.plan[STRUCTURE_LINK];
       if (links != undefined) {
         // At RCL 5, only two links can be built.
@@ -978,16 +1131,101 @@ export function executePlan(room: Room, levelOverride = -1): boolean {
       } else {
         warn(`Room ${room.name}'s plan is missing towers`);
       }
-      // const containers = room.memory.planner.plan[STRUCTURE_CONTAINER];
-      // if (containers != undefined) {
-      //   // !! TODO: this *will not* work if there are less than two sources !!
-      //   // The link container should be the third container if there are two
-      //   // sources.
-      //   const controllerContainer = getPartOfPlan(containers, 2, 2);
-      //   buildStructurePlan(room, STRUCTURE_CONTAINER, controllerContainer);
-      // } else {
-      //   warn(`Room ${room.name}'s plan is missing containers`);
-      // }
+    }
+    // falls through
+    case 4: {
+      // Level 4:
+      // - +10 Extensions
+      // - Storage
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 10, 19),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
+      const storage = room.memory.planner.plan[STRUCTURE_STORAGE];
+      if (storage != undefined) {
+        buildStructurePlan(room, STRUCTURE_STORAGE, storage);
+      } else {
+        warn(`Room ${room.name}'s plan is missing storage`);
+      }
+    }
+    // falls through
+    case 3: {
+      // Level 3:
+      // - +5 extensions
+      // - Tower
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 5, 9),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
+      const towers = room.memory.planner.plan[STRUCTURE_TOWER];
+      if (towers != undefined) {
+        buildStructurePlan(room, STRUCTURE_TOWER, getPartOfPlan(towers, 0, 0));
+      } else {
+        warn(`Room ${room.name}'s plan is missing towers`);
+      }
+    }
+    // falls through
+    case 2: {
+      // Level 2:
+      // - 5 extensions
+      // - Walls/ramparts
+      const extensions = room.memory.planner.plan[STRUCTURE_EXTENSION];
+      if (extensions != undefined) {
+        buildStructurePlan(
+          room,
+          STRUCTURE_EXTENSION,
+          getPartOfPlan(extensions, 0, 4),
+        );
+      } else {
+        warn(`Room ${room.name}'s plan is missing extensions`);
+      }
+      const walls = room.memory.planner.plan[STRUCTURE_WALL];
+      const ramparts = room.memory.planner.plan[STRUCTURE_RAMPART];
+      // Only build walls/ramparts if both exist
+      if (walls != undefined && ramparts != undefined) {
+        buildStructurePlan(room, STRUCTURE_WALL, walls);
+        buildStructurePlan(room, STRUCTURE_RAMPART, ramparts);
+      } else {
+        warn(`Room ${room.name}'s plan is missing walls/ramparts`);
+      }
+    }
+    // falls through
+    case 0:
+    case 1: {
+      // Level 0/1: Initial plan
+      // - Place spawn
+      // - Place roads
+      // - Place miner containers
+      const spawns = room.memory.planner.plan[STRUCTURE_SPAWN];
+      if (spawns != undefined) {
+        buildStructurePlan(room, STRUCTURE_SPAWN, getPartOfPlan(spawns, 0, 0));
+      } else {
+        warn(`Room ${room.name}'s plan is missing spawns`);
+      }
+      const roads = room.memory.planner.plan[STRUCTURE_ROAD];
+      if (roads != undefined) buildStructurePlan(room, STRUCTURE_ROAD, roads);
+      const containers = room.memory.planner.plan[STRUCTURE_CONTAINER];
+      if (containers != undefined) {
+        // !! TODO: this *will not* work if there are less than two sources !!
+        // The miner containrs should be the first two planned contaiers, so
+        // get indices 0 through 1 both-inclusive.
+        const minerContainers = getPartOfPlan(containers, 0, 1);
+        buildStructurePlan(room, STRUCTURE_CONTAINER, minerContainers);
+      } else {
+        warn(`Room ${room.name}'s plan is missing containers`);
+      }
       return true;
     }
     default:
