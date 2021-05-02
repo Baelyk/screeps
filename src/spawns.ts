@@ -41,6 +41,19 @@ function spawnBehavior(spawn: StructureSpawn): void {
     allowSpawn = false;
   }
 
+  // Spawn tender creeps
+  const tenderCount = countRole(spawn.room, CreepRole.tender);
+  const maxTenders = spawn.room.memory.populationLimit.tender || 0;
+  if (tenderCount < maxTenders) {
+    if (allowSpawn) {
+      info(`${spawn.name}     requesting ${CreepRole.tender}`, InfoType.spawn);
+      spawnCreep(spawn, CreepRole.tender);
+    } else {
+      info(`${spawn.name} NOT requesting ${CreepRole.tender}`, InfoType.spawn);
+    }
+    allowSpawn = false;
+  }
+
   // Spawn miner creeps
   const sources = spawn.room.find(FIND_SOURCES);
   const minerCount = countRole(spawn.room, CreepRole.miner);
@@ -71,19 +84,6 @@ function spawnBehavior(spawn: StructureSpawn): void {
       });
     } else {
       info(`${spawn.name} NOT requesting ${CreepRole.miner}`, InfoType.spawn);
-    }
-    allowSpawn = false;
-  }
-
-  // Spawn tender creeps
-  const tenderCount = countRole(spawn.room, CreepRole.tender);
-  const maxTenders = spawn.room.memory.populationLimit.tender || 0;
-  if (tenderCount < maxTenders) {
-    if (allowSpawn) {
-      info(`${spawn.name}     requesting ${CreepRole.tender}`, InfoType.spawn);
-      spawnCreep(spawn, CreepRole.tender);
-    } else {
-      info(`${spawn.name} NOT requesting ${CreepRole.tender}`, InfoType.spawn);
     }
     allowSpawn = false;
   }
