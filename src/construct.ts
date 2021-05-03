@@ -335,6 +335,7 @@ export function buildStorage(roomName: string): void {
 }
 
 export function updateWallRepair(room: Room): void {
+  const minHits = [0, 5e4, 5e4, 1e5, 2e5, 3e5, 4e5, 5e5, 1e6];
   if (room.memory.wallRepairQueue == undefined) {
     room.memory.wallRepairQueue = [];
   }
@@ -345,7 +346,7 @@ export function updateWallRepair(room: Room): void {
       (structure) =>
         (structure.structureType === STRUCTURE_WALL ||
           structure.structureType === STRUCTURE_RAMPART) &&
-        structure.hits < 1e6,
+        structure.hits < minHits[room.memory.level],
     )
     .sort((a, b) => a.hits - b.hits)
     .map((wall) => wall.id) as Id<StructureRampart | StructureWall>[];
