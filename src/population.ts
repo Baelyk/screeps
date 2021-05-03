@@ -114,6 +114,12 @@ function extractorLimit(room: Room): number {
     // Save some time, if an extractor couldn't exist, don't waste CPU looking
     return 0;
   }
+
+  // A room without a storage is a room not ready for extractors
+  if (room.storage == undefined) {
+    return 0;
+  }
+
   // TODO: Only supports one extractor in a room. Is this a problem?
   const extractor = room
     .find(FIND_STRUCTURES)
@@ -132,6 +138,11 @@ function extractorLimit(room: Room): number {
   // with about enough time to spawn an extractor then (~100t), keep the limit
   // at 0.
   if (mineral.mineralAmount === 0 && mineral.ticksToRegeneration > 200) {
+    return 0;
+  }
+
+  // If we already have 100k of the mineral, no extract pls
+  if (room.storage.store.getUsedCapacity(mineral.mineralType) > 100000) {
     return 0;
   }
 
