@@ -374,6 +374,23 @@ export function build(creep: Creep, building?: ConstructionSite): void {
         building.pos
       } with response ${errorConstant(response)}`,
     );
+  } else {
+    // TODO: does this work?
+    // Repair walls and ramparts immediately after construction
+    if (
+      (building.structureType === STRUCTURE_WALL ||
+        building.structureType === STRUCTURE_RAMPART) &&
+      building.progress === building.progressTotal
+    ) {
+      const wallOrRampart = building.pos.lookFor(LOOK_STRUCTURES)[0];
+      if (wallOrRampart != undefined) {
+        creep.room.memory.wallRepairQueue.unshift(
+          wallOrRampart.id as Id<StructureWall> | Id<StructureRampart>,
+        );
+        creep.memory.assignedRepairs = wallOrRampart.id;
+        creep.memory.task = CreepTask.repair;
+      }
+    }
   }
 }
 
