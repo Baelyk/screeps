@@ -202,5 +202,12 @@ function infrequentRoomActions(room: Room) {
       info(`Updating room memory level to ${room.memory.level}`);
       executePlan(room);
     }
+
+    // Update special structure lists
+    room.memory.towers = getTowersInRoom(room);
+    room.memory.links = {
+      all: {},
+    };
+    resetRoomLinksMemory(room);
   }
 }
