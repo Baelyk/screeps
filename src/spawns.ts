@@ -226,7 +226,7 @@ export function generateBodyByRole(
       // The capacity minus the carry and move part cost divided by the work part cost
       const workParts = Math.min(
         7,
-        Math.floor((getSpawnCapacity(spawn) - 100) / 100),
+        Math.floor((spawn.room.energyCapacityAvailable - 100) / 100),
       );
       for (let i = 0; i < workParts; i++) {
         body.push(WORK);
@@ -361,20 +361,6 @@ function getSpawnExtensions(spawn: StructureSpawn): StructureExtension[] {
       });
   });
   return extensions;
-}
-
-export function getSpawnCapacity(spawn: StructureSpawn): number {
-  // In theory the length of the spawn extension list should work, but then the
-  // extensions gets counted even if it is a construction site, which means that
-  // while an extension is under construction, the spawn capacity is over-
-  // quoted, leading to ERR_NOT_ENOUGH_RESOURCES for the majority of creep roles
-  // (tenders get around this because they are designed to spawn immediately
-  // with a body based on available energy so they can always spawn).
-  let capacity = SPAWN_ENERGY_CAPACITY;
-  getSpawnExtensions(spawn).forEach(() => {
-    capacity += EXTENSION_ENERGY_CAPACITY[spawn.room.memory.level];
-  });
-  return capacity;
 }
 
 export function getMaxExtensions(level: number): number {

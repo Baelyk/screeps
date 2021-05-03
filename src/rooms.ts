@@ -113,16 +113,10 @@ export function getNextTombInRoom(room: Room): Tombstone | undefined {
 }
 
 export function getRoomAvailableEnergy(room: Room): number | undefined {
-  if (room.memory.storage == undefined) {
+  if (room.storage == undefined) {
     return undefined;
   }
-  const storage = Game.getObjectById(
-    room.memory.storage,
-  ) as StructureStorage | null;
-  if (storage == undefined) {
-    throw new GetByIdError(room.memory.storage, STRUCTURE_STORAGE);
-  }
-  return storage.store.getUsedCapacity(RESOURCE_ENERGY);
+  return room.storage.store.getUsedCapacity(RESOURCE_ENERGY);
 }
 
 /**

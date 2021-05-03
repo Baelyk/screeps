@@ -128,7 +128,6 @@ interface RoomMemory {
   towers: Id<StructureTower>[];
   sources: Id<Source>[];
   tombs: Id<Tombstone>[];
-  storage: Id<StructureStorage> | undefined;
   wallRepairQueue: Id<StructureRampart | StructureWall>[];
   planner: PlannerMemory | undefined;
   links: RoomLinksMemory;

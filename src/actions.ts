@@ -79,18 +79,15 @@ export function getEnergy(
   target?: Structure | Tombstone | Ruin,
 ): ScreepsReturnCode {
   let response: ScreepsReturnCode;
-  // If target isn't specified, try the room's primary storage
+  // If target isn't specified, try the room's storage
   if (target == undefined) {
-    const primaryStorage = Game.getObjectById(
-      creep.room.memory.storage || "",
-    ) as StructureStorage | null;
-    // If their is a primary storage, make sure it has energy first
+    // If there is a storage, make sure it has energy first
     if (
-      primaryStorage != undefined &&
-      primaryStorage.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+      creep.room.storage != undefined &&
+      creep.room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0
     ) {
       // If it does have energy, it is the target
-      target = primaryStorage;
+      target = creep.room.storage;
     }
   }
   // If there is no primary storage, proceed as normal
