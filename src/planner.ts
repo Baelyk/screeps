@@ -718,7 +718,15 @@ function roadToController(room: Room, planMatrix?: CostMatrix): RoomPosition[] {
   }
 
   // Turn the path into RoomPositions and add it to the road
-  return planPath(room, spawn.pos, controller.pos, planMatrix);
+  const pathWithController = planPath(
+    room,
+    spawn.pos,
+    controller.pos,
+    planMatrix,
+  );
+  // Don't build a road under the controller, it's rather expensive
+  pathWithController.pop();
+  return pathWithController;
 }
 
 function pathToRoomPosition(room: Room, path: PathStep[]): RoomPosition[] {
