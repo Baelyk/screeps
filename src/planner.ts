@@ -15,8 +15,8 @@ export interface RoomPlannerMemory {
   costMatrix?: number[];
   plan: PlannerPlan;
   /**
-   * The level of the plan so-far executed. E.g. `level = 2` means levels 0,
-   * 1, and 2 have been executed, but 3 and up haven't.
+   * The level of the plan so-far executed. E.g. `level = 2` means levels 0, 1,
+   * and 2 have been executed, but 3 and up haven't.
    */
   level: number;
 }
@@ -34,6 +34,10 @@ interface PlannerStructurePlan {
 interface PlannerCoord {
   x: number;
   y: number;
+}
+
+export function makeRoomPlanner(roomName: string): RoomPlannerMemory {
+  throw new ScriptError("unimplemented");
 }
 
 export function getExitWallsAndRamparts(

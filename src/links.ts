@@ -8,6 +8,32 @@ import {
   wrapper,
 } from "utils/errors";
 
+declare global {
+  interface RoomLinksMemory {
+    all: { [id: string]: LinkMemory };
+    spawn?: Id<StructureLink>;
+    controller?: Id<StructureLink>;
+  }
+
+  interface LinkMemory {
+    mode: LinkMode;
+    type: LinkType;
+  }
+
+  const enum LinkMode {
+    none = "none",
+    send = "send",
+    recieve = "recieve",
+  }
+
+  const enum LinkType {
+    spawn = "spawn",
+    controller = "controller",
+    source = "source",
+    unknown = "unknown",
+  }
+}
+
 export function resetLinkMemory(linkId: Id<StructureLink>): void {
   const link = Game.getObjectById(linkId);
   if (link == null) {

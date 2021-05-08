@@ -183,3 +183,19 @@ export function wrapper(
     if (final != undefined) final();
   }
 }
+
+/**
+ * Tries to call a function and return it's value. If the function produces a
+ * result, returns that result. If the function throws an error, returns the fail result.
+ *
+ * @param {() => A} fn The function to call
+ * @param {B} failValue The value to return if the function throws an error
+ * @returns {A | B} The return value of the function or the provided fail value
+ */
+export function tryFn<A, B>(fn: () => A, failValue: B): A | B {
+  try {
+    return fn();
+  } catch (_) {
+    return failValue;
+  }
+}

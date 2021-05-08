@@ -7,7 +7,7 @@ import { init } from "initialize";
 import { creepManager } from "creeps";
 import { spawnManager } from "spawns";
 import { roomManager } from "rooms";
-//import { testFunction } from "roomMemory";
+import { testFunction } from "roomMemory";
 
 console.log("- - - - RESTARTING - - - -");
 
