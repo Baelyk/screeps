@@ -6,7 +6,8 @@ import {
   getExtensionSpots,
   makePlan,
 } from "planner";
-import { updateRoomMemory } from "rooms";
+import { updateRoomMemory, remoteTargetAnalysis } from "rooms";
+import { resetConstructionQueue } from "construct";
 
 export function debugLoop(): void {
   const spawn = Game.spawns[Memory.initialSpawn];
@@ -127,4 +128,52 @@ export function debugPostLoop(): void {
   if (cpuUsed >= 5) {
     warn(`Used ${cpuUsed} cpu`);
   }
+}
+
+export function roomDebugLoop(room: Room): void {
+  if (room.memory.debug == undefined) {
+    return;
+  }
+
+  if (room.memory.debug.removeConstructionSites) {
+    roomRemoveConstructionSites(room);
+    delete room.memory.debug.removeConstructionSites;
+  }
+  if (room.memory.debug.resetConstructionSites) {
+    roomResetConstructionSites(room);
+    delete room.memory.debug.resetConstructionSites;
+  }
+  if (
+    room.memory.debug.energyFlow == undefined ||
+    room.memory.debug.energyFlow.restart
+  ) {
+    roomDebugResetEnergyFlow(room);
+  }
+
+  if (room.memory.debug.remoteAnalysis && room.memory.owner != undefined) {
+    const owner = Game.rooms[room.memory.owner];
+    if (owner != undefined) {
+      remoteTargetAnalysis(owner, room);
+    }
+    room.memory.debug.remoteAnalysis = false;
+  }
+}
+
+function roomRemoveConstructionSites(room: Room): void {
+  room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => site.remove());
+}
+
+function roomResetConstructionSites(room: Room): void {
+  resetConstructionQueue(room);
+}
+
+export function roomDebugResetEnergyFlow(room: Room): void {
+  if (room.memory.debug == undefined) {
+    room.memory.debug = {};
+  }
+  room.memory.debug.energyFlow = {
+    start: Game.time,
+    cost: 0,
+    gain: 0,
+  };
 }

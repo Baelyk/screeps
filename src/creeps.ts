@@ -9,6 +9,7 @@ import {
   upgradeController,
   storeEnergy,
   storeResource,
+  moveToRoom,
 } from "actions";
 import { fromQueue, unassignConstruction, fromRepairQueue } from "construct";
 import { errorConstant, info, warn } from "utils/logger";
@@ -22,7 +23,9 @@ import {
   InvalidCreepRoleError,
   wrapper,
 } from "utils/errors";
-import { bodyCost, countRole } from "utils/helpers";
+import { bodyCost, countRole, livenRoomPosition } from "utils/helpers";
+import { getSurroundingTiles } from "construct";
+import { respawnCreep } from "spawning";
 
 /**
  * Behavior for a harvester creep (CreepRole.harvester)
@@ -75,8 +78,20 @@ function harvester(creep: Creep) {
  * @param creep The miner creep
  */
 function miner(creep: Creep) {
-  if (creep.memory.task === CreepTask.fresh)
+  if (creep.memory.task === CreepTask.fresh) {
     creep.memory.task = CreepTask.harvest;
+    // Move remote miners to their room
+    if (creep.room.name !== creep.memory.room) {
+      // Move them to the room and reset the path
+      moveToRoom(creep, creep.memory.room, true);
+    }
+  }
+
+  // First, move to the correct room
+  if (creep.room.name !== creep.memory.room) {
+    moveToRoom(creep);
+    return;
+  }
 
   // Tasks for this creep:
   // 0. Move to spot, if it has a spot
@@ -139,7 +154,14 @@ function builder(creep: Creep) {
         }
         // If the creep is assigned a construction site that no longer exists or
         // doesn't have an assigned construction site, get one from the queue.
-        creep.memory.assignedConstruction = fromQueue(creep.room);
+        let room = creep.room;
+        if (creep.memory.room != undefined) {
+          const memoryRoom = Game.rooms[creep.memory.room];
+          if (memoryRoom != undefined) {
+            room = memoryRoom;
+          }
+        }
+        creep.memory.assignedConstruction = fromQueue(room);
         // If a construction site was successfully obtained from the queue,
         // build it.
         if (creep.memory.assignedConstruction != undefined) {
@@ -312,11 +334,20 @@ function hauler(creep: Creep) {
   switch (creep.memory.task) {
     // Creep is getting energy
     case CreepTask.getEnergy: {
-      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-        if (creep.memory.spot === undefined) {
+      // >1 to prevent remote haulers from getting stuck
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 1) {
+        if (creep.memory.spot == undefined) {
           throw new CreepRoleMemoryError(creep, "spot");
         }
-        const spot = creep.room.getPositionAt(
+        const spotRoom = Game.rooms[creep.memory.spot.roomName];
+        if (spotRoom == undefined) {
+          throw new CreepRoleMemoryError(
+            creep,
+            "spot",
+            "Invalid/invisible spot",
+          );
+        }
+        const spot = spotRoom.getPositionAt(
           creep.memory.spot.x,
           creep.memory.spot.y,
         );
@@ -355,7 +386,17 @@ function hauler(creep: Creep) {
     }
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        const storage = creep.room.storage;
+        let storage = creep.room.storage;
+        // If Creep is not home, try and use the storage in the home room instead
+        if (
+          creep.room.memory.owner != undefined &&
+          creep.room.name != creep.room.memory.owner
+        ) {
+          const homeRoom = Game.rooms[creep.room.memory.owner];
+          if (homeRoom != undefined) {
+            storage = homeRoom.storage || storage;
+          }
+        }
         if (storage == undefined) {
           warn(
             `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`,
@@ -499,7 +540,380 @@ function extractor(creep: Creep): void {
   }
 }
 
-// function claimer(creep: Creep) {}
+function claimer(creep: Creep) {
+  if (creep.memory.claimTarget == undefined) {
+    throw new CreepRoleMemoryError(creep, "claimTarget");
+  }
+
+  if (creep.memory.task === CreepTask.fresh) {
+    creep.memory.task = CreepTask.claim;
+    // This claimer is brand new, so initialize it's path to the new room
+    const exitToRoom = creep.room.findExitTo(creep.memory.claimTarget);
+    if (exitToRoom === ERR_NO_PATH || exitToRoom === ERR_INVALID_ARGS) {
+      throw new ScriptError(
+        `Error finding path to room ${creep.memory.claimTarget} from ${creep.room.name}`,
+      );
+    }
+    const exitPos = creep.pos.findClosestByPath(exitToRoom);
+    if (exitPos == undefined) {
+      throw new ScriptError(
+        `No closest exit (${exitToRoom}) in room ${creep.room.name}`,
+      );
+    }
+    const exitPath = creep.pos.findPathTo(exitPos);
+    creep.memory.path = Room.serializePath(exitPath);
+  }
+
+  // Tasks for this creep:
+  // 1. getEnergy: Get energy from fullest container
+  // 2. deposit: Deposit into spawn/extension or least full container
+  switch (creep.memory.task) {
+    // Creep is getting energy
+    case CreepTask.claim: {
+      if (creep.room.name !== creep.memory.claimTarget) {
+        if (creep.memory.path == undefined) {
+          throw new CreepRoleMemoryError(
+            creep,
+            "path",
+            "Claimers need a path to their destination room",
+          );
+        }
+        const path = Room.deserializePath(creep.memory.path);
+        const exitPos = creep.room.getPositionAt(
+          path[path.length - 1].x,
+          path[path.length - 1].y,
+        );
+        if (exitPos == undefined) {
+          throw new ScriptError(`Final position of path doesn't exist in room`);
+        }
+        if (creep.pos.isEqualTo(exitPos)) {
+          // Move to room
+        } else {
+          const response = creep.moveByPath(path);
+          if (response !== OK && response !== ERR_TIRED) {
+            warn(
+              `Creep ${
+                creep.name
+              } failed to move by path with response ${errorConstant(
+                response,
+              )}`,
+            );
+          }
+        }
+      } else {
+        const controller = creep.room.controller;
+        if (controller == undefined) {
+          throw new ScriptError(
+            `Undefined controller in room ${creep.room.name}`,
+          );
+        }
+        if (controller.my) {
+          info(`Creep ${creep.name} successfully claimed ${creep.room.name}`);
+          if (
+            controller.sign == undefined ||
+            controller.sign.username !== "Baelyk"
+          ) {
+            creep.signController(controller, "hey I got it to work");
+          }
+          return;
+        }
+        const response = creep.claimController(controller);
+        if (response === ERR_NOT_IN_RANGE) {
+          creep.moveTo(controller);
+        } else if (response !== OK) {
+          warn(
+            `Creep ${creep.name} failed to claim controller in ${
+              creep.room.name
+            } with response ${errorConstant(response)}`,
+          );
+        }
+      }
+      break;
+    }
+    default: {
+      throw new InvalidCreepTaskError(creep, [CreepTask.claim]);
+    }
+  }
+}
+
+function reserver(creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh)
+    creep.memory.task = CreepTask.claim;
+
+  // Tasks for this creep:
+  // 1. claim: Move to and start/maintain controller reservation
+  switch (creep.memory.task) {
+    case CreepTask.claim: {
+      const targetRoom = Game.rooms[creep.memory.room];
+      if (targetRoom == undefined) {
+        throw new CreepRoleMemoryError(
+          creep,
+          "room",
+          "Claimer creep must have visible room",
+        );
+      }
+      const controller = targetRoom.controller;
+      if (controller == undefined) {
+        throw new CreepRoleMemoryError(
+          creep,
+          "room",
+          "Claimer creep room must have controller",
+        );
+      }
+      let response: CreepActionReturnCode;
+      let action = "";
+      if (
+        controller.reservation == undefined ||
+        controller.reservation.username === "Baelyk"
+      ) {
+        response = creep.reserveController(controller);
+        action = "reserve";
+      } else {
+        response = creep.attackController(controller);
+        action = "attack";
+      }
+      if (response === ERR_NOT_IN_RANGE) {
+        creep.moveTo(controller);
+      } else if (response !== OK) {
+        warn(
+          `Creep ${
+            creep.name
+          } failed to ${action} controller because ${errorConstant(response)}`,
+        );
+      }
+      break;
+    }
+    default: {
+      throw new InvalidCreepTaskError(creep, [CreepTask.claim]);
+    }
+  }
+}
+
+function remoteHauler(creep: Creep) {
+  // Try and perform as a hauler
+  try {
+    hauler(creep);
+  } catch (error) {
+    // If there was an error acting as a hauler, try and just got to the spot
+    // and recover energy there. The error was likely due to a lacking container
+    // which is not a critical error for remote haulers. The other contender is
+    // that the room lacks vision.
+    let spot: RoomPosition;
+    try {
+      spot = livenRoomPosition(creep.memory.spot);
+      if (!creep.pos.isNearTo(spot)) {
+        creep.moveTo(spot);
+      } else {
+        recoverEnergy(creep);
+      }
+    } catch (spotError) {
+      if (creep.room.name != creep.memory.room) {
+        moveToRoom(creep);
+      } else {
+        throw new CreepRoleMemoryError(creep, "spot", "Unable liven spot");
+      }
+    }
+  }
+  // But repair roads under the creep
+  const road = creep.pos
+    .lookFor(LOOK_STRUCTURES)
+    .find((structure) => structure.structureType === STRUCTURE_ROAD);
+  if (road != undefined && road.hits < road.hitsMax) {
+    creep.repair(road);
+  } else if (
+    Game.rooms[creep.memory.room] != undefined &&
+    creep.pos.isNearTo(livenRoomPosition(creep.memory.spot))
+  ) {
+    const container = livenRoomPosition(creep.memory.spot)
+      .lookFor(LOOK_STRUCTURES)
+      .find((structure) => structure.structureType === STRUCTURE_CONTAINER);
+    if (container != undefined && container.hits < container.hitsMax) {
+      if (container.hits < container.hitsMax * 0.1) {
+        // TODO: Don't wanna move, not really sure how this works
+        creep.cancelOrder("move");
+        creep.cancelOrder("moveTo");
+        creep.cancelOrder("moveByPath");
+      }
+      creep.repair(container);
+    }
+  }
+}
+
+function scout(creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) {
+    creep.memory.task = CreepTask.claim;
+    moveToRoom(creep, creep.memory.room);
+  }
+
+  // Tasks for this creep:
+  // 1. claim: Move to target room
+  switch (creep.memory.task) {
+    // Creep is getting energy
+    case CreepTask.claim: {
+      if (creep.room.name !== creep.memory.room) {
+        moveToRoom(creep, creep.memory.room);
+      } else {
+        // If the controller has not already been signed, let's sign it
+        const controller = creep.room.controller;
+        if (controller == undefined) {
+          throw new ScriptError(
+            `Undefined controller in room ${creep.room.name}`,
+          );
+        }
+        if (controller.sign == undefined) {
+          const response = creep.signController(
+            controller,
+            "no this is my favorite room so far",
+          );
+          if (response === ERR_NOT_IN_RANGE) {
+            creep.moveTo(controller);
+          }
+        } else {
+          if (creep.pos.isNearTo(controller.pos)) {
+            // Don't block the controller if there is only one access to it
+            const path = PathFinder.search(
+              creep.pos,
+              { pos: controller.pos, range: 1 },
+              { flee: true },
+            ).path;
+            creep.moveByPath(path);
+          } else if (!creep.pos.inRangeTo(controller.pos, 3)) {
+            // Be near the controller
+            // TODO: This isn't really necessary, the creep just needs to be in
+            // the room and ideally out of the way
+            creep.moveTo(controller.pos);
+          }
+        }
+      }
+      break;
+    }
+    default: {
+      throw new InvalidCreepTaskError(creep, [CreepTask.claim]);
+    }
+  }
+}
+
+function guard(creep: Creep) {
+  if (creep.memory.task === CreepTask.fresh) creep.memory.task = CreepTask.idle;
+
+  // Tasks for this creep:
+  // 1. CreepTask.idle: Sit near room spawn and check for hostiles in room and
+  //    its remotes
+  // 2. CreepTask.move: Move to the target room (that was identified to contain
+  //    hostiles)
+  // 3. Attack hostiles in room
+  switch (creep.memory.task) {
+    case CreepTask.idle: {
+      // Idle now, reset path
+      delete creep.memory.path;
+
+      // Check for hostiles in current room, home room, then home room's remotes
+      const roomsToGuard = [creep.room.name, creep.memory.room];
+      const homeRoomMemory = Memory.rooms[creep.memory.room];
+      if (homeRoomMemory != undefined && homeRoomMemory.remotes != undefined) {
+        roomsToGuard.push(...homeRoomMemory.remotes);
+      }
+      const roomTarget = _.find(roomsToGuard, (roomName) => {
+        const room = Game.rooms[roomName];
+        if (room == undefined) {
+          return false;
+        }
+        // Find hostile creeps AND structures (e.g. invader cores)
+        let targets: (Creep | AnyOwnedStructure)[] = room.find(
+          FIND_HOSTILE_CREEPS,
+        );
+        targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES));
+        return targets.length > 0;
+      });
+      // If a room was found, target it and move to it
+      if (roomTarget != undefined) {
+        info(`Creep ${creep.name} detected hostiles in ${roomTarget}`);
+        creep.memory.roomTarget = roomTarget;
+        switchTaskAndDoRoll(creep, CreepTask.move);
+        return;
+      }
+
+      // No hostiles found, move to spawn
+      if (creep.room.name !== creep.memory.room) {
+        moveToRoom(creep, creep.memory.room);
+      } else {
+        // Move to spawn if exists
+        if (homeRoomMemory.spawn == undefined) {
+          throw new CreepRoleMemoryError(
+            creep,
+            "room",
+            `Creep ${creep.name}'s home room ${creep.memory.room} lacks a spawn, needed for guards`,
+          );
+        }
+        const spawn = Game.getObjectById(homeRoomMemory.spawn);
+        if (spawn == undefined) {
+          throw new GetByIdError(homeRoomMemory.spawn, STRUCTURE_SPAWN);
+        }
+        if (!creep.pos.isNearTo(spawn.pos)) {
+          creep.moveTo(spawn.pos);
+        }
+      }
+      break;
+    }
+    // The creep is in transit to its roomTarget
+    case CreepTask.move: {
+      if (creep.room.name != creep.memory.roomTarget) {
+        moveToRoom(creep, creep.memory.roomTarget);
+      } else {
+        switchTaskAndDoRoll(creep, CreepTask.attack);
+      }
+      break;
+    }
+    // The creep is attacking hostile creeps in the room
+    case CreepTask.attack: {
+      // TODO: Don't simply attack closest hostile creep
+      let targets: (Creep | AnyOwnedStructure)[] = creep.room.find(
+        FIND_HOSTILE_CREEPS,
+      );
+      targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES));
+      const target = creep.pos.findClosestByPath(targets);
+      // If there are no hostiles left, done attacking, go idle
+      if (target == undefined) {
+        switchTaskAndDoRoll(creep, CreepTask.idle);
+        return;
+      }
+
+      // Hostiles present:
+      // Move to AND do all attacks possible
+      const moveResponse = creep.moveTo(target);
+      info(
+        `Creep ${creep.name} approaching target ${
+          target.id
+        } with response ${errorConstant(moveResponse)}`,
+      );
+      // if (creep.pos.isNearTo(target.pos)) {
+      const attackResponse = creep.attack(target);
+      info(
+        `Creep ${creep.name} melee attacking ${
+          target.id
+        } with response ${errorConstant(attackResponse)}
+          `,
+      );
+      // }
+      // if (creep.pos.inRangeTo(target.pos, 3)) {
+      const rangedResponse = creep.rangedAttack(target);
+      info(
+        `Creep ${creep.name} ranged attacking ${
+          target.id
+        } with response ${errorConstant(rangedResponse)}`,
+      );
+      // }
+      break;
+    }
+    default: {
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.idle,
+        CreepTask.move,
+        CreepTask.attack,
+      ]);
+    }
+  }
+}
 
 /**
  * Switches the creeps task and then calls doRoll on the creep
@@ -567,6 +981,10 @@ function renewCheck(creep: Creep): void {
     // An option here would be to set the creep to not renew, but the limit may
     // change while the creep still has a chance to renew, like in the case of
     // the builder limit increasing due to a change in the construction queue.
+    return;
+  }
+
+  if (creep.room.memory.spawn == undefined) {
     return;
   }
 
@@ -640,6 +1058,21 @@ function creepBehavior(creep: Creep): void {
     case CreepRole.extractor:
       extractor(creep);
       break;
+    case CreepRole.claimer:
+      claimer(creep);
+      break;
+    case CreepRole.reserver:
+      reserver(creep);
+      break;
+    case CreepRole.remoteHauler:
+      remoteHauler(creep);
+      break;
+    case CreepRole.scout:
+      scout(creep);
+      break;
+    case CreepRole.guard:
+      guard(creep);
+      break;
     default:
       throw new InvalidCreepRoleError(creep);
   }
@@ -658,6 +1091,11 @@ export function handleDead(name: string): void {
       if (memory.assignedConstruction) {
         unassignConstruction(name);
       }
+      break;
+    // Bandaid/potentially better way to replace dead haulers
+    case CreepRole.hauler:
+      respawnCreep(memory);
+      break;
   }
   if (memory.room != undefined) {
     const room = Game.rooms[memory.room];
@@ -680,7 +1118,7 @@ export function handleDead(name: string): void {
   }
 }
 
-export function creepManager() {
+export function creepManager(): void {
   // Automatically delete memory of missing creeps
   for (const name in Memory.creeps) {
     if (!(name in Game.creeps)) {

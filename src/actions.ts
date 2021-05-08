@@ -113,8 +113,24 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
-      if (countRole(creep.room, CreepRole.miner) === 0) harvestEnergy(creep);
-      return ERR_NOT_FOUND;
+      if (countRole(creep.room, CreepRole.miner) === 0) {
+        harvestEnergy(creep);
+      } else {
+        // No structures, no harvesting, so try and find energy on the ground.
+        const pile = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+          filter: {
+            resourceType: RESOURCE_ENERGY,
+          },
+        });
+        if (pile != undefined) {
+          const response = creep.pickup(pile);
+          if (response === ERR_NOT_IN_RANGE) {
+            creep.moveTo(pile);
+          }
+        }
+      }
+      // You just have to say you're OK because they would never understand
+      return OK;
     }
     const structure = structures[0].structure as
       | StructureContainer
@@ -545,4 +561,54 @@ function recoverNearbyEnergy(creep: Creep): ScreepsReturnCode {
   }
 
   return ERR_NOT_FOUND;
+}
+
+/**
+ * Moves the creep to the target room. If the target room is unsupplied, uses
+ * `creep.memory.room`.
+ */
+export function moveToRoom(
+  creep: Creep,
+  destRoomName?: string,
+  resetPath = false,
+): void {
+  if (destRoomName == undefined) {
+    destRoomName = creep.memory.room;
+  }
+
+  if (
+    resetPath ||
+    creep.memory.path == undefined ||
+    creep.memory.pathStartRoom == undefined ||
+    creep.room.name !== creep.memory.pathStartRoom
+  ) {
+    // This scout is new, so initialize its path to its target
+    const exitToRoom = creep.room.findExitTo(destRoomName);
+    if (exitToRoom === ERR_NO_PATH || exitToRoom === ERR_INVALID_ARGS) {
+      throw new ScriptError(
+        `Error finding path to room ${destRoomName} from ${
+          creep.room.name
+        }: ${errorConstant(exitToRoom)}`,
+      );
+    }
+    const exitPos = creep.pos.findClosestByPath(exitToRoom);
+    if (exitPos == undefined) {
+      throw new ScriptError(
+        `No closest exit (${exitToRoom}) in room ${creep.room.name}`,
+      );
+    }
+    const exitPath = creep.pos.findPathTo(exitPos);
+    creep.memory.path = Room.serializePath(exitPath);
+    creep.memory.pathStartRoom = creep.room.name;
+  }
+
+  // Use `creep.memory.path` to move
+  const response = creep.moveByPath(creep.memory.path);
+  if (response !== OK && response !== ERR_TIRED) {
+    warn(
+      `Creep ${creep.name} failed to move by path with response ${errorConstant(
+        response,
+      )}`,
+    );
+  }
 }

@@ -26,6 +26,7 @@ interface DebugMemory {
   executePlan?: boolean;
   harvestStats?: boolean;
   energyHarvested?: DebugEnergyHarvested;
+  expandAllowed?: boolean;
 }
 
 interface DebugEnergyHarvested {
@@ -47,11 +48,10 @@ type ConstructionQueue = RoomPosition[];
 type RepairQueue = Id<Structure>[];
 
 interface CreepMemory {
-  [key: string]: any;
   role: CreepRole;
   task: CreepTask;
   // Undefined if the creep is spawning
-  room: string | undefined;
+  room: string;
   /** A source assigned to this creep by id */
   assignedSource?: Id<Source> | undefined;
   /** A construction site assigned to this creep by id */
@@ -62,6 +62,14 @@ interface CreepMemory {
   spot?: RoomPosition | undefined;
   /** Whether to prevent this creep from being renewed */
   noRenew?: boolean | undefined;
+  /** The room this claimer creep is targetting */
+  claimTarget?: string | undefined;
+  /** A path for this creep to use, serialized with `Room.serializePath` */
+  path?: string;
+  /** The room the path originated in, to know when to recreate path */
+  pathStartRoom?: string;
+  /** The room this creep is targetting */
+  roomTarget?: string;
 }
 
 // The exact task depends also on the role
@@ -76,6 +84,11 @@ declare const enum CreepTask {
   build = "build",
   repair = "repair",
   renew = "renew",
+  claim = "claim",
+  /** Move to target */
+  move = "move",
+  /** Attack hostiles */
+  attack = "attack",
 }
 
 declare const enum CreepRole {
@@ -95,6 +108,14 @@ declare const enum CreepRole {
   tender = "tender",
   /** Creep that works mineral deposits */
   extractor = "extractor",
+  /** Creep that starts and maintains reservations */
+  reserver = "reserver",
+  /** Creep that hauls between remotes */
+  remoteHauler = "remote_hauler",
+  /** Creep that moves to a room to provide vision */
+  scout = "scout",
+  /** Creep that guards rooms and their remotes */
+  guard = "guard",
 }
 
 declare const enum InfoType {
@@ -139,6 +160,42 @@ interface RoomMemory {
    * least hits to most
    */
   repairQueue: RepairQueue;
+  roomType: RoomType;
+  /** The room that this room is a remote for, if this is a remote room */
+  owner: string | undefined;
+  /** The entrance to the room, if it exists, e.g. for a remote room */
+  entrance?: { x: number; y: number };
+  /** Room debug memory */
+  debug?: RoomDebugMemory;
+  /** Room names of remotes of this room */
+  remotes?: string[];
+  /** Spawn queue */
+  spawnQueue: SpawnQueueItem[];
+}
+
+interface SpawnQueueItem {
+  role: CreepRole;
+  overrides?: Partial<CreepMemory>;
+  name?: string;
+}
+
+interface RoomDebugMemory {
+  removeConstructionSites?: boolean;
+  resetConstructionSites?: boolean;
+  energyFlow?: RoomDebugEnergyFlow;
+  remoteAnalysis?: boolean;
+}
+
+interface RoomDebugEnergyFlow {
+  start: number;
+  restart?: boolean;
+  cost: number;
+  gain: number;
+}
+
+declare const enum RoomType {
+  primary = "primary",
+  remote = "remote",
 }
 
 interface PlannerMemory {

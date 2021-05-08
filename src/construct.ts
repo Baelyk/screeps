@@ -91,6 +91,13 @@ export function build(
   return false;
 }
 
+export function resetConstructionQueue(room: Room): void {
+  room.memory.constructionQueue = [];
+  room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => {
+    addToQueue(site.pos);
+  });
+}
+
 /**
  * Add construction sites at a position to the construction queue
  *
@@ -189,12 +196,14 @@ export function getSurroundingTiles(
   radius = 0,
 ): RoomPosition[] {
   const coords = getSurroundingCoords(position.x, position.y, radius);
-  return coords.map((coord) => {
-    return Game.rooms[position.roomName].getPositionAt(
-      coord.x,
-      coord.y,
-    ) as RoomPosition;
+  // RoomPosition or null/undefined array
+  const positions = coords.map((coord) => {
+    return Game.rooms[position.roomName].getPositionAt(coord.x, coord.y);
   });
+  // RoomPosition[] after removing undefinedish elements
+  return positions.filter(
+    (position) => position != undefined,
+  ) as RoomPosition[];
 }
 
 export function unassignConstruction(name: string): void {

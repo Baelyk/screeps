@@ -1,12 +1,40 @@
 import { info, warn } from "utils/logger";
 import { buildStructure, getSurroundingTiles } from "construct";
-import { roomPositionArrayRemoveDuplicates } from "utils/utilities";
+import {
+  roomPositionArrayRemoveDuplicates,
+  pathToRoomPosition,
+} from "utils/utilities";
 import {
   GetByIdError,
   GetPositionError,
   RoomMemoryError,
   ScriptError,
 } from "utils/errors";
+
+export interface RoomPlannerMemory {
+  costMatrix?: number[];
+  plan: PlannerPlan;
+  /**
+   * The level of the plan so-far executed. E.g. `level = 2` means levels 0,
+   * 1, and 2 have been executed, but 3 and up haven't.
+   */
+  level: number;
+}
+type PlannerPlan = {
+  [key in BuildableStructureConstant]?: PlannerStructurePlan;
+};
+interface PlannerStructurePlan {
+  pos: PlannerCoord[];
+  /**
+   * How many of the positions in `pos` correspond with each level. E.g.,
+   * `levels[0] = 5` means indexes 0 through 4 (the first 5) positions are for level 0.
+   */
+  levels?: number[];
+}
+interface PlannerCoord {
+  x: number;
+  y: number;
+}
 
 export function getExitWallsAndRamparts(
   room: Room,
@@ -729,14 +757,6 @@ function roadToController(room: Room, planMatrix?: CostMatrix): RoomPosition[] {
   return pathWithController;
 }
 
-function pathToRoomPosition(room: Room, path: PathStep[]): RoomPosition[] {
-  const spots = path.map((step) => room.getPositionAt(step.x, step.y));
-  const positions = spots.filter(
-    (position) => position != undefined,
-  ) as RoomPosition[];
-  return positions;
-}
-
 function planPath(
   room: Room,
   start: RoomPosition,
@@ -830,6 +850,9 @@ function getContainerSpots(room: Room): RoomPosition[] {
 }
 
 export function makePlan(room: Room): boolean {
+  if (room.memory.roomType === RoomType.remote) {
+    return planRemoteRoom(room);
+  }
   // 1. Spawn ring road
   // 2. Extensions and extension roads
   // 3. Planned spawn strucutres
@@ -1297,4 +1320,67 @@ function addToPlan(plan: PlannerPlan, addition: PlannerPlan): void {
       );
     }
   }
+}
+
+function planRemoteRoom(room: Room): boolean {
+  if (room.memory.owner == undefined) {
+    throw new RoomMemoryError(room, "owner", `A remote room needs an owner`);
+  }
+  const owner = Game.rooms[room.memory.owner];
+  if (owner == undefined) {
+    throw new RoomMemoryError(
+      room,
+      "owner",
+      `Room ${room.name}'s owner ${room.memory.owner} cannot be found`,
+    );
+  }
+  if (owner.memory.spawn == undefined) {
+    throw new RoomMemoryError(room, "spawn", `Owner rooms need a spawn`);
+  }
+  const ownerSpawn = Game.getObjectById(owner.memory.spawn);
+  if (ownerSpawn == undefined) {
+    throw new GetByIdError(owner.memory.spawn, STRUCTURE_SPAWN);
+  }
+
+  // 1. Mining containers by sources
+  // 2. Roads to mining containers
+  // 3. Roads to controller
+
+  const controller = room.controller;
+  if (controller == undefined) {
+    throw new ScriptError(`Couldn't find controller for room ${room.name}`);
+  }
+  const roads: RoomPosition[] = [];
+  const entrance = room.memory.entrance;
+  if (entrance == undefined) {
+    throw new RoomMemoryError(
+      room,
+      "entrance",
+      "Remote rooms need an entrance",
+    );
+  }
+  const exitPos = room.getPositionAt(entrance.x, entrance.y);
+  if (exitPos == undefined) {
+    throw new ScriptError(
+      `No entrance (${entrance.x}, ${entrance.y}) in remote room ${room.name}`,
+    );
+  }
+  info(`Entrance: (${exitPos.x},${exitPos.y})`);
+  // No road to the controller for remote rooms
+  // roads.push(...planPath(room, controller.pos, exitPos, undefined));
+  const containers = minerContainers(room);
+  containers.forEach((container) => {
+    roads.push(...planPath(room, container, exitPos, undefined));
+  });
+
+  const plan: PlannerPlan = {};
+  plan[STRUCTURE_ROAD] = { pos: roomPositionToPlanCoord(roads) };
+  plan[STRUCTURE_CONTAINER] = { pos: roomPositionToPlanCoord(containers) };
+  const plannerMemory: PlannerMemory = {
+    plan: plan,
+    costMatrix: undefined,
+  };
+  room.memory.planner = plannerMemory;
+
+  return true;
 }

@@ -108,6 +108,18 @@ export function stringifyBody(body: BodyPartConstant[]): string {
       case MOVE:
         string += "M";
         break;
+      case CLAIM:
+        string += "L";
+        break;
+      case ATTACK:
+        string += "A";
+        break;
+      case RANGED_ATTACK:
+        string += "R";
+        break;
+      case TOUGH:
+        string += "T";
+        break;
       default:
         error(`stringifyBody unexpected body part ${part}`);
     }

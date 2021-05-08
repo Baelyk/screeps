@@ -15,174 +15,15 @@ import {
  * @param spawn The spawn to process
  */
 function spawnBehavior(spawn: StructureSpawn): void {
-  // Currently no spawn queue, so we can only queue one creep per tick
-  let allowSpawn = true;
+  let allowSpawn = !spawn.spawning;
 
-  // Spawn harvester creeps
-  const maxHarvesters = spawn.room.memory.populationLimit.harvester || 0;
-  const harvestersCount = countRole(spawn.room, CreepRole.harvester);
-  // Also, if there are no creeps, emergency spawn a harvester
-  if (
-    harvestersCount < maxHarvesters ||
-    Object.keys(Game.creeps).length === 0
-  ) {
-    if (allowSpawn) {
-      info(
-        `${spawn.name}     requesting ${CreepRole.harvester}`,
-        InfoType.spawn,
-      );
-      spawnCreep(spawn, CreepRole.harvester);
-    } else {
-      info(
-        `${spawn.name} NOT requesting ${CreepRole.harvester}`,
-        InfoType.spawn,
-      );
+  // Spawn from spawn queue
+  if (allowSpawn) {
+    const creepFromQueue = spawn.room.memory.spawnQueue.shift();
+    if (creepFromQueue != undefined) {
+      spawnCreep(spawn, creepFromQueue.role, creepFromQueue.overrides);
+      allowSpawn = false;
     }
-    allowSpawn = false;
-  }
-
-  // Spawn tender creeps
-  const tenderCount = countRole(spawn.room, CreepRole.tender);
-  const maxTenders = spawn.room.memory.populationLimit.tender || 0;
-  if (tenderCount < maxTenders) {
-    if (allowSpawn) {
-      info(`${spawn.name}     requesting ${CreepRole.tender}`, InfoType.spawn);
-      spawnCreep(spawn, CreepRole.tender);
-    } else {
-      info(`${spawn.name} NOT requesting ${CreepRole.tender}`, InfoType.spawn);
-    }
-    allowSpawn = false;
-  }
-
-  // Spawn miner creeps
-  const sources = spawn.room.find(FIND_SOURCES);
-  const minerCount = countRole(spawn.room, CreepRole.miner);
-  const maxMiners = spawn.room.memory.populationLimit.miner || 0;
-  if (minerCount < maxMiners) {
-    if (allowSpawn) {
-      info(`${spawn.name}     requesting ${CreepRole.miner}`, InfoType.spawn);
-      const memory = generateMemoryByRole(CreepRole.miner, spawn.room);
-      // Get the id of the miner, which is the number attached the end of it's name
-      const id = Number(nameCreep(memory).replace("miner_", ""));
-      const source = sources[id];
-      const surrounding = getSurroundingTiles(source.pos, 1);
-      const spot = surrounding.find((place) => {
-        const structures = place.lookFor(LOOK_STRUCTURES);
-        return (
-          structures.find(
-            (structure) => structure.structureType === STRUCTURE_CONTAINER,
-          ) !== undefined
-        );
-      });
-      if (spot === undefined) {
-        warn(`Failed to assign spot to miner ${id}`);
-      }
-      spawnCreep(spawn, CreepRole.miner, {
-        assignedSource: source.id,
-        spot: spot,
-        noRenew: true, // No renewing miners
-      });
-    } else {
-      info(`${spawn.name} NOT requesting ${CreepRole.miner}`, InfoType.spawn);
-    }
-    allowSpawn = false;
-  }
-
-  // Spawn hauler creeps
-  const haulerCount = countRole(spawn.room, CreepRole.hauler);
-  const maxHaulers = spawn.room.memory.populationLimit.hauler || 0;
-  if (haulerCount < maxHaulers) {
-    if (allowSpawn) {
-      info(`${spawn.name}     requesting ${CreepRole.hauler}`, InfoType.spawn);
-      // Get the id of the hauler to associate it with the miner of the same id
-      // by assigned them to the same spot
-      const memory = generateMemoryByRole(CreepRole.hauler, spawn.room);
-      const id = Number(nameCreep(memory).replace("hauler_", ""));
-      const associated_miner = Game.creeps[`miner_${id}`];
-      if (associated_miner === undefined) {
-        throw new ScriptError(
-          `Spawn ${spawn.name} can't find associated miner for hauler id ${id}`,
-        );
-      }
-      spawnCreep(spawn, CreepRole.hauler, {
-        spot: associated_miner.memory.spot,
-      });
-    } else {
-      info(`${spawn.name} NOT requesting ${CreepRole.hauler}`, InfoType.spawn);
-    }
-    allowSpawn = false;
-  }
-
-  // Spawn upgrader creeps
-  const maxUpgraders = spawn.room.memory.populationLimit.upgrader || 0;
-  const upgraderCount = countRole(spawn.room, CreepRole.upgrader);
-  if (upgraderCount < maxUpgraders) {
-    if (allowSpawn) {
-      info(
-        `${spawn.name}     requesting ${CreepRole.upgrader}`,
-        InfoType.spawn,
-      );
-      spawnCreep(spawn, CreepRole.upgrader);
-    } else {
-      info(
-        `${spawn.name} NOT requesting ${CreepRole.upgrader}`,
-        InfoType.spawn,
-      );
-    }
-    allowSpawn = false;
-  }
-
-  // Spawn builder creeps
-  const builderCount = countRole(spawn.room, CreepRole.builder);
-  const maxBuilders = spawn.room.memory.populationLimit.builder || 0;
-  if (builderCount < maxBuilders) {
-    if (allowSpawn) {
-      info(`${spawn.name}     requesting ${CreepRole.builder}`, InfoType.spawn);
-      spawnCreep(spawn, CreepRole.builder);
-    } else {
-      info(`${spawn.name} NOT requesting ${CreepRole.builder}`, InfoType.spawn);
-    }
-    allowSpawn = false;
-  }
-
-  // Spawn tender creeps
-  const extractorCount = countRole(spawn.room, CreepRole.extractor);
-  const maxExtractors = spawn.room.memory.populationLimit.extractor || 0;
-  if (extractorCount < maxExtractors) {
-    if (allowSpawn) {
-      info(
-        `${spawn.name}     requesting ${CreepRole.extractor}`,
-        InfoType.spawn,
-      );
-      spawnCreep(spawn, CreepRole.extractor);
-    } else {
-      info(
-        `${spawn.name} NOT requesting ${CreepRole.extractor}`,
-        InfoType.spawn,
-      );
-    }
-    allowSpawn = false;
-  }
-
-  // Build extentions
-  const controller = (spawn.room.controller as StructureController).level;
-  let extensionCount = 0;
-  if (spawn.memory.extensions) {
-    extensionCount = spawn.memory.extensions.length;
-  }
-
-  const availableEnergy = spawn.room.storage
-    ? spawn.room.storage.store.getUsedCapacity(RESOURCE_ENERGY)
-    : -1;
-  // Build an extension if there is less than the maximum number. However, if
-  // there is a room storage, make sure there is enough energy in it for the
-  // cost of the extension.
-  if (
-    (availableEnergy === -1 ||
-      availableEnergy > CONSTRUCTION_COST[STRUCTURE_EXTENSION]) &&
-    extensionCount < getMaxExtensions(controller)
-  ) {
-    requestExtentions(spawn);
   }
 }
 
@@ -191,12 +32,10 @@ function spawnCreep(
   role: CreepRole,
   overrides?: Partial<CreepMemory>,
 ) {
-  const memory = generateMemoryByRole(role, spawn.room);
-  if (overrides != undefined) {
-    for (const key in overrides) {
-      memory[key] = overrides[key];
-    }
-  }
+  const memory: CreepMemory = _.assign(
+    generateMemoryByRole(role, spawn.room),
+    overrides,
+  );
   const name = nameCreep(memory);
   const body = generateBodyByRole(spawn, role);
   const response = spawn.spawnCreep(body, name, {
@@ -207,6 +46,10 @@ function spawnCreep(
       `${errorConstant(response)}`,
     InfoType.spawn,
   );
+  // If spawn unsuccessful, readd to queue
+  if (response !== OK) {
+    spawn.room.memory.spawnQueue.unshift({ role, overrides, name });
+  }
 }
 
 /**
@@ -238,7 +81,10 @@ export function generateBodyByRole(
     case CreepRole.builder:
     case CreepRole.upgrader: {
       const body: BodyPartConstant[] = [];
-      const bodyUnits = Math.floor(spawn.room.energyCapacityAvailable / 50);
+      const bodyUnits = Math.min(
+        50,
+        Math.floor(spawn.room.energyCapacityAvailable / 50),
+      );
       // 1/3 each in priority order:
       // MOVE
       // WORK
@@ -289,10 +135,78 @@ export function generateBodyByRole(
       return body;
     }
     case CreepRole.claimer: {
-      return [MOVE, MOVE, CLAIM];
+      return [MOVE, CLAIM];
     }
     case CreepRole.harvester: {
       return [MOVE, CARRY, WORK];
+    }
+    case CreepRole.reserver: {
+      const body: BodyPartConstant[] = [];
+      const availableEnergy = spawn.room.energyCapacityAvailable;
+      const units = Math.min(
+        9,
+        Math.floor(
+          availableEnergy / (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]),
+        ),
+      );
+      for (let i = 0; i < units; i++) {
+        body.push(CLAIM);
+        body.push(MOVE);
+      }
+      body.sort();
+      return body;
+    }
+    case CreepRole.remoteHauler: {
+      const availableEnergy = spawn.room.energyCapacityAvailable;
+      const bodyUnits = Math.floor(availableEnergy / 50);
+      const haulerBody = generateBodyByRole(spawn, CreepRole.hauler);
+      // If the body can support 33 units, prepend a move (1), append a work (2)
+      if (bodyUnits >= 33) {
+        haulerBody.unshift(MOVE);
+        haulerBody.push(WORK);
+      } else {
+        // Replace a carry with a work otherwise
+        haulerBody[haulerBody.length - 1] = WORK;
+      }
+      return haulerBody;
+    }
+    case CreepRole.scout: {
+      return [MOVE];
+    }
+    case CreepRole.guard: {
+      // Guard body is as many (MOVE, MOVE, ATTACK, RANGED_ATTACK) as possible,
+      // with (TOUGH, MOVE) to fill in the remaining amount of energy
+      const energy = spawn.room.energyCapacityAvailable;
+      const unitCost =
+        2 * BODYPART_COST[MOVE] +
+        BODYPART_COST[ATTACK] +
+        BODYPART_COST[RANGED_ATTACK];
+      const bodyUnits = Math.min(
+        Math.floor(50 / 4),
+        Math.floor(energy / unitCost),
+      );
+      const toughs = Math.floor(
+        Math.min(
+          50 - bodyUnits * 4,
+          Math.floor((energy - bodyUnits * unitCost) / 10),
+        ) / 2,
+      );
+      const body: BodyPartConstant[] = [];
+      for (let i = 0; i < toughs; i++) {
+        body.push(TOUGH);
+      }
+      for (let i = 0; i < toughs + 2 * bodyUnits - 1; i++) {
+        body.push(MOVE);
+      }
+      for (let i = 0; i < bodyUnits; i++) {
+        body.push(ATTACK);
+      }
+      for (let i = 0; i < bodyUnits; i++) {
+        body.push(RANGED_ATTACK);
+      }
+      // Keep a MOVE at the end of the body to so the creep can always move
+      body.push(MOVE);
+      return body;
     }
     default:
       throw new ScriptError(`getBodyPartsFromRole invalid role ${role}`);

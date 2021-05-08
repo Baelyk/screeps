@@ -17,9 +17,12 @@ export function census(room: Room): void {
   let harvesters = 0;
   // Pre-miners only harvesters upgrade
   let upgraders = 0;
-  let haulers = 0;
+  let haulers = miners;
   let tenders = 0;
   let extractors = 0;
+  let reservers = 0;
+  let scouts = 0;
+  let guards = 0;
   // One builder per two construction queue items
   let builders = room.memory.constructionQueue.length > 0 ? 1 : 0;
   // If there isn't a tower, builders must repair too
@@ -34,7 +37,7 @@ export function census(room: Room): void {
     harvesters = 2;
     // If we have no miners, no more than harvesters + 1 builders
     builders = Math.min(harvesters + 1, builders);
-  } else {
+  } else if (room.memory.roomType != RoomType.remote) {
     // if we have miners, no more than 1 builder per miner
     builders = Math.min(miners, builders);
     // If we have miners, we want upgraders
@@ -45,6 +48,25 @@ export function census(room: Room): void {
     haulers = miners;
     // One extractor creep per extractor structure (also one max)
     extractors = extractorLimit(room);
+    // Scouts based on visionless remotes of this room
+    scouts = scoutLimit(room);
+  }
+
+  // Allow 1 reserver in a remote room if the reservation is < 500 ticks or
+  // not mine
+  if (
+    room.memory.roomType === RoomType.remote &&
+    room.controller != undefined &&
+    (room.controller.reservation == undefined ||
+      room.controller.reservation.username != "Baelyk" ||
+      room.controller.reservation.ticksToEnd < 500)
+  ) {
+    reservers = 1;
+  }
+
+  // Primary rooms have 1 guard
+  if (room.memory.roomType === RoomType.primary) {
+    guards = 1;
   }
 
   room.memory.populationLimit.miner = miners;
@@ -54,10 +76,20 @@ export function census(room: Room): void {
   room.memory.populationLimit.hauler = haulers;
   room.memory.populationLimit.tender = tenders;
   room.memory.populationLimit.extractor = extractors;
+  room.memory.populationLimit.reserver = reservers;
+  room.memory.populationLimit.scout = scouts;
+  room.memory.populationLimit.guard = guards;
 }
 
 function minerLimit(room: Room): number {
   let miners = 0;
+  // Remote rooms don't *need* containers
+  if (
+    room.memory.roomType === RoomType.remote &&
+    room.memory.sources != undefined
+  ) {
+    return room.memory.sources.length;
+  }
   // One miner per source with a container around it
   room.memory.sources.forEach((sourceId) => {
     const source = Game.getObjectById(sourceId) as Source;
@@ -148,4 +180,20 @@ function extractorLimit(room: Room): number {
 
   // Extractor built and mineral deposit has mineral let, so allow an extractor
   return 1;
+}
+
+function scoutLimit(room: Room): number {
+  if (room.memory.remotes == undefined) {
+    return 0;
+  }
+  let count = 0;
+  room.memory.remotes.forEach((remoteName) => {
+    // TODO: Don't assume that the name is valid
+    const remote = Game.rooms[remoteName];
+    // Visionless remotes require a scout
+    if (remote == undefined) {
+      count++;
+    }
+  });
+  return count;
 }

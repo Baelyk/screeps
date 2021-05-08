@@ -1,4 +1,4 @@
-import { GetByIdError } from "utils/errors";
+import { GetByIdError, ScriptError } from "utils/errors";
 
 export function hasBodyPart(creep: Creep, partType: BodyPartConstant): boolean {
   const body = creep.body;
@@ -48,11 +48,21 @@ export function bodyCost(
  * @param role The role to count
  * @returns The number of creeps
  */
-export function countRole(room: Room, role: CreepRole): number {
+export function countRole(
+  room: Room,
+  role: CreepRole,
+  filter?: (creep: Creep) => boolean,
+): number {
+  if (filter == undefined) {
+    filter = () => {
+      return true;
+    };
+  }
   let count = 0;
   for (const name in Game.creeps) {
     const creep = Game.creeps[name];
-    if (creep.memory.role === role && creep.room === room) count++;
+    if (creep.memory.role === role && creep.room === room && filter(creep))
+      count++;
   }
   return count;
 }
@@ -86,4 +96,25 @@ export function getLinksInRoom(room: Room): Record<string, StructureLink> {
     }
   }
   return links;
+}
+
+export function livenRoomPosition(
+  position:
+    | RoomPosition
+    | { x: number; y: number; roomName: string }
+    | undefined,
+): RoomPosition {
+  if (position == undefined) {
+    throw new ScriptError(`Cannot liven undefined position`);
+  }
+  const { x, y, roomName } = position;
+  const room = Game.rooms[roomName];
+  if (room == undefined) {
+    throw new ScriptError(`Invalid room ${roomName}`);
+  }
+  const livingPosition = room.getPositionAt(x, y);
+  if (livingPosition == undefined) {
+    throw new ScriptError(`Invalid room position (${x}, ${y}) in ${roomName}`);
+  }
+  return livingPosition;
 }

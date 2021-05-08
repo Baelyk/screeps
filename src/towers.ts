@@ -14,21 +14,17 @@ export function towerBehavior(tower: StructureTower): void {
   let target: Creep | Structure | null = aquireHostileTarget(tower);
 
   // If there are no hostile creeps, heal/repair instead
-  if (target === undefined || target === null) {
+  if (target == undefined) {
     // Heal creeps first
-    const creeps = tower.room.find(FIND_MY_CREEPS);
-    target = creeps.reduce((lowest, current) => {
-      // If the health difference (max - curr) of the current creep is lower than the lowest,
-      // the current creep should be the target instead.
-      if (current.hitsMax - current.hits < lowest.hitsMax - lowest.hits) {
-        return current;
-      } else {
-        return lowest;
-      }
-    }, creeps[0]);
+    const lowHealthCreeps = tower.room.find(FIND_MY_CREEPS, {
+      filter: (creep) => creep.hits < creep.hitsMax,
+    });
+    if (lowHealthCreeps.length > 0) {
+      target = _.min(lowHealthCreeps, "hits");
+    }
 
     // If all creeps are full health, repair instead
-    if (target.hitsMax - target.hits === 0) {
+    if (target == undefined) {
       // However, only do so if the tower has more than 200 energy. This allows
       // a reserve to attack/heal in case a tower is no longer being resupplied,
       // like if the tender dies (and is taking a while to spawn, or can't spawn).
@@ -38,17 +34,15 @@ export function towerBehavior(tower: StructureTower): void {
           tower.room.memory.repairQueue[0],
         ) as Structure;
         // If the target is full health, take it off the queue
-        while (target !== null && target.hits === target.hitsMax) {
+        while (target != undefined && target.hits === target.hitsMax) {
           if (target.hits === target.hitsMax) {
             tower.room.memory.repairQueue.shift();
           }
-          target = Game.getObjectById(
-            tower.room.memory.repairQueue[0],
-          ) as Structure;
+          target = Game.getObjectById(tower.room.memory.repairQueue[0]);
         }
 
         // There are no creeps, structures to target
-        if (target === undefined || target === null) {
+        if (target == undefined) {
           updateWallRepair(tower.room);
           target = Game.getObjectById(tower.room.memory.wallRepairQueue[0]);
           if (target != undefined) {
@@ -71,6 +65,7 @@ export function towerBehavior(tower: StructureTower): void {
         info(`Tower ${tower.id} is in energy saver mode`);
       }
     } else {
+      info(JSON.stringify(target));
       // Target is an injured friendly creep
       const response = errorConstant(tower.heal(target));
       if (response !== "OK") {

@@ -5,14 +5,30 @@
  * @returns A new array without duplicates
  */
 export function roomPositionArrayRemoveDuplicates(
-  array: RoomPosition[]
+  array: RoomPosition[],
 ): RoomPosition[] {
   const newArray: RoomPosition[] = [];
   array.forEach((element) => {
     const duplicate = newArray.find((newElement) =>
-      newElement.isEqualTo(element)
+      newElement.isEqualTo(element),
     );
     if (duplicate == undefined) newArray.push(element);
   });
   return newArray;
+}
+/**
+ * Converts a path to a RoomPosition[]
+ *
+ * @param room The room the path is in
+ * @returns The spots in the path as a RoomPosition[]
+ */
+export function pathToRoomPosition(
+  room: Room,
+  path: PathStep[],
+): RoomPosition[] {
+  const spots = path.map((step) => room.getPositionAt(step.x, step.y));
+  const positions = spots.filter(
+    (position) => position != undefined,
+  ) as RoomPosition[];
+  return positions;
 }
