@@ -7,6 +7,7 @@ import {
   ScriptError,
   wrapper,
 } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 declare global {
   interface RoomLinksMemory {
@@ -34,7 +35,10 @@ declare global {
   }
 }
 
-export function resetLinkMemory(linkId: Id<StructureLink>): void {
+export function createLinkMemory(
+  room: VisibleRoom,
+  linkId: Id<StructureLink>,
+): LinkMemory {
   const link = Game.getObjectById(linkId);
   if (link == null) {
     throw new GetByIdError(linkId, STRUCTURE_LINK);
@@ -58,15 +62,10 @@ export function resetLinkMemory(linkId: Id<StructureLink>): void {
       }
     }
   }
-  link.room.memory.links.all[linkId] = { mode: linkMode, type: linkType };
+  return { mode: linkMode, type: linkType };
 }
 
 function linkBehavior(link: StructureLink): void {
-  if (getLinkMemory(link) == undefined) {
-    warn(`Reseting memory of link ${link.id}`);
-    resetLinkMemory(link.id);
-  }
-
   const memory = getLinkMemory(link);
 
   // Link mode is send

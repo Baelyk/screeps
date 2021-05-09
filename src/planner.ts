@@ -963,7 +963,7 @@ function getPartOfPlan(
   return { pos: slice };
 }
 
-export function executePlan(room: Room, levelOverride = -1): boolean {
+export function executePlan(room: VisibleRoom, levelOverride = -1): boolean {
   info(`Executing plan for room ${room.name}`);
   if (room.memory.level == undefined) {
     throw new RoomMemoryError(room, "level");

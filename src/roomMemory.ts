@@ -1,5 +1,5 @@
 import { info, warn } from "utils/logger";
-import { ScriptError } from "utils/errors";
+import { GetByIdError, ScriptError } from "utils/errors";
 import { RoomPlannerMemory, makeRoomPlanner } from "planner";
 import {
   resetConstructionQueue,
@@ -7,6 +7,8 @@ import {
   updateWallRepair,
 } from "construct";
 import { census } from "population";
+import { createLinkMemory } from "links";
+import { executePlan } from "planner";
 
 export function testFunction(): void {
   info(`Testfunction`);
@@ -88,10 +90,15 @@ declare global {
   }
 
   interface RoomDebugMemory {
+    flags?: RoomDebugFlagsMemory;
     removeConstructionSites?: boolean;
     resetConstructionSites?: boolean;
-    energyFlow?: RoomDebugEnergyFlow;
-    remoteAnalysis?: boolean;
+  }
+
+  interface RoomDebugFlagsMemory {
+    [key: string]: boolean | undefined;
+    removeConstructionSites?: boolean;
+    resetConstructionSites?: boolean;
   }
 
   interface RoomDebugEnergyFlow {
@@ -104,6 +111,8 @@ declare global {
   const enum RoomType {
     primary = "primary",
     remote = "remote",
+    neutral = "neutral",
+    occupied = "occupied",
   }
 }
 
@@ -119,12 +128,12 @@ class RoomInfo implements RoomMemory {
     this.roomType = Memory.rooms[roomName].roomType;
   }
 
-  memory(): RoomMemory {
+  getMemory(): RoomMemory {
     return Memory.rooms[this.name];
   }
 
-  remoteMemory(): RemoteRoomMemory {
-    const memory = this.memory();
+  getRemoteMemory(): RemoteRoomMemory {
+    const memory = this.getMemory();
     if (memory.roomType === RoomType.remote) {
       if (memory.remote != undefined) {
         return memory.remote;
@@ -136,8 +145,8 @@ class RoomInfo implements RoomMemory {
     );
   }
 
-  ownedMemory(): OwnedRoomMemory {
-    const memory = this.memory();
+  getOwnedMemory(): OwnedRoomMemory {
+    const memory = this.getMemory();
     if (memory.roomType === RoomType.primary) {
       if (memory.owned != undefined) {
         return memory.owned;
@@ -149,13 +158,72 @@ class RoomInfo implements RoomMemory {
     );
   }
 
+  getDebugMemory(): RoomDebugMemory {
+    const memory = this.getMemory();
+    if (memory.debug == undefined) {
+      return {};
+    }
+    return memory.debug;
+  }
+
+  getDebugFlag(flag: keyof RoomDebugFlagsMemory): boolean {
+    const debugMemory = this.getDebugMemory();
+    if (debugMemory.flags == undefined) {
+      return false;
+    }
+    return debugMemory.flags[flag] || false;
+  }
+
+  removeDebugFlag(flag: keyof RoomDebugFlagsMemory): void {
+    const debugMemory = this.getDebugMemory();
+    const flags = debugMemory.flags;
+    if (flags != undefined) {
+      delete flags[flag];
+      debugMemory.flags = flags;
+    }
+    Memory.rooms[this.name].debug = debugMemory;
+  }
+
+  /**
+   * Whether this is the script's room. Returns true if the room is owned or
+   * reserved by the script, and false if otherwise or unsure.
+   */
+  public my(): boolean {
+    const memory = this.getMemory();
+    if (memory.scouting == undefined) {
+      return false;
+    } else {
+      return (
+        memory.scouting.owner === "Baelyk" ||
+        memory.scouting.reserver === "Baelyk"
+      );
+    }
+  }
+
+  /** Returns the room planner level of this room. */
+  public roomLevel(): number {
+    const memory = this.getMemory();
+    if (memory.planner == undefined) {
+      return 0;
+    } else {
+      return memory.planner.level;
+    }
+  }
+
+  public setRoomLevel(level: number): void {
+    const memory = this.getMemory();
+    if (memory.planner != undefined) {
+      memory.planner.level = level;
+    }
+  }
+
   /**
    * Get the room name of the owner of this room.
    *
    * @returns A string room name
    */
-  public remoteOwner(): string {
-    return this.remoteMemory().owner;
+  public getRemoteOwner(): string {
+    return this.getRemoteMemory().owner;
   }
 
   /**
@@ -164,13 +232,59 @@ class RoomInfo implements RoomMemory {
    * @returns An array of string room names that are remotes of this room, or
    *   an empty array.
    */
-  public remotes(): string[] {
-    return this.ownedMemory().remotes || [];
+  public getRemotes(): string[] {
+    return this.getOwnedMemory().remotes || [];
+  }
+
+  /**
+   * Get the tombs this room knows about.
+   *
+   * @returns An array of tomb ids
+   */
+  public getTombs(): Id<Tombstone>[] {
+    return this.getMemory().tombs || [];
+  }
+
+  public getConstructionQueue(): ConstructionQueue {
+    const queues = Memory.rooms[this.name].queues;
+    if (queues != undefined) {
+      return queues.construction;
+    }
+    return [];
+  }
+
+  public hasPlan(): boolean {
+    return Memory.rooms[this.name].planner != undefined;
   }
 }
 
-class VisibleRoom extends RoomInfo {
-  room: Room;
+export class VisibleRoom extends RoomInfo {
+  /**
+   * Creates a new or completely resets room.
+   *
+   * @param {string} roomName The name of the room
+   * @param {RoomType} roomType The type of room
+   * @returns {VisibleRoom} A VisibleRoom instance for the room with newly reset memory.
+   */
+  static new(roomName: string, roomType: RoomType): VisibleRoom {
+    // Reset/create memory
+    Memory.rooms[roomName] = <RoomMemory>{};
+    Memory.rooms[roomName].roomType = roomType;
+    // Create the VisibleRoom instance and update memory
+    const room = new VisibleRoom(roomName);
+    room.updateMemory(true);
+
+    return room;
+  }
+
+  static getOrNew(roomName: string): VisibleRoom {
+    if (Memory.rooms[roomName] == undefined) {
+      return VisibleRoom.new(roomName, RoomType.neutral);
+    } else {
+      return new VisibleRoom(roomName);
+    }
+  }
+
   constructor(roomName: string) {
     super(roomName);
     const room = Game.rooms[roomName];
@@ -179,10 +293,9 @@ class VisibleRoom extends RoomInfo {
         `Invisible room ${roomName} cannot be a VisibleRoom`,
       );
     }
-    this.room = room;
   }
 
-  getRoom(): Room {
+  public getRoom(): Room {
     const room = Game.rooms[this.name];
     if (room == undefined) {
       throw new ScriptError(`Visible room ${this.name} is invisible`);
@@ -190,8 +303,25 @@ class VisibleRoom extends RoomInfo {
     return room;
   }
 
+  /**
+   * Whether this room is owned by the user. If username is not supplied, the
+   * script username is used.
+   *
+   * @param {string} [username] The username to check ownership for, "Baelyk"
+   *   if not provided
+   * @returns True if the room is owned by the user, false if otherwise or unownable
+   */
+  public ownedBy(username = "Baelyk"): boolean {
+    const room = this.getRoom();
+    if (room.controller != undefined) {
+      return room.controller.my;
+    }
+    // Rooms without a controller cannot be owned
+    return false;
+  }
+
   /** Updates memory for this room. */
-  public updateMemory(): void {
+  public updateMemory(reset = false): void {
     info(`Updating memory for room ${this.name}`);
     this.updateScoutingMemory();
     this.updateGeographyMemory();
@@ -199,16 +329,16 @@ class VisibleRoom extends RoomInfo {
     // Update room type-based memory
     switch (this.roomType) {
       case RoomType.remote:
-        this.updateRemoteRoomMemory();
+        this.updateRemoteRoomMemory(reset);
         break;
       case RoomType.primary:
-        this.updateOwnedRoomMemory();
+        this.updateOwnedRoomMemory(reset);
         break;
     }
 
     this.updatePlannerMemory();
     this.updateTombsMemory();
-    this.updateQueuesMemory();
+    this.updateQueuesMemory(reset);
     this.updatePopulationLimitMemory();
   }
 
@@ -261,7 +391,7 @@ class VisibleRoom extends RoomInfo {
         const roomMemory = new RoomInfo(roomName);
         if (
           roomMemory.roomType === RoomType.primary &&
-          _.includes(roomMemory.remotes(), this.name)
+          _.includes(roomMemory.getRemotes(), this.name)
         ) {
           owner = roomName;
           break;
@@ -285,14 +415,41 @@ class VisibleRoom extends RoomInfo {
 
   updateOwnedRoomMemory(reset = false): void {
     const ownedMemory = Memory.rooms[this.name].owned;
-    let spawns = [];
-    let towers = [];
-    let links = { all: {} };
     let remotes = [];
+
+    const { spawns, towers, links } = this.createSpecialStructuresMemory();
 
     if (ownedMemory == undefined) {
       reset = true;
     }
+
+    // Preserves current list of remotes if one exists, otherwise searches known
+    // rooms that have this room as an owner.
+    if (reset || ownedMemory == undefined || ownedMemory.remotes == undefined) {
+      for (const roomName in Memory.rooms) {
+        const roomMemory = new RoomInfo(roomName);
+        if (
+          roomMemory.roomType === RoomType.remote &&
+          roomMemory.getRemoteOwner() === this.name
+        ) {
+          remotes.push(roomName);
+        }
+      }
+    } else {
+      remotes = ownedMemory.remotes;
+    }
+
+    Memory.rooms[this.name].owned = { spawns, towers, links, remotes };
+  }
+
+  createSpecialStructuresMemory(): {
+    spawns: Id<StructureSpawn>[];
+    towers: Id<StructureTower>[];
+    links: RoomLinksMemory;
+  } {
+    let spawns = [];
+    let towers = [];
+    const links: RoomLinksMemory = { all: {} };
 
     const room = this.getRoom();
     const structures = room.find(FIND_MY_STRUCTURES);
@@ -306,29 +463,21 @@ class VisibleRoom extends RoomInfo {
       "id",
     );
 
-    // TODO: Actually update link memory, skipping for to wait for planner
-    // implementation
-    if (ownedMemory != undefined && ownedMemory.links != undefined) {
-      links = ownedMemory.links;
-    }
-
-    // Preserves current list of remotes if one exists, otherwise searches known
-    // rooms that have this room as an owner.
-    if (reset || ownedMemory == undefined || ownedMemory.remotes == undefined) {
-      for (const roomName in Memory.rooms) {
-        const roomMemory = new RoomInfo(roomName);
-        if (
-          roomMemory.roomType === RoomType.remote &&
-          roomMemory.remoteOwner() === this.name
-        ) {
-          remotes.push(roomName);
+    _.forEach(
+      _.pluck(_.filter(structures, { structureType: STRUCTURE_LINK }), "id"),
+      (linkId) => {
+        const memory = createLinkMemory(this, linkId);
+        links.all[linkId] = memory;
+        if (memory.type === LinkType.spawn) {
+          links.spawn = linkId;
         }
-      }
-    } else {
-      remotes = ownedMemory.remotes;
-    }
+        if (memory.type === LinkType.controller) {
+          links.controller = linkId;
+        }
+      },
+    );
 
-    Memory.rooms[this.name].owned = { spawns, towers, links, remotes };
+    return { spawns, towers, links };
   }
 
   updatePlannerMemory(): void {
@@ -375,17 +524,116 @@ class VisibleRoom extends RoomInfo {
     const room = this.getRoom();
     census(room);
   }
+
+  /**
+   * Get the next tombstone from the list that still exists and has >= 50
+   * energy left. Removes earlier tombstones in the list that do not satisfy
+   * the requirements.
+   *
+   * @returns {Tombstone} The tombstone object or undefined if there are no
+   *   such tombstones.
+   */
+  public getNextTombstone(): Tombstone | undefined {
+    const room = this.getRoom();
+    if (room.memory.tombs == undefined || room.memory.tombs.length == 0) {
+      return undefined;
+    }
+    let tomb: Tombstone | undefined | null = undefined;
+    while (tomb == undefined && room.memory.tombs.length > 0) {
+      // Try and turn the first id in the list into a tombstone
+      tomb = Game.getObjectById(room.memory.tombs[0]);
+      if (tomb == undefined) {
+        // If the tomb no longer exists, remove it from the list
+        room.memory.tombs.shift();
+        tomb = undefined;
+      } else if (tomb.store.getUsedCapacity(RESOURCE_ENERGY) < 50) {
+        // The tomb does not have enough energy to be worthwhile, so remove it
+        room.memory.tombs.shift();
+        tomb = undefined;
+      }
+    }
+    // A satisfactory tomb was found and return it or there were no satisfactory
+    // tombs and return undefined
+    return tomb;
+  }
+
+  public removeAllConstructionSites(): void {
+    const room = this.getRoom();
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => site.remove());
+  }
+
+  public resetConstructionQueue(): void {
+    const room = this.getRoom();
+    resetConstructionQueue(room);
+  }
+
+  public levelChangeCheck(): boolean {
+    const room = this.getRoom();
+    const controller = room.controller;
+    if (controller != undefined && controller.level !== this.roomLevel()) {
+      info(
+        `Room ${this.name} leveled to ${
+          controller.level
+        } from ${this.roomLevel()}`,
+      );
+      this.setRoomLevel(controller.level);
+      return true;
+    }
+    return false;
+  }
+
+  public executePlan(level?: number): void {
+    if (level == undefined) {
+      level = this.roomLevel();
+    }
+    executePlan(this, level);
+  }
+
+  public updateSpecialStructuresMemory(): void {
+    if (this.roomType !== RoomType.primary) {
+      return;
+    }
+    const { spawns, towers, links } = this.createSpecialStructuresMemory();
+    if (Memory.rooms[this.name].owned == undefined) {
+      this.updateOwnedRoomMemory();
+    } else {
+      const ownedMemory = this.getOwnedMemory();
+      ownedMemory.spawns = spawns;
+      ownedMemory.towers = towers;
+      ownedMemory.links = links;
+      Memory.rooms[this.name].owned = ownedMemory;
+    }
+  }
+
+  public storedResourceAmount(resource: ResourceConstant): number {
+    const room = this.getRoom();
+    const storage = room.storage;
+    if (storage != undefined) {
+      return storage.store.getUsedCapacity(resource);
+    }
+    return 0;
+  }
+
+  public getPrimarySpawn(): StructureSpawn {
+    if (this.roomType !== RoomType.primary) {
+      throw new ScriptError(
+        `Room ${this.name} of type ${this.roomType} lacks a primary spawn since it is not a ${RoomType.primary} room`,
+      );
+    }
+    const primarySpawnId = this.getOwnedMemory().spawns[0];
+    const primarySpawn = Game.getObjectById(primarySpawnId);
+    if (primarySpawn == undefined) {
+      throw new GetByIdError(primarySpawnId, STRUCTURE_SPAWN);
+    }
+    return primarySpawn;
+  }
 }
 
 class OwnedRoom extends VisibleRoom {
   constructor(roomName: string) {
     super(roomName);
-    const controller = this.room.controller;
-    if (controller == undefined) {
-      throw new ScriptError(`Owned room ${roomName} lacks a controller`);
-    }
-    if (!controller.my) {
-      throw new ScriptError(`Room ${roomName} is owned by ${controller.owner}`);
+    if (!this.ownedBy) {
+      throw new ScriptError(`Room ${roomName} is not owned by the script`);
     }
   }
 }

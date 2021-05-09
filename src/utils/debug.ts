@@ -6,8 +6,9 @@ import {
   getExtensionSpots,
   makePlan,
 } from "planner";
-import { updateRoomMemory, remoteTargetAnalysis } from "rooms";
+import { remoteTargetAnalysis } from "rooms";
 import { resetConstructionQueue } from "construct";
+import { VisibleRoom } from "roomMemory";
 
 export function debugLoop(): void {
   const spawn = Game.spawns[Memory.initialSpawn];
@@ -81,7 +82,8 @@ function resetExtensionSpots(): void {
 function resetRoomMemory(): void {
   warn("Resetting room memory");
   for (const roomName in Game.rooms) {
-    updateRoomMemory(Game.rooms[roomName]);
+    const room = new VisibleRoom(roomName);
+    room.updateMemory();
   }
 }
 
@@ -130,50 +132,13 @@ export function debugPostLoop(): void {
   }
 }
 
-export function roomDebugLoop(room: Room): void {
-  if (room.memory.debug == undefined) {
-    return;
+export function roomDebugLoop(room: VisibleRoom): void {
+  if (room.getDebugFlag("removeConstructionSites")) {
+    room.removeAllConstructionSites();
+    room.removeDebugFlag("removeConstructionSites");
   }
-
-  if (room.memory.debug.removeConstructionSites) {
-    roomRemoveConstructionSites(room);
-    delete room.memory.debug.removeConstructionSites;
+  if (room.getDebugFlag("resetConstructionSites")) {
+    room.resetConstructionQueue();
+    room.removeDebugFlag("resetConstructionSites");
   }
-  if (room.memory.debug.resetConstructionSites) {
-    roomResetConstructionSites(room);
-    delete room.memory.debug.resetConstructionSites;
-  }
-  if (
-    room.memory.debug.energyFlow == undefined ||
-    room.memory.debug.energyFlow.restart
-  ) {
-    roomDebugResetEnergyFlow(room);
-  }
-
-  if (room.memory.debug.remoteAnalysis && room.memory.owner != undefined) {
-    const owner = Game.rooms[room.memory.owner];
-    if (owner != undefined) {
-      remoteTargetAnalysis(owner, room);
-    }
-    room.memory.debug.remoteAnalysis = false;
-  }
-}
-
-function roomRemoveConstructionSites(room: Room): void {
-  room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => site.remove());
-}
-
-function roomResetConstructionSites(room: Room): void {
-  resetConstructionQueue(room);
-}
-
-export function roomDebugResetEnergyFlow(room: Room): void {
-  if (room.memory.debug == undefined) {
-    room.memory.debug = {};
-  }
-  room.memory.debug.energyFlow = {
-    start: Game.time,
-    cost: 0,
-    gain: 0,
-  };
 }
