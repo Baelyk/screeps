@@ -126,7 +126,14 @@ function remoteBehavior(owner: VisibleRoom, remoteName: string): void {
   // Add the remote's construction queue to its owner's
   const constructionQueue = remoteMemory.getConstructionQueue();
   if (constructionQueue.length > 0) {
-    owner.pushToConstructionQueue(constructionQueue);
+    owner.concatToConstructionQueue(constructionQueue);
     remoteMemory.emptyConstructionQueue();
+  }
+
+  // Add the remote's spawn queue to its owner's
+  const spawnQueue = remoteMemory.getSpawnQueue();
+  if (spawnQueue.length > 0) {
+    owner.concatToSpawnQueue(spawnQueue);
+    remoteMemory.emptySpawnQueue();
   }
 }
