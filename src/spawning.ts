@@ -2,7 +2,7 @@
 import { info, warn } from "utils/logger";
 import { countRole, livenRoomPosition } from "utils/helpers";
 import { getSurroundingTiles } from "construct";
-import { GetByIdError, RoomMemoryError, ScriptError } from "utils/errors";
+import { GetByIdError, ScriptError } from "utils/errors";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 
 export function updateSpawnQueue(room: VisibleRoom): void {

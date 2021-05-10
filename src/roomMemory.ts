@@ -254,6 +254,10 @@ export class RoomInfo implements RoomMemory {
     return this.getRemoteMemory().owner;
   }
 
+  public getTowers(): Id<StructureTower>[] {
+    return this.getOwnedMemory().towers || [];
+  }
+
   /**
    * Get the remotes of this room.
    *
@@ -316,6 +320,48 @@ export class RoomInfo implements RoomMemory {
     const queuesMemory = this.getQueuesMemory();
     queuesMemory.construction = [];
     Memory.rooms[this.name].queues = queuesMemory;
+  }
+
+  public getRepairQueue(): RepairQueue {
+    const queues = Memory.rooms[this.name].queues;
+    if (queues != undefined) {
+      return queues.repair;
+    }
+    return [];
+  }
+
+  public getFromRepairQueue(remove = false): Id<Structure> | undefined {
+    const repairQueue = this.getRepairQueue();
+    const item = repairQueue[0];
+    if (remove && item != undefined) {
+      const queuesMemory = this.getQueuesMemory();
+      repairQueue.shift();
+      queuesMemory.repair = repairQueue;
+      Memory.rooms[this.name].queues = queuesMemory;
+    }
+    return item;
+  }
+
+  public getWallRepairQueue(): WallRepairQueue {
+    const queues = Memory.rooms[this.name].queues;
+    if (queues != undefined) {
+      return queues.wallRepair;
+    }
+    return [];
+  }
+
+  public getFromWallRepairQueue(
+    remove = false,
+  ): Id<StructureRampart | StructureWall> | undefined {
+    const wallRepairQueue = this.getWallRepairQueue();
+    const item = wallRepairQueue[0];
+    if (remove && item != undefined) {
+      const queuesMemory = this.getQueuesMemory();
+      wallRepairQueue.shift();
+      queuesMemory.wallRepair = wallRepairQueue;
+      Memory.rooms[this.name].queues = queuesMemory;
+    }
+    return item;
   }
 
   public getSpawnQueue(): SpawnQueueItem[] {
@@ -632,6 +678,28 @@ export class VisibleRoom extends RoomInfo {
   updatePopulationLimitMemory(): void {
     const room = this.getRoom();
     census(room);
+  }
+
+  public getNextRepairTarget(remove = false): Structure | undefined {
+    const firstId = this.getFromRepairQueue(remove);
+    if (firstId == undefined) {
+      return undefined;
+    }
+    let target = Game.getObjectById(firstId);
+    while (target == undefined) {
+      const nextId = this.getFromRepairQueue(remove);
+      if (nextId == undefined) {
+        return undefined;
+      }
+      target = Game.getObjectById(nextId);
+      // If this id was not already removed and it corresponds to an invalid
+      // target, remove the id from the repair queue.
+      if (!remove && (target == undefined || target.hits === target.hitsMax)) {
+        this.getFromRepairQueue(true);
+        target = null;
+      }
+    }
+    return target;
   }
 
   /**
