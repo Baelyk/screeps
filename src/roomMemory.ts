@@ -132,6 +132,14 @@ export class RoomInfo implements RoomMemory {
     return Memory.rooms[this.name];
   }
 
+  getGeographyMemory(): RoomGeographyMemory {
+    const memory = this.getMemory();
+    if (memory.geography == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks geography memory`);
+    }
+    return memory.geography;
+  }
+
   getRemoteMemory(): RemoteRoomMemory {
     const memory = this.getMemory();
     if (memory.roomType === RoomType.remote) {
@@ -164,6 +172,14 @@ export class RoomInfo implements RoomMemory {
       throw new ScriptError(`Room ${this.name} lacks queues memory`);
     }
     return memory.queues;
+  }
+
+  getPopLimitMemory(): RoomPopulationLimitMemory {
+    const memory = this.getMemory();
+    if (memory.populationLimit == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks population limit memory`);
+    }
+    return memory.populationLimit;
   }
 
   getDebugMemory(): RoomDebugMemory {
@@ -225,6 +241,10 @@ export class RoomInfo implements RoomMemory {
     }
   }
 
+  public getSources(): Id<Source>[] {
+    return this.getGeographyMemory().sources || [];
+  }
+
   /**
    * Get the room name of the owner of this room.
    *
@@ -284,7 +304,7 @@ export class RoomInfo implements RoomMemory {
     return [];
   }
 
-  public pushToConstructionQueue(additions: ConstructionQueue): void {
+  public concatToConstructionQueue(additions: ConstructionQueue): void {
     const queue = this.getConstructionQueue();
     queue.push(...additions);
     const queuesMemory = this.getQueuesMemory();
@@ -298,8 +318,52 @@ export class RoomInfo implements RoomMemory {
     Memory.rooms[this.name].queues = queuesMemory;
   }
 
+  public getSpawnQueue(): SpawnQueueItem[] {
+    const queues = Memory.rooms[this.name].queues;
+    if (queues != undefined) {
+      return queues.spawn;
+    }
+    return [];
+  }
+
+  public addToSpawnQueue(entry: SpawnQueueItem, priority = false): void {
+    const queuesMemory = this.getQueuesMemory();
+    const spawnQueue = this.getSpawnQueue();
+    if (priority) {
+      spawnQueue.unshift(entry);
+    } else {
+      spawnQueue.push(entry);
+    }
+    queuesMemory.spawn = spawnQueue;
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
+  public concatToSpawnQueue(additions: SpawnQueueItem[]): void {
+    const queue = this.getSpawnQueue();
+    queue.push(...additions);
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.spawn = queue;
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
+  public emptySpawnQueue(): void {
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.spawn = [];
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
   public hasPlan(): boolean {
     return Memory.rooms[this.name].planner != undefined;
+  }
+
+  public getRoleLimit(role: CreepRole): number {
+    const popLimits = this.getPopLimitMemory();
+    const limit = popLimits[role];
+    if (limit != undefined) {
+      return limit;
+    }
+    warn(`Room ${this.name} has undefined pop limit for role ${role}`);
+    return 0;
   }
 }
 
