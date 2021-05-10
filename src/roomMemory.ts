@@ -116,7 +116,7 @@ declare global {
   }
 }
 
-class RoomInfo implements RoomMemory {
+export class RoomInfo implements RoomMemory {
   name: string;
   roomType: RoomType;
 
@@ -156,6 +156,14 @@ class RoomInfo implements RoomMemory {
     throw new ScriptError(
       `Room ${this.name} is of type ${memory.roomType} not ${RoomType.primary}`,
     );
+  }
+
+  getQueuesMemory(): RoomQueueMemory {
+    const memory = this.getMemory();
+    if (memory.queues == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks queues memory`);
+    }
+    return memory.queues;
   }
 
   getDebugMemory(): RoomDebugMemory {
@@ -237,6 +245,29 @@ class RoomInfo implements RoomMemory {
   }
 
   /**
+   * Adds a new remote to this room.
+   *
+   * @param {string} remoteName The name of the new remote
+   */
+  public addRemote(remoteName: string): void {
+    if (this.roomType !== RoomType.primary) {
+      throw new ScriptError(
+        `Attempted to add remote ${remoteName} to ${this.roomType} room ${this.name}`,
+      );
+    }
+    const remotes = this.getRemotes();
+    if (_.includes(remotes, remoteName)) {
+      throw new ScriptError(
+        `Room ${this.name} already has remote ${remoteName}`,
+      );
+    }
+    remotes.push(remoteName);
+    const ownedMemory = this.getOwnedMemory();
+    ownedMemory.remotes = remotes;
+    Memory.rooms[this.name].owned = ownedMemory;
+  }
+
+  /**
    * Get the tombs this room knows about.
    *
    * @returns An array of tomb ids
@@ -251,6 +282,20 @@ class RoomInfo implements RoomMemory {
       return queues.construction;
     }
     return [];
+  }
+
+  public pushToConstructionQueue(additions: ConstructionQueue): void {
+    const queue = this.getConstructionQueue();
+    queue.push(...additions);
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.construction = queue;
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
+  public emptyConstructionQueue(): void {
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.construction = [];
+    Memory.rooms[this.name].queues = queuesMemory;
   }
 
   public hasPlan(): boolean {
