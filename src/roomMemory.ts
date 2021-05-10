@@ -166,6 +166,14 @@ export class RoomInfo implements RoomMemory {
     );
   }
 
+  public getLinksMemory(): RoomLinksMemory {
+    const ownedMemory = this.getOwnedMemory();
+    if (ownedMemory.links == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks links memory`);
+    }
+    return ownedMemory.links;
+  }
+
   getQueuesMemory(): RoomQueueMemory {
     const memory = this.getMemory();
     if (memory.queues == undefined) {

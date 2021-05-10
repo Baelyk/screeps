@@ -1,27 +1,31 @@
+import { VisibleRoom } from "roomMemory";
 // Use RoomVisual to display info about rooms in the room
-export function overlayManager(room: Room): void {
+export function overlayManager(room: VisibleRoom): void {
+  const gameRoom = room.getRoom();
   const lines: string[] = [];
 
   // Show room name
-  lines.push(showRoomName(room), "");
+  lines.push(showRoomName(gameRoom), "");
 
-  if (room.memory.roomType != RoomType.remote) {
+  if (room.roomType != RoomType.remote) {
     // Show queue lengths
     lines.push(
-      `Spawn queue:        ${room.memory.spawnQueue.length}`,
-      `Construction queue: ${room.memory.constructionQueue.length}`,
-      `Repair queue:       ${room.memory.repairQueue.length}`,
+      `Spawn queue:        ${room.getSpawnQueue().length}`,
+      `Construction queue: ${room.getConstructionQueue().length}`,
+      `Repair queue:       ${room.getRepairQueue().length}`,
     );
     // Show available energy
     lines.push(
       `${Math.round(
-        (room.energyAvailable / room.energyCapacityAvailable) * 100,
+        (gameRoom.energyAvailable / gameRoom.energyCapacityAvailable) * 100,
       )}% spawn energy`,
     );
     // Show storage energy
-    if (room.storage != undefined) {
+    if (gameRoom.storage != undefined) {
       lines.push(
-        `Stored energy: ${room.storage.store.getUsedCapacity(RESOURCE_ENERGY)}`,
+        `Stored energy: ${gameRoom.storage.store.getUsedCapacity(
+          RESOURCE_ENERGY,
+        )}`,
       );
     } else {
       lines.push("");
@@ -29,7 +33,7 @@ export function overlayManager(room: Room): void {
   }
 
   // Show lines
-  addTextLines(room.visual, lines, { x: 0, y: 1 });
+  addTextLines(gameRoom.visual, lines, { x: 0, y: 1 });
 }
 
 const TEXT_STYLE: Partial<TextStyle> = {
