@@ -3,7 +3,6 @@ import { watcher } from "utils/watch-client";
 import { tick } from "utils/logger";
 import { debugPostLoop, debugLoop } from "utils/debug";
 import { wrapper } from "utils/errors";
-import { init } from "initialize";
 import { creepManager } from "creeps";
 import { spawnManager } from "spawns";
 import { roomManager } from "rooms";
@@ -14,9 +13,8 @@ console.log("- - - - RESTARTING - - - -");
 export const loop = ErrorMapper.wrapLoop(() => {
   tick();
 
-  // If uninitialized, initialize
   if (Memory.uninitialized) {
-    wrapper(() => init(), `Error initializing`);
+    console.log(`!! Uninitialized !!`);
   }
 
   // Debug
