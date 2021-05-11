@@ -423,6 +423,18 @@ export class RoomInfo implements RoomMemory {
     Memory.rooms[this.name].queues = queuesMemory;
   }
 
+  public getFromSpawnQueue(remove = true): SpawnQueueItem | undefined {
+    const spawnQueue = this.getSpawnQueue();
+    const item = spawnQueue[0];
+    if (remove && spawnQueue.length > 0) {
+      const queuesMemory = this.getQueuesMemory();
+      spawnQueue.shift();
+      queuesMemory.spawn = spawnQueue;
+      Memory.rooms[this.name].queues = queuesMemory;
+    }
+    return item;
+  }
+
   public emptySpawnQueue(): void {
     const queuesMemory = this.getQueuesMemory();
     queuesMemory.spawn = [];
