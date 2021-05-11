@@ -689,8 +689,7 @@ export class VisibleRoom extends RoomInfo {
 
   updateQueuesMemory(reset = false): void {
     const queuesMemory = Memory.rooms[this.name].queues;
-    const room = this.getRoom();
-    let construction: ConstructionQueue = [];
+    const construction: ConstructionQueue = [];
     const repair: RepairQueue = [];
     const wallRepair: WallRepairQueue = [];
     let spawn: SpawnQueueItem[] = [];
@@ -698,17 +697,8 @@ export class VisibleRoom extends RoomInfo {
     if (queuesMemory == undefined) {
       reset = true;
     } else {
-      construction = queuesMemory.construction;
       spawn = queuesMemory.spawn;
     }
-
-    // TODO: Should I just check remotes here??
-    // Find construction sites in the room and add non-duplicates to the queue
-    if (reset) {
-      construction = [];
-    }
-    construction.push(..._.pluck(room.find(FIND_MY_CONSTRUCTION_SITES), "pos"));
-    construction = _.uniq(construction);
 
     if (reset) {
       spawn = [];
@@ -721,8 +711,22 @@ export class VisibleRoom extends RoomInfo {
       spawn,
     };
 
+    this.updateConstructionQueue();
     this.updateRepairQueue();
     this.updateWallRepairQueue();
+  }
+
+  public updateConstructionQueue(): void {
+    const rooms = [this.name].concat(this.getRemotes());
+    const sites: RoomPosition[] = [];
+    _.forEach(rooms, (roomName) => {
+      const room = Game.rooms[roomName];
+      sites.push(..._.pluck(room.find(FIND_MY_CONSTRUCTION_SITES), "pos"));
+    });
+    const queue: ConstructionQueue = _.map(sites, Position.serialize);
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.construction = queue;
+    Memory.rooms[this.name].queues = queuesMemory;
   }
 
   public updateRepairQueue(): void {

@@ -56,7 +56,7 @@ export function roomDebugLoop(room: VisibleRoom): void {
     room.removeDebugFlag("removeConstructionSites");
   }
   if (room.getDebugFlag("resetConstructionSites")) {
-    room.resetConstructionQueue();
+    room.updateConstructionQueue();
     room.removeDebugFlag("resetConstructionSites");
   }
 }
