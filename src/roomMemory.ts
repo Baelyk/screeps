@@ -477,6 +477,10 @@ export class VisibleRoom extends RoomInfo {
     }
   }
 
+  static isVisible(roomName: string): boolean {
+    return Game.rooms[roomName] != undefined;
+  }
+
   constructor(roomName: string) {
     super(roomName);
     const room = Game.rooms[roomName];
@@ -677,7 +681,7 @@ export class VisibleRoom extends RoomInfo {
     Memory.rooms[this.name].planner = planner;
   }
 
-  updateTombsMemory(): void {
+  public updateTombsMemory(): void {
     const room = this.getRoom();
     const tombs = _.pluck(room.find(FIND_TOMBSTONES), "id");
     Memory.rooms[this.name].tombs = tombs;
@@ -757,8 +761,7 @@ export class VisibleRoom extends RoomInfo {
   }
 
   updatePopulationLimitMemory(): void {
-    const room = this.getRoom();
-    census(room);
+    census(this);
   }
 
   public getNextConstructionSite(
@@ -847,11 +850,7 @@ export class VisibleRoom extends RoomInfo {
   public removeAllConstructionSites(): void {
     const room = this.getRoom();
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => site.remove());
-  }
-
-  public resetConstructionQueue(): void {
-    const room = this.getRoom();
-    resetConstructionQueue(room);
+    this.emptyConstructionQueue();
   }
 
   public levelChangeCheck(): boolean {
