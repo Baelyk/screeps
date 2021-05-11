@@ -85,19 +85,6 @@ export function nameCreep(memory: CreepMemory): string {
   return name + number;
 }
 
-export function getLinksInRoom(room: Room): Record<string, StructureLink> {
-  const links: Record<string, StructureLink> = {};
-  for (const linkId in room.memory.links.all) {
-    const link = Game.getObjectById(linkId as Id<StructureLink>);
-    if (link != undefined) {
-      links[linkId] = link;
-    } else {
-      throw new GetByIdError(linkId, STRUCTURE_LINK);
-    }
-  }
-  return links;
-}
-
 export function livenRoomPosition(
   position:
     | RoomPosition

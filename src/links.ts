@@ -1,5 +1,4 @@
 import { errorConstant, warn } from "utils/logger";
-import { getLinksInRoom } from "utils/helpers";
 import { getSurroundingTiles } from "construct";
 import { GetByIdError, ScriptError, wrapper } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
@@ -63,7 +62,8 @@ export function createLinkMemory(
 
 function linkBehavior(link: StructureLink): void {
   const memory = getLinkMemory(link);
-  const linksMemory = new VisibleRoom(link.room.name).getLinksMemory();
+  const room = new VisibleRoom(link.room.name);
+  const linksMemory = room.getLinksMemory();
 
   // Link mode is send
   if (memory.mode === LinkMode.send) {
@@ -101,7 +101,10 @@ function linkBehavior(link: StructureLink): void {
     link.store.getUsedCapacity(RESOURCE_ENERGY) > 0
   ) {
     // Get other links
-    const links = Object.values(getLinksInRoom(link.room));
+    const gameRoom = room.getRoom();
+    const links = gameRoom.find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_LINK },
+    }) as StructureLink[];
     const targetLink = links
       .filter(
         (link) =>
