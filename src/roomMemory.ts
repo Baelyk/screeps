@@ -395,6 +395,21 @@ export class RoomInfo implements RoomMemory {
     return item;
   }
 
+  public addToWallRepairQueue(
+    item: Id<StructureRampart | StructureWall>,
+    priority = false,
+  ): void {
+    const queuesMemory = this.getQueuesMemory();
+    const wallRepairQueue = this.getWallRepairQueue();
+    if (priority) {
+      wallRepairQueue.unshift(item);
+    } else {
+      wallRepairQueue.push(item);
+    }
+    queuesMemory.wallRepair = wallRepairQueue;
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
   public getSpawnQueue(): SpawnQueueItem[] {
     const queues = Memory.rooms[this.name].queues;
     if (queues != undefined) {
