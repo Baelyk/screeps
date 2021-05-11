@@ -10,6 +10,7 @@ import {
   RoomMemoryError,
   ScriptError,
 } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 export interface RoomPlannerMemory {
   costMatrix?: number[];
@@ -853,7 +854,8 @@ function getContainerSpots(room: Room): RoomPosition[] {
   return containers;
 }
 
-export function makePlan(room: Room): boolean {
+export function makePlan(visRoom: VisibleRoom): boolean {
+  const room = visRoom.getRoom();
   if (room.memory.roomType === RoomType.remote) {
     return planRemoteRoom(room);
   }

@@ -4,7 +4,6 @@ import { wrapper } from "utils/errors";
 import { towerManager } from "towers";
 import { makePlan, executePlan } from "planner";
 import { census } from "population";
-import { updateWallRepair, resetRepairQueue } from "construct";
 import { roomDebugLoop } from "utils/debug";
 import { updateSpawnQueue } from "spawning";
 import { roomVisualManager } from "roomVisuals";
@@ -88,8 +87,8 @@ function infrequentRoomActions(room: VisibleRoom) {
     }
 
     // Update repair queue and pop limits every 100 ticks
-    resetRepairQueue(room);
-    updateWallRepair(room);
+    room.updateRepairQueue();
+    room.updateWallRepairQueue();
     census(room);
 
     // If the controller has leveled up, level up the room

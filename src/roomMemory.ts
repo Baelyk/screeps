@@ -1,14 +1,10 @@
 import { info, warn } from "utils/logger";
 import { GetByIdError, ScriptError } from "utils/errors";
 import { RoomPlannerMemory, makeRoomPlanner } from "planner";
-import {
-  resetConstructionQueue,
-  resetRepairQueue,
-  updateWallRepair,
-} from "construct";
 import { census } from "population";
 import { createLinkMemory } from "links";
 import { executePlan } from "planner";
+import { Pos, Position } from "classes/position";
 
 export function testFunction(): void {
   info(`Testfunction`);
@@ -78,7 +74,7 @@ declare global {
     spawn: SpawnQueueItem[];
   }
 
-  type ConstructionQueue = RoomPosition[];
+  type ConstructionQueue = string[];
   type RepairQueue = Id<Structure>[];
   type RoomPopulationLimitMemory = { [key in CreepRole]?: number };
   type WallRepairQueue = Id<StructureRampart | StructureWall>[];
@@ -316,12 +312,39 @@ export class RoomInfo implements RoomMemory {
     return [];
   }
 
+  public addToConstructionQueue(site: RoomPosition, priority = false): void {
+    const queuesMemory = this.getQueuesMemory();
+    const constructionQueue = this.getConstructionQueue();
+    if (priority) {
+      constructionQueue.unshift(Position.serialize(site));
+    } else {
+      constructionQueue.push(Position.serialize(site));
+    }
+    queuesMemory.construction = constructionQueue;
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
   public concatToConstructionQueue(additions: ConstructionQueue): void {
     const queue = this.getConstructionQueue();
     queue.push(...additions);
     const queuesMemory = this.getQueuesMemory();
     queuesMemory.construction = queue;
     Memory.rooms[this.name].queues = queuesMemory;
+  }
+
+  public getFromConstructionQueue(remove = true): Pos | undefined {
+    const queue = this.getConstructionQueue();
+    const item = queue[0];
+    if (remove && queue.length > 0) {
+      const queuesMemory = this.getQueuesMemory();
+      queue.shift();
+      queuesMemory.construction = queue;
+      Memory.rooms[this.name].queues = queuesMemory;
+    }
+    if (item != undefined) {
+      return Position.deserialize(item);
+    }
+    return undefined;
   }
 
   public emptyConstructionQueue(): void {
@@ -418,6 +441,12 @@ export class RoomInfo implements RoomMemory {
     }
     warn(`Room ${this.name} has undefined pop limit for role ${role}`);
     return 0;
+  }
+
+  public setRoleLimit(role: CreepRole, limit: number): void {
+    const popLimits = this.getPopLimitMemory();
+    popLimits[role] = limit;
+    Memory.rooms[this.name].populationLimit = popLimits;
   }
 }
 
@@ -657,7 +686,7 @@ export class VisibleRoom extends RoomInfo {
   updateQueuesMemory(reset = false): void {
     const queuesMemory = Memory.rooms[this.name].queues;
     const room = this.getRoom();
-    const construction: ConstructionQueue = [];
+    let construction: ConstructionQueue = [];
     const repair: RepairQueue = [];
     const wallRepair: WallRepairQueue = [];
     let spawn: SpawnQueueItem[] = [];
@@ -665,8 +694,17 @@ export class VisibleRoom extends RoomInfo {
     if (queuesMemory == undefined) {
       reset = true;
     } else {
+      construction = queuesMemory.construction;
       spawn = queuesMemory.spawn;
     }
+
+    // TODO: Should I just check remotes here??
+    // Find construction sites in the room and add non-duplicates to the queue
+    if (reset) {
+      construction = [];
+    }
+    construction.push(..._.pluck(room.find(FIND_MY_CONSTRUCTION_SITES), "pos"));
+    construction = _.uniq(construction);
 
     if (reset) {
       spawn = [];
@@ -678,14 +716,78 @@ export class VisibleRoom extends RoomInfo {
       wallRepair,
       spawn,
     };
-    resetConstructionQueue(room);
-    resetRepairQueue(room);
-    updateWallRepair(room);
+
+    this.updateRepairQueue();
+    this.updateWallRepairQueue();
+  }
+
+  public updateRepairQueue(): void {
+    const room = this.getRoom();
+    const structures = _.filter(room.find(FIND_STRUCTURES), (structure) => {
+      if (
+        structure.structureType === STRUCTURE_RAMPART ||
+        structure.structureType === STRUCTURE_WALL
+      ) {
+        return false;
+      }
+      return structure.hits < structure.hitsMax;
+    });
+    const repairQueue = _.pluck(_.sortBy(structures, "hits"), "id");
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.repair = repairQueue;
+    Memory.rooms[this.name].queues = queuesMemory;
+  }
+
+  public updateWallRepairQueue(): void {
+    const minHits = [0, 5e4, 5e4, 1e5, 2e5, 3e5, 4e5, 5e5, 1e6][
+      this.roomLevel()
+    ];
+    const room = this.getRoom();
+    const structures = _.filter(room.find(FIND_STRUCTURES), (structure) => {
+      return (
+        (structure.structureType === STRUCTURE_RAMPART ||
+          structure.structureType === STRUCTURE_WALL) &&
+        structure.hits < minHits
+      );
+    });
+    const wallRepairQueue = _.pluck(_.sortBy(structures, "hits"), "id");
+    const queuesMemory = this.getQueuesMemory();
+    queuesMemory.wallRepair = wallRepairQueue;
+    Memory.rooms[this.name].queues = queuesMemory;
   }
 
   updatePopulationLimitMemory(): void {
     const room = this.getRoom();
     census(room);
+  }
+
+  public getNextConstructionSite(
+    remove = true,
+  ): Id<ConstructionSite> | undefined {
+    const constructionQueue = this.getConstructionQueue();
+    let index = 0;
+    let foundSite = undefined;
+    for (let i = 0; i < constructionQueue.length; i++) {
+      const pos = Position.fromSerialized(
+        constructionQueue[i],
+      ).tryIntoRoomPosition();
+      if (pos == undefined) {
+        continue;
+      }
+      const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
+      if (site != undefined) {
+        index = i;
+        foundSite = site.id;
+        break;
+      }
+    }
+    const newQueue = _.slice(constructionQueue, index);
+    if (remove) {
+      newQueue.shift();
+    }
+    this.emptyConstructionQueue();
+    this.concatToConstructionQueue(newQueue);
+    return foundSite;
   }
 
   public getNextRepairTarget(remove = false): Structure | undefined {
