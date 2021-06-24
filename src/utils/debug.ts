@@ -8,6 +8,7 @@ import {
 } from "planner";
 import { updateRoomMemory, remoteTargetAnalysis } from "rooms";
 import { resetConstructionQueue } from "construct";
+import { Graph } from "classes/graph";
 
 export function debugLoop(): void {
   const spawn = Game.spawns[Memory.initialSpawn];
@@ -123,6 +124,9 @@ export function debugPostLoop(): void {
   // Debug testing for energy harvested
   debugEnergyHarvested();
 
+  // Graph testing
+  debugGraphTesting();
+
   // Warn if more than 5 CPU used during this tick
   const cpuUsed = Game.cpu.getUsed();
   if (cpuUsed >= 5) {
@@ -176,4 +180,37 @@ export function roomDebugResetEnergyFlow(room: Room): void {
     cost: 0,
     gain: 0,
   };
+}
+
+function debugGraphTesting(): void {
+  if (Memory.debug.distTran == undefined) {
+    const room = Game.rooms["E15N41"];
+    const walls: number[] = [];
+    const exits: number[] = _.map(
+      room.find(FIND_EXIT),
+      (pos) => pos.x + pos.y * 50,
+    );
+
+    // Note: this does not get built walls
+    const terrain = room.getTerrain();
+    for (let i = 0; i < 50 * 50; i++) {
+      const tile = terrain.get(i % 50, Math.floor(i / 50));
+      if (tile === TERRAIN_MASK_WALL) {
+        walls.push(i);
+      }
+    }
+
+    const graph = new Graph(walls, exits);
+    const distTran = graph.distanceTransform();
+    const visual = new RoomVisual("E15N41");
+    _.forEach(distTran, (dist, index) => {
+      if (dist !== -1) {
+        visual.text(dist.toString(), index % 50, Math.floor(index / 50));
+      }
+    });
+    Memory.debug.distTran = visual.export();
+  } else {
+    const visual = new RoomVisual("E15N41");
+    visual.import(Memory.debug.distTran);
+  }
 }
