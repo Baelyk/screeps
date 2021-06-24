@@ -51,10 +51,13 @@ export class Graph {
     return surrounding;
   }
 
-  getNeighbors(index: number): number[] {
-    // Get this node in the graph
-    const node = this.getNode(index);
-    if (node == undefined) {
+  getNeighbors(node: number): number[] {
+    // Get neighbors treats exit nodes as normal nodes, i.e. it does not use
+    // the symbolic exit (the first exit) to get neighbors, but the actual
+    // provided index.
+
+    // Nodes not in the graph have no neighbors
+    if (_.includes(this.walls, node)) {
       return [];
     }
 
@@ -72,7 +75,8 @@ export class Graph {
     // than 8 neighbors (e.g. at least one of its neighbors is a wall).
     const boundaries: number[] = [];
     for (let i = 0; i < 50 * 50; i++) {
-      if (this.getNode(i) != undefined && this.getNeighbors(i).length < 8) {
+      const node = this.getNode(i);
+      if (node != undefined && this.getNeighbors(i).length < 8) {
         boundaries.push(i);
       }
     }
