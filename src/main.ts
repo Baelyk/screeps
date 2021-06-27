@@ -18,7 +18,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   }
 
   // Debug
-  debugLoop();
+  wrapper(() => debugLoop(), `Error in debug loop`);
 
   // Process spawn behavior
   wrapper(() => creepManager(), `Error managing creeps`);
@@ -26,10 +26,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
   wrapper(() => spawnManager(), `Error managing spawns`);
   // Process room behavior
   wrapper(() => roomManager(), `Error managing rooms`);
-  _.filter(["hello"], { key: "world" });
 
   // Debug post-loop actions
-  debugPostLoop();
+  wrapper(() => debugPostLoop(), `Error in debug post loop`);
 
   // screeps-multimeter watcher
   watcher();

@@ -273,7 +273,11 @@ export class RoomInfo implements RoomMemory {
    *   an empty array.
    */
   public getRemotes(): string[] {
-    return this.getOwnedMemory().remotes || [];
+    try {
+      return this.getOwnedMemory().remotes || [];
+    } catch (error) {
+      return [];
+    }
   }
 
   /**
@@ -708,6 +712,12 @@ export class VisibleRoom extends RoomInfo {
   }
 
   updatePlannerMemory(): void {
+    // TODO: currently only planning primary rooms
+    if (this.roomType !== RoomType.primary) {
+      info(`Skipped planning room ${this.name}`);
+      return;
+    }
+
     const roomPlanner = new RoomPlanner(this.name);
     const planner = roomPlanner.planRoom();
     Memory.rooms[this.name].planner = planner;
@@ -797,6 +807,12 @@ export class VisibleRoom extends RoomInfo {
   }
 
   updatePopulationLimitMemory(): void {
+    try {
+      this.getPopLimitMemory();
+    } catch (error) {
+      info(`Resetting pop limits for room ${this.name}`);
+      Memory.rooms[this.name].populationLimit = {};
+    }
     census(this);
   }
 

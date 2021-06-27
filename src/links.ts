@@ -119,6 +119,7 @@ function linkBehavior(link: StructureLink): void {
     const targetLink = links
       .filter(
         (link) =>
+          linksMemory.all[link.id] != undefined &&
           linksMemory.all[link.id].type !== LinkType.spawn &&
           linksMemory.all[link.id].mode === LinkMode.recieve &&
           link.store.getFreeCapacity(RESOURCE_ENERGY) !== 0,
