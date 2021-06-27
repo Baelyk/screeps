@@ -2,6 +2,10 @@ export class Graph {
   walls: number[];
   exits: number[];
 
+  public static coordToIndex(coord: { x: number; y: number }): number {
+    return coord.x + coord.y * 50;
+  }
+
   constructor(walls: number[], exits: number[]) {
     this.walls = walls;
     this.exits = exits;
@@ -20,23 +24,15 @@ export class Graph {
     return node;
   }
 
-  getSurroundingNodes(node: number): number[] {
+  getSurroundingNodes(node: number, radius = 1): number[] {
     const nodeX = node % 50;
     const nodeY = Math.floor(node / 50);
-    let xMinus = 1;
-    let xPlus = 1;
-    if (nodeX === 0) {
-      xMinus = 0;
-    } else if (nodeX === 49) {
-      xPlus = 0;
-    }
-    let yMinus = 1;
-    let yPlus = 1;
-    if (nodeY === 0) {
-      yMinus = 0;
-    } else if (nodeY === 49) {
-      yPlus = 0;
-    }
+
+    // Adjust by the radius or the max possible adjustment staying within 0-49
+    const xMinus = Math.min(radius, nodeX);
+    const xPlus = Math.min(radius, 49 - nodeX);
+    const yMinus = Math.min(radius, nodeY);
+    const yPlus = Math.min(radius, 49 - nodeY);
 
     const surrounding: number[] = [];
     for (let y = nodeY - yMinus; y <= nodeY + yPlus; y++) {
@@ -51,19 +47,23 @@ export class Graph {
     return surrounding;
   }
 
-  getNeighbors(node: number): number[] {
+  public getNeighbors(
+    node: number,
+    radius = 1,
+    getWallNeighbors = false,
+  ): number[] {
     // Get neighbors treats exit nodes as normal nodes, i.e. it does not use
     // the symbolic exit (the first exit) to get neighbors, but the actual
     // provided index.
 
     // Nodes not in the graph have no neighbors
-    if (_.includes(this.walls, node)) {
+    if (!getWallNeighbors && _.includes(this.walls, node)) {
       return [];
     }
 
     // Get the surrounding nodes, get them in the graph, and remove any possible
     // undefined neighbors (e.g. walls).
-    const surrounding = this.getSurroundingNodes(node);
+    const surrounding = this.getSurroundingNodes(node, radius);
     const neighbors = _.map(surrounding, (tile) => this.getNode(tile));
     _.remove(neighbors, _.isUndefined);
 
@@ -131,5 +131,78 @@ export class Graph {
     }
 
     return distances;
+  }
+
+  /**
+   * Find the closest tile from a provided tile (included) with a distance
+   * transform value higher than a provided distance. Uses a breadth-first
+   * search (I believe, lol). Can accept a list of nodes to ignore as solutions
+   * but to still traverse through.
+   */
+  public findClosestTileWithDistance(
+    startTile: number,
+    distance: number,
+    distanceTransform: number[],
+    ignore?: number[],
+    ignoreRadius = 0,
+  ): number | undefined {
+    if (ignore == undefined) {
+      ignore = [];
+    }
+
+    // FIFO queue
+    const queue = [startTile];
+    const discovered = [startTile];
+
+    while (queue.length > 0) {
+      const node = queue.shift();
+      if (node == undefined) {
+        throw new Error("Queue unexpectedly has undefined element");
+      }
+
+      // Check if this node has enough distance around it, and also is not in
+      // the list of nodes to ignore
+      if (/*distanceTransform[node] >= distance || */ null == undefined) {
+        // If there are tiles to ignore
+        if (ignore.length > 0) {
+          // First check that the tile isn't ignored
+          if (!_.includes(ignore, node)) {
+            // Then check that tiles within the ignore radius aren't ignored
+            if (ignoreRadius > 0) {
+              const radiusNeighbors = this.getNeighbors(node, ignoreRadius);
+              // Make sure there are no walls within the radius
+              if ((2 * ignoreRadius + 1) ** 2 === radiusNeighbors.length + 1) {
+                // Try and find a node in both the radius and ignore arrays
+                const overlap = _.find(radiusNeighbors, (neighbor) => {
+                  // TODO: Why is `|| []` necessary here?
+                  return _.includes(ignore || [], neighbor);
+                });
+                if (overlap == undefined) {
+                  return node;
+                }
+              }
+            } else {
+              // Ignore radius is 0, so since the tile isn't ignored, success
+              return node;
+            }
+          }
+        } else {
+          // Nothing to ignore
+          return node;
+        }
+      }
+
+      // Traverse through the graph through neighbors
+      const neighbors = this.getNeighbors(node);
+      _.forEach(neighbors, (neighbor) => {
+        if (!_.includes(discovered, neighbor)) {
+          queue.push(neighbor);
+          discovered.push(neighbor);
+        }
+      });
+    }
+
+    // No such node found in the graph
+    return undefined;
   }
 }

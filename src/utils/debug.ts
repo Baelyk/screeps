@@ -9,6 +9,7 @@ import {
 import { updateRoomMemory, remoteTargetAnalysis } from "rooms";
 import { resetConstructionQueue } from "construct";
 import { Graph } from "classes/graph";
+import { RoomPlanner } from "classes/roomPlanner";
 
 export function debugLoop(): void {
   const spawn = Game.spawns[Memory.initialSpawn];
@@ -125,7 +126,10 @@ export function debugPostLoop(): void {
   debugEnergyHarvested();
 
   // Graph testing
-  debugGraphTesting();
+  // debugGraphTesting();
+
+  // Planner testing
+  debugPlannerTesting();
 
   // Warn if more than 5 CPU used during this tick
   const cpuUsed = Game.cpu.getUsed();
@@ -210,7 +214,51 @@ function debugGraphTesting(): void {
     });
     Memory.debug.distTran = visual.export();
   } else {
-    const visual = new RoomVisual("E15N41");
-    visual.import(Memory.debug.distTran);
+    // const visual = new RoomVisual("E15N41");
+    // visual.import(Memory.debug.distTran);
+  }
+}
+
+function debugPlannerTesting(): void {
+  if (Memory.debug.plan == undefined) {
+    const planner = new RoomPlanner("E15N41");
+    planner.planRoom();
+  } else {
+    const visual = Game.rooms["E15N41"].visual;
+    _.forEach(Memory.debug.plan, (value, key) => {
+      if (key !== "occupied") {
+        let char = "?";
+        let array = [];
+        if (key === "spawnLocation") {
+          char = "H";
+        } else if (key === "storageLocation") {
+          char = "O";
+        } else if (key === "sourceContainers") {
+          char = "C";
+        } else if (key === "towerLocations") {
+          char = "T";
+        } else if (key === "linkLocation") {
+          char = "L";
+        } else if (key === "roads") {
+          char = "+";
+          value = _.flatten(value);
+        } else if (key === "extensionLocations") {
+          char = "E";
+        }
+        if (!Array.isArray(value)) {
+          array = [value];
+        } else {
+          array = value;
+        }
+        _.forEach(array, (spot) => {
+          visual.text(char, spot % 50, Math.floor(spot / 50), {
+            font: "1 monospace",
+            backgroundColor: "black",
+            backgroundPadding: 0,
+            opacity: 0.75,
+          });
+        });
+      }
+    });
   }
 }
