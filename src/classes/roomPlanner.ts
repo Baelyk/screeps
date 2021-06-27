@@ -16,6 +16,7 @@ export interface RoomPlannerMemory {
   roomName: string;
   costMatrix: number[];
   plan: RoomPlannerPlanMemory;
+  level: number;
 }
 
 interface RoomPlannerPlanMemory {
@@ -427,6 +428,7 @@ export class RoomPlanner {
       roomName: this.roomName,
       costMatrix: this.costMatrix.serialize(),
       plan: planMemory,
+      level: 0,
     };
   }
 
