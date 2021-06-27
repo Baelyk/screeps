@@ -1,5 +1,6 @@
 import { ScriptError } from "utils/errors";
 import { Graph } from "classes/graph";
+import { warn, errorConstant } from "utils/logger";
 
 class RoomPlannerError extends ScriptError {
   constructor(roomName: string, message: string) {
@@ -11,11 +12,229 @@ class RoomPlannerError extends ScriptError {
   }
 }
 
+export interface RoomPlannerMemory {
+  roomName: string;
+  costMatrix: number[];
+  plan: RoomPlannerPlanMemory;
+}
+
+interface RoomPlannerPlanMemory {
+  occupied: number[];
+  spawn: number;
+  storage: number;
+  sourceContainers: number[];
+  towers: number[];
+  links: number[];
+  extractor?: number;
+  roads: RoomPlannerRoadMemory;
+  extensions: number[];
+}
+
+interface RoomPlannerRoadMemory {
+  spawnRing: number[];
+  storageRing: number[];
+  spawnStorage: number[];
+  controller: number[];
+  sources: number[];
+  tower: number[];
+  extractor?: number[];
+}
+
 export class RoomPlanner {
   roomName: string;
   costMatrix: CostMatrix;
   graph: Graph;
   distanceTransform: number[];
+
+  static visualizePlan(plan: RoomPlannerMemory): string {
+    const visual = new RoomVisual(plan.roomName);
+    // rip the visuals this tick
+    visual.clear();
+
+    _.forEach(plan.plan, (value, key) => {
+      if (key !== "occupied") {
+        let char = "?";
+        let array = [];
+        if (key === "spawn") {
+          char = "H";
+        } else if (key === "storage") {
+          char = "O";
+        } else if (key === "sourceContainers") {
+          char = "C";
+        } else if (key === "towers") {
+          char = "T";
+        } else if (key === "links") {
+          char = "L";
+        } else if (key === "roads") {
+          char = "+";
+          value = _.flatten(value);
+        } else if (key === "extensions") {
+          char = "E";
+        }
+        if (!Array.isArray(value)) {
+          array = [value];
+        } else {
+          array = value;
+        }
+        _.forEach(array, (spot) => {
+          visual.text(char, spot % 50, Math.floor(spot / 50), {
+            font: "1 monospace",
+            backgroundColor: "black",
+            backgroundPadding: 0,
+            opacity: 0.75,
+          });
+        });
+      }
+    });
+
+    const serialized = visual.export();
+    visual.clear();
+    return serialized;
+  }
+
+  static executePlan(plan: RoomPlannerMemory, level: number): RoomPosition[] {
+    const room = Game.rooms[plan.roomName];
+    if (room == undefined) {
+      throw new RoomPlannerError(plan.roomName, "Room must be visible");
+    }
+
+    function indexToPos(index: number): RoomPosition {
+      const pos = room.getPositionAt(index % 50, Math.floor(index / 50));
+      if (pos == undefined) {
+        throw new RoomPlannerError(
+          plan.roomName,
+          `Unable to get position at index ${index} in ${room.name}`,
+        );
+      }
+      return pos;
+    }
+
+    const sitePositions: RoomPosition[] = [];
+
+    function build(
+      index: number,
+      structureType: BuildableStructureConstant,
+    ): void {
+      const pos = indexToPos(index);
+      const response = pos.createConstructionSite(structureType);
+      if (response === OK) {
+        sitePositions.push(pos);
+      } else {
+        warn(
+          `Attempted to build ${structureType} at (${pos.x}, ${
+            pos.y
+          }) with response ${errorConstant(response)}`,
+        );
+      }
+    }
+
+    function buildMany(
+      indices: number[],
+      structureType: BuildableStructureConstant,
+    ): void {
+      _.forEach(indices, (index) => build(index, structureType));
+    }
+
+    // Switch with highest level first so that the execution falls through to
+    // the levels below to "fix" the plan.
+    switch (level) {
+      case 8: {
+        // Level 8:
+        // - +1 Spawn
+        // - +10 Extensions
+        // - +2 Links
+        // - +3 Towers
+        // - Observer
+        // - Power spawn
+        // - +4 Labs
+        // - Nuker
+        buildMany(plan.plan.extensions.slice(50), STRUCTURE_EXTENSION);
+        buildMany(plan.plan.links.slice(4), STRUCTURE_LINK);
+        buildMany(plan.plan.towers.slice(3), STRUCTURE_TOWER);
+      }
+      // falls through
+      case 7: {
+        // Level 7:
+        // - +1 Spawn
+        // - +10 Extensions
+        // - +1 Link
+        // - +1 Tower
+        // - +3 Labs
+        // - 1 Factory
+        buildMany(plan.plan.extensions.slice(40, 50), STRUCTURE_EXTENSION);
+        buildMany(plan.plan.links.slice(3, 4), STRUCTURE_LINK);
+        build(plan.plan.towers[2], STRUCTURE_TOWER);
+      }
+      // falls through
+      case 6: {
+        // Level 6:
+        // - +10 Extensions
+        // - +1 Link
+        // - Extractor
+        // - Terminal
+        // - 3 labs
+        buildMany(plan.plan.extensions.slice(30, 40), STRUCTURE_EXTENSION);
+        buildMany(plan.plan.links.slice(2, 3), STRUCTURE_LINK);
+        if (
+          plan.plan.extractor != undefined &&
+          plan.plan.roads.extractor != undefined
+        ) {
+          buildMany(plan.plan.roads.extractor, STRUCTURE_EXTRACTOR);
+          build(plan.plan.extractor, STRUCTURE_EXTRACTOR);
+        }
+      }
+      // falls through
+      case 5: {
+        // Level 5:
+        // - +10 Extensions
+        // - 2 Links
+        // - +1 Tower
+        buildMany(plan.plan.extensions.slice(20, 30), STRUCTURE_EXTENSION);
+        buildMany(plan.plan.links.slice(0, 2), STRUCTURE_LINK);
+        build(plan.plan.towers[1], STRUCTURE_TOWER);
+      }
+      // falls through
+      case 4: {
+        // Level 4:
+        // - +10 Extensions
+        // - Storage
+        buildMany(plan.plan.extensions.slice(10, 20), STRUCTURE_EXTENSION);
+        build(plan.plan.storage, STRUCTURE_STORAGE);
+      }
+      // falls through
+      case 3: {
+        // Level 3:
+        // - +5 extensions
+        // - Tower
+        buildMany(plan.plan.extensions.slice(5, 10), STRUCTURE_EXTENSION);
+        build(plan.plan.towers[0], STRUCTURE_TOWER);
+      }
+      // falls through
+      case 2: {
+        // Level 2:
+        // - 5 extensions
+        // - Walls/ramparts
+        buildMany(plan.plan.extensions.slice(0, 5), STRUCTURE_EXTENSION);
+      }
+      // falls through
+      case 1: {
+        // Level 0/1: Initial plan
+        // - Place spawn
+        // - Place roads
+        //   - Spawn ring road
+        //   - Source roads
+        //   - Controller roads
+        // - Place miner containers
+        build(plan.plan.spawn, STRUCTURE_SPAWN);
+        buildMany(plan.plan.roads.spawnRing, STRUCTURE_ROAD);
+        buildMany(plan.plan.roads.sources, STRUCTURE_ROAD);
+        buildMany(plan.plan.roads.controller, STRUCTURE_ROAD);
+        buildMany(plan.plan.sourceContainers, STRUCTURE_CONTAINER);
+      }
+    }
+
+    return sitePositions;
+  }
 
   static createGraph(roomName: string): Graph {
     const room = Game.rooms[roomName];
@@ -126,7 +345,7 @@ export class RoomPlanner {
     this.costMatrix.set(index % 50, Math.floor(index / 50), 255);
   }
 
-  public planRoom(): void {
+  public planRoom(): RoomPlannerMemory {
     let occupied: number[] = [];
 
     const spawnLocation = this.findSpawnLocation();
@@ -182,16 +401,32 @@ export class RoomPlanner {
     // Add extension roads to roads list
     roads.push(extensionRoadLocations);
 
-    Memory.debug.plan = {
+    const roadMemory: RoomPlannerRoadMemory = {
+      spawnRing: roads[0],
+      storageRing: roads[1],
+      spawnStorage: roads[2],
+      controller: roads[3],
+      sources: roads[4],
+      tower: roads[5],
+      extractor: roads[6],
+    };
+
+    const planMemory: RoomPlannerPlanMemory = {
       occupied,
-      spawnLocation,
-      storageLocation,
+      spawn: spawnLocation,
+      storage: storageLocation,
       sourceContainers,
-      towerLocations,
-      linkLocations,
-      extractorLocation,
-      roads,
-      extensionLocations,
+      towers: towerLocations,
+      links: linkLocations,
+      extractor: extractorLocation,
+      roads: roadMemory,
+      extensions: extensionLocations,
+    };
+
+    return {
+      roomName: this.roomName,
+      costMatrix: this.costMatrix.serialize(),
+      plan: planMemory,
     };
   }
 
