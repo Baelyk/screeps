@@ -38,25 +38,36 @@ export function createLinkMemory(
   if (link == null) {
     throw new GetByIdError(linkId, STRUCTURE_LINK);
   }
+
   let linkMode = LinkMode.none;
   let linkType = LinkType.unknown;
-  if (link.room.memory.planner != undefined) {
-    const linkPlanner = link.room.memory.planner.plan[STRUCTURE_LINK];
-    if (linkPlanner != null) {
-      const spawnLinkPos = linkPlanner.pos[0];
-      const controllerLinkPos = linkPlanner.pos[1];
-      if (link.pos.x == spawnLinkPos.x && link.pos.y == spawnLinkPos.y) {
-        linkType = LinkType.spawn;
-      }
-      if (
-        link.pos.x == controllerLinkPos.x &&
-        link.pos.y == controllerLinkPos.y
-      ) {
-        linkMode = LinkMode.recieve;
-        linkType = LinkType.controller;
-      }
+
+  // Try and identify spawn/controller link
+  const gameRoom = room.getRoom();
+  const storage = gameRoom.storage;
+  if (storage == undefined) {
+    warn(
+      `Room ${room.name} lacks a storage, preventing identification of the spawn link`,
+    );
+  } else {
+    // The link adjacent to the storage is the spawn link
+    if (link.pos.inRangeTo(storage.pos, 1)) {
+      linkType = LinkType.spawn;
     }
   }
+  const controller = gameRoom.controller;
+  if (controller == undefined) {
+    warn(
+      `Room ${room.name} lacks a controller, preventing identification of the controller link`,
+    );
+  } else {
+    // The link adjacent to the controller is the controller link
+    if (link.pos.inRangeTo(controller.pos, 1)) {
+      linkType = LinkType.controller;
+      linkMode = LinkMode.recieve;
+    }
+  }
+
   return { mode: linkMode, type: linkType };
 }
 
