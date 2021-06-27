@@ -169,6 +169,11 @@ export class RoomInfo implements RoomMemory {
     return ownedMemory.links;
   }
 
+  getPlannerMemory(): RoomPlannerMemory | undefined {
+    const memory = this.getMemory();
+    return memory.planner;
+  }
+
   getQueuesMemory(): RoomQueueMemory {
     const memory = this.getMemory();
     if (memory.queues == undefined) {
@@ -703,7 +708,8 @@ export class VisibleRoom extends RoomInfo {
   }
 
   updatePlannerMemory(): void {
-    const planner: RoomPlannerMemory = makeRoomPlanner(this.name);
+    const roomPlanner = new RoomPlanner(this.name);
+    const planner = roomPlanner.planRoom();
     Memory.rooms[this.name].planner = planner;
   }
 
@@ -902,7 +908,12 @@ export class VisibleRoom extends RoomInfo {
     if (level == undefined) {
       level = this.roomLevel();
     }
-    executePlan(this, level);
+    const planner = this.getPlannerMemory();
+    if (planner != undefined) {
+      RoomPlanner.executePlan(planner, level);
+    } else {
+      warn(`Attempted to execute plan for room ${this.name} lacking a plan`);
+    }
   }
 
   public updateSpecialStructuresMemory(): void {
