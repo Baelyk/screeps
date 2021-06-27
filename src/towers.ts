@@ -1,12 +1,7 @@
-import {
-  build,
-  buildRoad,
-  getSurroundingTiles,
-  updateWallRepair,
-} from "construct";
+import { getSurroundingTiles } from "construct";
 import { errorConstant, info, warn } from "utils/logger";
 import { countBodyPart, hasBodyPart } from "utils/helpers";
-import { GetByIdError, GetPositionError, wrapper } from "utils/errors";
+import { GetByIdError, wrapper } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
 
 export function towerBehavior(tower: StructureTower): void {
@@ -35,7 +30,7 @@ export function towerBehavior(tower: StructureTower): void {
 
         // There are no creeps, structures to target
         if (target == undefined) {
-          updateWallRepair(room);
+          room.updateWallRepairQueue();
           const wallId = room.getFromWallRepairQueue();
           if (wallId != undefined) {
             target = Game.getObjectById(wallId);
@@ -75,31 +70,6 @@ export function towerBehavior(tower: StructureTower): void {
     warn(
       `Tower ${tower.id} is attacking ${target.owner.username}'s creep ${target.name}: ${response}`,
     );
-  }
-}
-
-export function buildTower(roomName: string): void {
-  const room = Game.rooms[roomName];
-
-  const spawn = room.find(FIND_MY_SPAWNS)[0];
-  const pos = room.getPositionAt(spawn.pos.x - 5, spawn.pos.y);
-
-  if (pos === null) {
-    throw new GetPositionError({
-      x: spawn.pos.x - 5,
-      y: spawn.pos.y,
-      roomName,
-    });
-  }
-
-  const response = build(pos, STRUCTURE_TOWER);
-
-  if (response) {
-    info(`Successfully queued tower at ${JSON.stringify(pos)}`);
-    const roads = getSurroundingTiles(pos, 1);
-    buildRoad(roads);
-  } else {
-    warn(`Failed to build tower at ${JSON.stringify(pos)}`);
   }
 }
 
