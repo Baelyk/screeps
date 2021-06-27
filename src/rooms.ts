@@ -2,7 +2,6 @@ import { info } from "utils/logger";
 import { linkManager } from "links";
 import { wrapper } from "utils/errors";
 import { towerManager } from "towers";
-import { makePlan, executePlan } from "planner";
 import { census } from "population";
 import { roomDebugLoop } from "utils/debug";
 import { updateSpawnQueue } from "spawning";
@@ -82,10 +81,6 @@ function infrequentRoomActions(room: VisibleRoom) {
       return;
     }
 
-    if (!room.hasPlan()) {
-      makePlan(room);
-    }
-
     // Update repair queue and pop limits every 100 ticks
     room.updateRepairQueue();
     room.updateWallRepairQueue();
@@ -103,7 +98,7 @@ function infrequentRoomActions(room: VisibleRoom) {
     if (room.roomType === RoomType.remote) {
       const structures = room.getRoom().find(FIND_STRUCTURES);
       if (structures.length === 0) {
-        executePlan(room);
+        room.executePlan();
       }
     }
   }
