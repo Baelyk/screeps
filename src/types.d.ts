@@ -11,8 +11,6 @@ interface Memory {
   debug: DebugMemory;
 }
 
-type MemoryPopulationLimit = { [key in CreepRole]?: number };
-
 interface DebugMemory {
   disableMiners?: boolean;
   /** Whether creeps should `.say()` their task */
@@ -45,9 +43,6 @@ interface ScreepsMultimeterWatch {
   expressions?: object | undefined;
   values?: { [index: string]: any };
 }
-
-type ConstructionQueue = RoomPosition[];
-type RepairQueue = Id<Structure>[];
 
 interface CreepMemory {
   role: CreepRole;
@@ -143,102 +138,4 @@ interface SpawnMemory {
 interface TowerMemory {
   // The id of the object the tower is targetting
   target: string | undefined;
-}
-
-interface RoomMemory {
-  level: number;
-  spawn: Id<StructureSpawn>;
-  towers: Id<StructureTower>[];
-  sources: Id<Source>[];
-  tombs: Id<Tombstone>[];
-  wallRepairQueue: Id<StructureRampart | StructureWall>[];
-  planner: PlannerMemory | undefined;
-  links: RoomLinksMemory;
-  populationLimit: MemoryPopulationLimit;
-  /** The construction queue: an array of ConstructionSite positions */
-  constructionQueue: ConstructionQueue;
-  /**
-   * The repair queue: an array of Structure ids that need repairs, sorted by
-   * least hits to most
-   */
-  repairQueue: RepairQueue;
-  roomType: RoomType;
-  /** The room that this room is a remote for, if this is a remote room */
-  owner: string | undefined;
-  /** The entrance to the room, if it exists, e.g. for a remote room */
-  entrance?: { x: number; y: number };
-  /** Room debug memory */
-  debug?: RoomDebugMemory;
-  /** Room names of remotes of this room */
-  remotes?: string[];
-  /** Spawn queue */
-  spawnQueue: SpawnQueueItem[];
-}
-
-interface SpawnQueueItem {
-  role: CreepRole;
-  overrides?: Partial<CreepMemory>;
-  name?: string;
-}
-
-interface RoomDebugMemory {
-  removeConstructionSites?: boolean;
-  resetConstructionSites?: boolean;
-  energyFlow?: RoomDebugEnergyFlow;
-  remoteAnalysis?: boolean;
-}
-
-interface RoomDebugEnergyFlow {
-  start: number;
-  restart?: boolean;
-  cost: number;
-  gain: number;
-}
-
-declare const enum RoomType {
-  primary = "primary",
-  remote = "remote",
-}
-
-interface PlannerMemory {
-  // A serialized cost matrix for the planner
-  costMatrix: number[] | undefined;
-  plan: PlannerPlan;
-}
-
-type PlannerPlan = {
-  [key in BuildableStructureConstant]?: PlannerStructurePlan;
-};
-
-interface PlannerStructurePlan {
-  pos: PlannerCoord[];
-}
-
-interface PlannerCoord {
-  x: number;
-  y: number;
-}
-
-interface RoomLinksMemory {
-  all: { [id: string]: LinkMemory };
-  spawn?: Id<StructureLink>;
-  controller?: Id<StructureLink>;
-}
-
-interface LinkMemory {
-  mode: LinkMode;
-  type: LinkType;
-}
-
-declare const enum LinkMode {
-  none = "none",
-  send = "send",
-  recieve = "recieve",
-}
-
-declare const enum LinkType {
-  spawn = "spawn",
-  controller = "controller",
-  source = "source",
-  unknown = "unknown",
 }

@@ -1,4 +1,5 @@
 import { overlayManager } from "overlay";
-export function roomVisualManager(room: Room): void {
+import { VisibleRoom } from "roomMemory";
+export function roomVisualManager(room: VisibleRoom): void {
   overlayManager(room);
 }

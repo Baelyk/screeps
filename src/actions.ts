@@ -1,8 +1,8 @@
-import { fromRepairQueue, getSurroundingTiles } from "construct";
+import { getSurroundingTiles } from "construct";
 import { error, errorConstant, warn, info } from "utils/logger";
 import { countBodyPart, countRole } from "utils/helpers";
-import { getNextTombInRoom } from "rooms";
 import { CreepMemoryError, ScriptError } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 /**
  * Harvest energy from a specified Source or find the first Source in the room.
@@ -209,7 +209,8 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
     );
   }
   if (target == undefined) {
-    const spawnLinkId = creep.room.memory.links.spawn;
+    const room = new VisibleRoom(creep.room.name);
+    const spawnLinkId = room.getLinksMemory().spawn;
     if (spawnLinkId != undefined) {
       const spawnLink = Game.getObjectById(spawnLinkId);
       if (spawnLink != undefined) {
@@ -398,10 +399,15 @@ export function build(creep: Creep, building?: ConstructionSite): void {
         building.structureType === STRUCTURE_RAMPART) &&
       building.progress === building.progressTotal
     ) {
+      const room = new VisibleRoom(creep.room.name);
       const wallOrRampart = building.pos.lookFor(LOOK_STRUCTURES)[0];
-      if (wallOrRampart != undefined) {
-        creep.room.memory.wallRepairQueue.unshift(
-          wallOrRampart.id as Id<StructureWall> | Id<StructureRampart>,
+      if (
+        wallOrRampart != undefined &&
+        (wallOrRampart.structureType === STRUCTURE_RAMPART ||
+          wallOrRampart.structureType === STRUCTURE_WALL)
+      ) {
+        room.addToWallRepairQueue(
+          wallOrRampart.id as Id<StructureRampart | StructureWall>,
         );
         creep.memory.assignedRepairs = wallOrRampart.id;
         creep.memory.task = CreepTask.repair;
@@ -417,12 +423,13 @@ export function build(creep: Creep, building?: ConstructionSite): void {
  * @param repair The structure to repair
  */
 export function repair(creep: Creep, repair?: Structure): void {
+  const room = new VisibleRoom(creep.room.name);
   if (repair == undefined) {
     if (creep.memory.assignedRepairs == undefined) {
-      const idToRepair = fromRepairQueue(creep.room);
-      repair =
-        (Game.getObjectById(idToRepair || "") as Structure | null) || undefined;
-      creep.memory.assignedRepairs = idToRepair;
+      repair = room.getNextRepairTarget();
+      if (repair != undefined) {
+        creep.memory.assignedRepairs = repair.id;
+      }
     } else {
       repair =
         (Game.getObjectById(
@@ -486,8 +493,9 @@ export function recoverEnergy(creep: Creep, range = 1): ScreepsReturnCode {
   if (range === 1) {
     return recoverNearbyEnergy(creep);
   } else if (range === -1) {
+    const room = new VisibleRoom(creep.room.name);
     // If range is -1, get a tomb from the room's lst of tombs
-    const tomb = getNextTombInRoom(creep.room);
+    const tomb = room.getNextTombstone();
     if (tomb != undefined) {
       let response: ScreepsReturnCode = creep.withdraw(tomb, RESOURCE_ENERGY);
       if (response === ERR_NOT_IN_RANGE) {

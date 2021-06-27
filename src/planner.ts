@@ -10,13 +10,14 @@ import {
   RoomMemoryError,
   ScriptError,
 } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 export interface RoomPlannerMemory {
   costMatrix?: number[];
   plan: PlannerPlan;
   /**
-   * The level of the plan so-far executed. E.g. `level = 2` means levels 0,
-   * 1, and 2 have been executed, but 3 and up haven't.
+   * The level of the plan so-far executed. E.g. `level = 2` means levels 0, 1,
+   * and 2 have been executed, but 3 and up haven't.
    */
   level: number;
 }
@@ -34,6 +35,10 @@ interface PlannerStructurePlan {
 interface PlannerCoord {
   x: number;
   y: number;
+}
+
+export function makeRoomPlanner(roomName: string): RoomPlannerMemory {
+  throw new ScriptError("unimplemented");
 }
 
 export function getExitWallsAndRamparts(
@@ -849,7 +854,8 @@ function getContainerSpots(room: Room): RoomPosition[] {
   return containers;
 }
 
-export function makePlan(room: Room): boolean {
+export function makePlan(visRoom: VisibleRoom): boolean {
+  const room = visRoom.getRoom();
   if (room.memory.roomType === RoomType.remote) {
     return planRemoteRoom(room);
   }
@@ -959,7 +965,7 @@ function getPartOfPlan(
   return { pos: slice };
 }
 
-export function executePlan(room: Room, levelOverride = -1): boolean {
+export function executePlan(room: VisibleRoom, levelOverride = -1): boolean {
   info(`Executing plan for room ${room.name}`);
   if (room.memory.level == undefined) {
     throw new RoomMemoryError(room, "level");

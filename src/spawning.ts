@@ -2,13 +2,10 @@
 import { info, warn } from "utils/logger";
 import { countRole, livenRoomPosition } from "utils/helpers";
 import { getSurroundingTiles } from "construct";
-import { GetByIdError, RoomMemoryError, ScriptError } from "utils/errors";
+import { GetByIdError, ScriptError } from "utils/errors";
+import { RoomInfo, VisibleRoom } from "roomMemory";
 
-export function updateSpawnQueue(room: Room): void {
-  if (room.memory.spawnQueue == undefined) {
-    room.memory.spawnQueue = [];
-  }
-
+export function updateSpawnQueue(room: VisibleRoom): void {
   // Add these roles to the top of the queue
   // Most important last
   const prioritySpawns = [
@@ -47,48 +44,30 @@ export function updateSpawnQueue(room: Room): void {
           break;
       }
 
-      if (
-        room.memory.roomType === RoomType.remote &&
-        role === CreepRole.hauler
-      ) {
+      if (room.roomType === RoomType.remote && role === CreepRole.hauler) {
         role = CreepRole.remoteHauler;
       }
 
       const queueEntry = { role, overrides };
-      if (prioritySpawns.indexOf(role) !== -1) {
-        room.memory.spawnQueue.unshift(queueEntry);
-      } else {
-        room.memory.spawnQueue.push(queueEntry);
-      }
+      room.addToSpawnQueue(queueEntry, _.includes(prioritySpawns, role));
     }
   });
-
-  // Append remote spawn queue
-  if (room.memory.remotes != undefined) {
-    room.memory.remotes.forEach((remoteName) => {
-      const remoteMemory = Memory.rooms[remoteName];
-      if (remoteMemory != undefined) {
-        room.memory.spawnQueue = room.memory.spawnQueue.concat(
-          remoteMemory.spawnQueue,
-        );
-        remoteMemory.spawnQueue = [];
-      }
-    });
-  }
 
   // Modify the spawn queue in case of catastrophe
   catastropheSpawning(room);
 }
 
-function needRole(room: Room, role: CreepRole): boolean {
+function needRole(room: VisibleRoom, role: CreepRole): boolean {
+  const gameRoom = room.getRoom();
+
   // Only guards and reservers can spawn in rooms with hostile creeps or
   // structures, and reservers only when the hostile is an invader core.
   if (role !== CreepRole.guard) {
     // Find hostile creeps AND structures (e.g. invader cores)
-    const hostileCreeps: (Creep | AnyOwnedStructure)[] = room.find(
+    const hostileCreeps: (Creep | AnyOwnedStructure)[] = gameRoom.find(
       FIND_HOSTILE_CREEPS,
     );
-    const hostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
+    const hostileStructures = gameRoom.find(FIND_HOSTILE_STRUCTURES);
     if (hostileCreeps.length + hostileStructures.length > 0) {
       // Reserver creeps can be spawned if there are no hostile creeps and there
       // is exactly one hostile structure that is a level 0 invader core.
@@ -106,14 +85,10 @@ function needRole(room: Room, role: CreepRole): boolean {
     }
   }
 
-  const maximum = room.memory.populationLimit[role];
-  if (maximum == undefined) {
-    warn(`Room ${room.name} has undefined pop limit for role ${role}`);
-    return false;
-  }
+  const maximum = room.getRoleLimit(role);
   let count = _.filter(Memory.creeps, { room: room.name, role: role }).length; // countRole(room, role);
 
-  if (room.memory.roomType === RoomType.remote) {
+  if (room.roomType === RoomType.remote) {
     count = 0;
     for (const creep in Game.creeps) {
       if (
@@ -126,18 +101,18 @@ function needRole(room: Room, role: CreepRole): boolean {
       }
     }
   }
-
+  const remotes = room.getRemotes();
   // Wait to spawn another scout if their is a scout in this room, also make
   // sure there exist visionless rooms
   if (role === CreepRole.scout) {
     if (count > 0) {
       return false;
     }
-    if (room.memory.remotes == undefined) {
+    if (remotes.length === 0) {
       return false;
     } else {
       let existsVisionless = false;
-      room.memory.remotes.forEach((remoteName) => {
+      remotes.forEach((remoteName) => {
         if (Game.rooms[remoteName] == undefined) {
           existsVisionless = true;
         }
@@ -149,8 +124,8 @@ function needRole(room: Room, role: CreepRole): boolean {
   }
 
   // Count builders (only) in remote rooms
-  if (role === CreepRole.builder && room.memory.remotes != undefined) {
-    room.memory.remotes.forEach((remoteName) => {
+  if (role === CreepRole.builder && remotes.length > 0) {
+    remotes.forEach((remoteName) => {
       const remote = Game.rooms[remoteName];
       // Assume that the remote room simply lacks vision, but does exist, and
       // no vision implies no creeps in the room
@@ -162,7 +137,10 @@ function needRole(room: Room, role: CreepRole): boolean {
 
   // Wait for miners to spawn haulers
   if (role === CreepRole.hauler) {
-    const miners = countRole(room, CreepRole.miner);
+    const miners = _.filter(Memory.creeps, {
+      role: CreepRole.miner,
+      room: room.name,
+    }).length;
     if (miners === 0 || count >= miners) {
       return false;
     }
@@ -173,32 +151,22 @@ function needRole(room: Room, role: CreepRole): boolean {
   if (count < maximum) {
     let currentlySpawning = false;
     // Remote rooms should check the owner queue
-    if (room.memory.roomType === RoomType.remote) {
-      if (room.memory.owner == undefined) {
-        throw new RoomMemoryError(room, "owner", "Remotes need an owner");
-      }
-      const ownerMemory = Memory.rooms[room.memory.owner];
-      if (ownerMemory == undefined) {
-        throw new RoomMemoryError(room, "owner", "Invalid owner room");
-      }
+    if (room.roomType === RoomType.remote) {
+      const owner = new VisibleRoom(room.getRemoteOwner());
       // In remote rooms, hauler creeps get added as remote haulers
       const inOwnerQueue =
-        ownerMemory.spawnQueue.find(
-          (entry) =>
-            entry.role === role ||
-            (role === CreepRole.hauler &&
-              entry.role === CreepRole.remoteHauler),
-        ) != undefined;
+        owner
+          .getSpawnQueue()
+          .find(
+            (entry) =>
+              entry.role === role ||
+              (role === CreepRole.hauler &&
+                entry.role === CreepRole.remoteHauler),
+          ) != undefined;
       if (inOwnerQueue) {
         return false;
       }
-      if (ownerMemory.spawn == undefined) {
-        throw new RoomMemoryError(room, "owner", "Owner lacks spawn");
-      }
-      const spawn = Game.getObjectById(ownerMemory.spawn);
-      if (spawn == undefined) {
-        throw new GetByIdError(ownerMemory.spawn, STRUCTURE_SPAWN);
-      }
+      const spawn = owner.getPrimarySpawn();
       if (spawn.spawning != undefined) {
         const spawningName = spawn.spawning.name;
         currentlySpawning =
@@ -207,27 +175,21 @@ function needRole(room: Room, role: CreepRole): boolean {
             role === CreepRole.harvester);
       }
     } else {
-      if (room.memory.spawn == undefined) {
-        throw new RoomMemoryError(room, "spawn");
-      }
-      const spawn = Game.getObjectById(room.memory.spawn);
-      if (spawn == undefined) {
-        throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
-      }
+      const spawn = room.getPrimarySpawn();
       if (spawn.spawning != undefined) {
         const spawningName = spawn.spawning.name;
         currentlySpawning = Memory.creeps[spawningName].role === role;
       }
     }
     const inRoomQueue =
-      room.memory.spawnQueue.find((entry) => entry.role === role) !== undefined;
+      room.getSpawnQueue().find((entry) => entry.role === role) !== undefined;
 
     return !currentlySpawning && !inRoomQueue;
   }
   return false;
 }
 
-function memoryOverridesMiner(room: Room): Partial<CreepMemory> {
+function memoryOverridesMiner(room: VisibleRoom): Partial<CreepMemory> {
   // Find miners for the room
   const miners = _.filter(Memory.creeps, {
     role: CreepRole.miner,
@@ -237,9 +199,9 @@ function memoryOverridesMiner(room: Room): Partial<CreepMemory> {
   // This miner's target source should be the "first" source in the room not
   // assigned to a miner in the room.
   const minedSources = miners.map((minerMem) => minerMem.assignedSource);
-  const sourceId = room.memory.sources.find(
-    (roomSource) => minedSources.indexOf(roomSource) === -1,
-  );
+  const sourceId = room
+    .getSources()
+    .find((roomSource) => minedSources.indexOf(roomSource) === -1);
   if (sourceId == undefined) {
     throw new ScriptError(
       `Requested addition miner in ${room.name} but unable to find available source`,
@@ -265,7 +227,7 @@ function memoryOverridesMiner(room: Room): Partial<CreepMemory> {
     );
     // Assign to a surrounding non-wall spot
     spot = surrounding.find((pos) => {
-      const terrain = room.getTerrain().get(pos.x, pos.y);
+      const terrain = room.getRoom().getTerrain().get(pos.x, pos.y);
       return terrain != TERRAIN_MASK_WALL;
     });
   }
@@ -281,7 +243,7 @@ function memoryOverridesMiner(room: Room): Partial<CreepMemory> {
   };
 }
 
-function memoryOverridesHauler(room: Room): Partial<CreepMemory> {
+function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
   // okay so now that i think about this code def doesn't work at all for rooms
   // with more than 1 source
 
@@ -317,19 +279,12 @@ function memoryOverridesHauler(room: Room): Partial<CreepMemory> {
   return { room: room.name, spot };
 }
 
-function memoryOverridesReserver(room: Room): Partial<CreepMemory> {
+function memoryOverridesReserver(room: VisibleRoom): Partial<CreepMemory> {
   return { room: room.name, noRenew: true };
 }
 
-function memoryOverridesScout(room: Room): Partial<CreepMemory> {
-  if (room.memory.remotes == undefined) {
-    throw new RoomMemoryError(
-      room,
-      "remotes",
-      "Room wants scouts but lacks remotes",
-    );
-  }
-  const targetRoom = room.memory.remotes.find((remoteName) => {
+function memoryOverridesScout(room: VisibleRoom): Partial<CreepMemory> {
+  const targetRoom = room.getRemotes().find((remoteName) => {
     return Game.rooms[remoteName] == undefined;
   });
   if (targetRoom == undefined) {
@@ -342,16 +297,16 @@ function memoryOverridesScout(room: Room): Partial<CreepMemory> {
 
 /** Adds to the spawn queue based on a dead creep's memory */
 export function respawnCreep(memory: CreepMemory): void {
-  const roomMemory = Memory.rooms[memory.room];
+  const roomMemory = new RoomInfo(memory.room);
   const respawn: SpawnQueueItem = {
     role: memory.role,
     overrides: memory,
   };
-  roomMemory.spawnQueue.push(respawn);
+  roomMemory.addToSpawnQueue(respawn);
 }
 
-function catastropheSpawning(room: Room): void {
-  switch (room.memory.roomType) {
+function catastropheSpawning(room: VisibleRoom): void {
+  switch (room.roomType) {
     case RoomType.remote:
       return;
     case RoomType.primary: {
@@ -364,28 +319,24 @@ function catastropheSpawning(room: Room): void {
         return;
       }
       // Less than 300 energy available
-      let energy = room.energyAvailable;
-      const storage = room.storage;
-      if (storage != undefined) {
-        energy += storage.store.getUsedCapacity(RESOURCE_ENERGY);
-      }
+      const energy =
+        room.getRoom().energyAvailable +
+        room.storedResourceAmount(RESOURCE_ENERGY);
       // No harvested queued
-      const harvesterQueued = _.some(room.memory.spawnQueue, {
+      const harvesterQueued = _.some(room.getSpawnQueue(), {
         role: CreepRole.harvester,
       });
 
       if (energy <= 300 && !harvesterQueued) {
         // Catastrophe detected!
-        warn(
-          `Catastrophe detected in ${room.memory.roomType} room ${room.name}`,
-        );
-        room.memory.spawnQueue.unshift({ role: CreepRole.harvester });
+        warn(`Catastrophe detected in ${room.roomType} room ${room.name}`);
+        room.addToSpawnQueue({ role: CreepRole.harvester }, true);
       }
       break;
     }
     default:
       warn(
-        `Unimplemented catastrophe spawning behavior for ${room.memory.roomType} room ${room.name}`,
+        `Unimplemented catastrophe spawning behavior for ${room.roomType} room ${room.name}`,
       );
       break;
   }
