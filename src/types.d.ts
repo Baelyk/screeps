@@ -25,6 +25,8 @@ interface DebugMemory {
   harvestStats?: boolean;
   energyHarvested?: DebugEnergyHarvested;
   expandAllowed?: boolean;
+  distTran?: string;
+  plan?: any;
 }
 
 interface DebugEnergyHarvested {
