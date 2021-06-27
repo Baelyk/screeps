@@ -1,9 +1,8 @@
 import { info, warn } from "utils/logger";
 import { GetByIdError, ScriptError } from "utils/errors";
-import { RoomPlannerMemory, makeRoomPlanner } from "planner";
+import { RoomPlannerMemory, RoomPlanner } from "classes/roomPlanner";
 import { census } from "population";
 import { createLinkMemory } from "links";
-import { executePlan } from "planner";
 import { Pos, Position } from "classes/position";
 
 export function testFunction(): void {
