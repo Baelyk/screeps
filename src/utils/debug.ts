@@ -49,7 +49,7 @@ export function debugPostLoop(): void {
   // debugGraphTesting();
 
   // Planner testing
-  debugPlannerTesting();
+  // debugPlannerTesting();
 
   // Warn if more than 5 CPU used during this tick
   const cpuUsed = Game.cpu.getUsed();
