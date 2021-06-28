@@ -12,7 +12,7 @@ import {
   moveToRoom,
 } from "actions";
 import { unassignConstruction } from "construct";
-import { errorConstant, info, warn } from "utils/logger";
+import { error, errorConstant, info, warn } from "utils/logger";
 import { generateBodyByRole } from "spawns";
 import {
   CreepRoleMemoryError,
@@ -366,9 +366,15 @@ function hauler(creep: Creep) {
           | StructureContainer
           | undefined;
         if (structure === undefined) {
-          throw new ScriptError(
-            `Hauler creep ${creep.name} unable to get container`,
+          error(`Hauler creep ${creep.name} unable to get container`);
+          warn(
+            `Hauler creep ${creep.name} moving to spot and attempting to recover`,
           );
+          if (creep.pos.inRangeTo(spot, 1)) {
+            recoverEnergy(creep);
+          } else {
+            creep.moveTo(spot);
+          }
         }
 
         // Every 10 ticks check for nearby energy to recover. Otherwise, get
