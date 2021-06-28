@@ -14,12 +14,20 @@ class RoomPlannerError extends ScriptError {
 
 export interface RoomPlannerMemory {
   roomName: string;
+  roomType: RoomType;
   costMatrix: number[];
   plan: RoomPlannerPlanMemory;
   level: number;
 }
 
-interface RoomPlannerPlanMemory {
+type RoomPlannerPlanMemory =
+  | OwnedRoomPlannerPlanMemory
+  | RemoteRoomPlannerPlanMemory;
+type RoomPlannerRoadMemory =
+  | OwnedRoomPlannerRoadMemory
+  | RemoteRoomPlannerRoadMemory;
+
+interface OwnedRoomPlannerPlanMemory {
   occupied: number[];
   spawn: number;
   storage: number;
@@ -27,11 +35,11 @@ interface RoomPlannerPlanMemory {
   towers: number[];
   links: number[];
   extractor?: number;
-  roads: RoomPlannerRoadMemory;
+  roads: OwnedRoomPlannerRoadMemory;
   extensions: number[];
 }
 
-interface RoomPlannerRoadMemory {
+interface OwnedRoomPlannerRoadMemory {
   spawnRing: number[];
   storageRing: number[];
   spawnStorage: number[];
@@ -41,8 +49,57 @@ interface RoomPlannerRoadMemory {
   extractor?: number[];
 }
 
-export class RoomPlanner {
+interface RemoteRoomPlannerPlanMemory {
+  occupied: number[];
+  sourceContainers: number[];
+  roads: RemoteRoomPlannerRoadMemory;
+}
+
+interface RemoteRoomPlannerRoadMemory {
+  controller: number[];
+  sources: number[];
+}
+
+class RoomPlannerBase {
   roomName: string;
+
+  constructor(roomName: string) {
+    this.roomName = roomName;
+    if (Game.rooms[roomName] === undefined) {
+      throw new RoomPlannerError(roomName, "Room must be visible");
+    }
+  }
+
+  /**
+   * Get the Screeps Room object for this room. If the room is not visible,
+   * throws a RoomPlannerError.
+   *
+   * @returns The Screeps Room object
+   */
+  getRoom(): Room {
+    const room = Game.rooms[this.roomName];
+    if (room == undefined) {
+      throw new RoomPlannerError(this.roomName, "Room must be visible");
+    }
+    return room;
+  }
+
+  /** Converts a graph index into a RoomPosition in this room. */
+  indexToRoomPosition(index: number): RoomPosition {
+    const room = this.getRoom();
+    const roomPosition = room.getPositionAt(index % 50, Math.floor(index / 50));
+    if (roomPosition == undefined) {
+      throw new RoomPlannerError(
+        this.roomName,
+        `Unable to turn index ${index} into a RoomPosition in ${this.roomName}`,
+      );
+    }
+    return roomPosition;
+  }
+}
+
+export class RoomPlanner extends RoomPlannerBase {
+  roomType: RoomType;
   costMatrix: CostMatrix;
   graph: Graph;
   distanceTransform: number[];
@@ -93,150 +150,6 @@ export class RoomPlanner {
     return serialized;
   }
 
-  static executePlan(plan: RoomPlannerMemory, level: number): RoomPosition[] {
-    const room = Game.rooms[plan.roomName];
-    if (room == undefined) {
-      throw new RoomPlannerError(plan.roomName, "Room must be visible");
-    }
-
-    function indexToPos(index: number): RoomPosition {
-      const pos = room.getPositionAt(index % 50, Math.floor(index / 50));
-      if (pos == undefined) {
-        throw new RoomPlannerError(
-          plan.roomName,
-          `Unable to get position at index ${index} in ${room.name}`,
-        );
-      }
-      return pos;
-    }
-
-    const sitePositions: RoomPosition[] = [];
-
-    function build(
-      index: number,
-      structureType: BuildableStructureConstant,
-    ): void {
-      const pos = indexToPos(index);
-      const response = pos.createConstructionSite(structureType);
-      if (response === OK) {
-        sitePositions.push(pos);
-      } else {
-        warn(
-          `Attempted to build ${structureType} at (${pos.x}, ${
-            pos.y
-          }) with response ${errorConstant(response)}`,
-        );
-      }
-    }
-
-    function buildMany(
-      indices: number[],
-      structureType: BuildableStructureConstant,
-    ): void {
-      _.forEach(indices, (index) => build(index, structureType));
-    }
-
-    // Switch with highest level first so that the execution falls through to
-    // the levels below to "fix" the plan.
-    switch (level) {
-      case 8: {
-        // Level 8:
-        // - +1 Spawn
-        // - +10 Extensions
-        // - +2 Links
-        // - +3 Towers
-        // - Observer
-        // - Power spawn
-        // - +4 Labs
-        // - Nuker
-        buildMany(plan.plan.extensions.slice(50), STRUCTURE_EXTENSION);
-        buildMany(plan.plan.links.slice(4), STRUCTURE_LINK);
-        buildMany(plan.plan.towers.slice(3), STRUCTURE_TOWER);
-      }
-      // falls through
-      case 7: {
-        // Level 7:
-        // - +1 Spawn
-        // - +10 Extensions
-        // - +1 Link
-        // - +1 Tower
-        // - +3 Labs
-        // - 1 Factory
-        buildMany(plan.plan.extensions.slice(40, 50), STRUCTURE_EXTENSION);
-        buildMany(plan.plan.links.slice(3, 4), STRUCTURE_LINK);
-        build(plan.plan.towers[2], STRUCTURE_TOWER);
-      }
-      // falls through
-      case 6: {
-        // Level 6:
-        // - +10 Extensions
-        // - +1 Link
-        // - Extractor
-        // - Terminal
-        // - 3 labs
-        buildMany(plan.plan.extensions.slice(30, 40), STRUCTURE_EXTENSION);
-        buildMany(plan.plan.links.slice(2, 3), STRUCTURE_LINK);
-        if (
-          plan.plan.extractor != undefined &&
-          plan.plan.roads.extractor != undefined
-        ) {
-          buildMany(plan.plan.roads.extractor, STRUCTURE_EXTRACTOR);
-          build(plan.plan.extractor, STRUCTURE_EXTRACTOR);
-        }
-      }
-      // falls through
-      case 5: {
-        // Level 5:
-        // - +10 Extensions
-        // - 2 Links
-        // - +1 Tower
-        buildMany(plan.plan.extensions.slice(20, 30), STRUCTURE_EXTENSION);
-        buildMany(plan.plan.links.slice(0, 2), STRUCTURE_LINK);
-        build(plan.plan.towers[1], STRUCTURE_TOWER);
-      }
-      // falls through
-      case 4: {
-        // Level 4:
-        // - +10 Extensions
-        // - Storage
-        buildMany(plan.plan.extensions.slice(10, 20), STRUCTURE_EXTENSION);
-        build(plan.plan.storage, STRUCTURE_STORAGE);
-      }
-      // falls through
-      case 3: {
-        // Level 3:
-        // - +5 extensions
-        // - Tower
-        buildMany(plan.plan.extensions.slice(5, 10), STRUCTURE_EXTENSION);
-        build(plan.plan.towers[0], STRUCTURE_TOWER);
-      }
-      // falls through
-      case 2: {
-        // Level 2:
-        // - 5 extensions
-        // - Walls/ramparts
-        buildMany(plan.plan.extensions.slice(0, 5), STRUCTURE_EXTENSION);
-      }
-      // falls through
-      case 1: {
-        // Level 0/1: Initial plan
-        // - Place spawn
-        // - Place roads
-        //   - Spawn ring road
-        //   - Source roads
-        //   - Controller roads
-        // - Place miner containers
-        build(plan.plan.spawn, STRUCTURE_SPAWN);
-        buildMany(plan.plan.roads.spawnRing, STRUCTURE_ROAD);
-        buildMany(plan.plan.roads.sources, STRUCTURE_ROAD);
-        buildMany(plan.plan.roads.controller, STRUCTURE_ROAD);
-        buildMany(plan.plan.sourceContainers, STRUCTURE_CONTAINER);
-      }
-    }
-
-    return sitePositions;
-  }
-
   static createGraph(roomName: string): Graph {
     const room = Game.rooms[roomName];
     if (room == undefined) {
@@ -266,41 +179,13 @@ export class RoomPlanner {
     return new Graph(walls, exits);
   }
 
-  constructor(roomName: string) {
-    this.roomName = roomName;
-    if (Game.rooms[roomName] == undefined) {
-      throw new RoomPlannerError(roomName, "Room must be visible");
-    }
+  constructor(roomName: string, roomType: RoomType) {
+    super(roomName);
+
+    this.roomType = roomType;
     this.costMatrix = new PathFinder.CostMatrix();
     this.graph = RoomPlanner.createGraph(roomName);
     this.distanceTransform = [0]; // this.graph.distanceTransform();
-  }
-
-  /**
-   * Get the Screeps Room object for this room. If the room is not visible,
-   * throws a RoomPlannerError.
-   *
-   * @returns The Screeps Room object
-   */
-  getRoom(): Room {
-    const room = Game.rooms[this.roomName];
-    if (room == undefined) {
-      throw new RoomPlannerError(this.roomName, "Room must be visible");
-    }
-    return room;
-  }
-
-  /** Converts a graph index into a RoomPosition in this room. */
-  indexToRoomPosition(index: number): RoomPosition {
-    const room = this.getRoom();
-    const roomPosition = room.getPositionAt(index % 50, Math.floor(index / 50));
-    if (roomPosition == undefined) {
-      throw new RoomPlannerError(
-        this.roomName,
-        `Unable to turn index ${index} into a RoomPosition in ${this.roomName}`,
-      );
-    }
-    return roomPosition;
   }
 
   /**
@@ -346,7 +231,28 @@ export class RoomPlanner {
     this.costMatrix.set(index % 50, Math.floor(index / 50), 255);
   }
 
-  public planRoom(): RoomPlannerMemory {
+  public planRoom(entrance?: number): RoomPlannerMemory {
+    switch (this.roomType) {
+      case RoomType.primary:
+        return this.planOwnedRoom();
+      case RoomType.remote: {
+        if (entrance == undefined) {
+          throw new RoomPlannerError(
+            this.roomName,
+            "Entrance must be defined for remote rooms",
+          );
+        }
+        return this.planRemoteRoom(entrance);
+      }
+      default:
+        throw new RoomPlannerError(
+          this.roomName,
+          `Unable to plan ${this.roomType} room ${this.roomName}`,
+        );
+    }
+  }
+
+  planOwnedRoom(): RoomPlannerMemory {
     let occupied: number[] = [];
 
     const spawnLocation = this.findSpawnLocation();
@@ -426,6 +332,42 @@ export class RoomPlanner {
 
     return {
       roomName: this.roomName,
+      roomType: this.roomType,
+      costMatrix: this.costMatrix.serialize(),
+      plan: planMemory,
+      level: 0,
+    };
+  }
+
+  planRemoteRoom(entrance: number): RoomPlannerMemory {
+    let occupied: number[] = [];
+
+    const sourceContainers = this.findSourceContainerLocations(occupied);
+    occupied.push(...sourceContainers);
+
+    const roads = this.findRemoteRoadLocations(entrance, sourceContainers);
+    _.forEach(roads, (road) => {
+      _.forEach(road, (roadPosition) => {
+        occupied.push(roadPosition);
+      });
+    });
+    // Remove duplicates from occupied after adding roads
+    occupied = _.uniq(occupied);
+
+    const roadMemory: RoomPlannerRoadMemory = {
+      sources: roads[0],
+      controller: roads[1],
+    };
+
+    const planMemory: RoomPlannerPlanMemory = {
+      occupied,
+      sourceContainers,
+      roads: roadMemory,
+    };
+
+    return {
+      roomName: this.roomName,
+      roomType: this.roomType,
       costMatrix: this.costMatrix.serialize(),
       plan: planMemory,
       level: 0,
@@ -721,6 +663,35 @@ export class RoomPlanner {
     ];
   }
 
+  findRemoteRoadLocations(
+    entrance: number,
+    sourceContainers: number[],
+  ): number[][] {
+    // Road from the entrance to source containers. Not seperated into
+    // individual roads for each source, but instead one road.
+    const sourceRoads: number[] = [];
+    _.forEach(sourceContainers, (container) => {
+      const road = this.findPath(
+        this.indexToRoomPosition(entrance),
+        this.indexToRoomPosition(container),
+        1,
+      );
+      sourceRoads.push(..._.map(road, (pos) => Graph.coordToIndex(pos)));
+    });
+
+    // Road from the entrance to the controller
+    const controller = this.getRoom().controller;
+    if (controller == undefined) {
+      throw new RoomPlannerError(this.roomName, "Room lacks a controller");
+    }
+    const controllerRoad = _.map(
+      this.findPath(this.indexToRoomPosition(entrance), controller.pos, 1),
+      (pos) => Graph.coordToIndex(pos),
+    );
+
+    return [sourceRoads, controllerRoad];
+  }
+
   findExtensionPodLocations(
     storage: number,
     occupied: number[],
@@ -767,5 +738,164 @@ export class RoomPlanner {
     console.log(_.uniq(roadLocations).length);
     // Remove duplicates from roads and return
     return [extensionLocations, _.uniq(roadLocations)];
+  }
+}
+
+export class RoomPlanExecuter extends RoomPlannerBase {
+  plan: RoomPlannerMemory;
+  sitePositions: RoomPosition[];
+
+  constructor(plan: RoomPlannerMemory) {
+    super(plan.roomName);
+
+    this.plan = plan;
+    this.sitePositions = [];
+  }
+
+  executePlan(level: number): RoomPosition[] {
+    const room = Game.rooms[this.roomName];
+    if (room == undefined) {
+      throw new RoomPlannerError(this.roomName, "Room must be visible");
+    }
+
+    switch (this.plan.roomType) {
+      case RoomType.primary: {
+        this.executeOwnedRoomPlan(level);
+        break;
+      }
+      case RoomType.remote: {
+        this.executeRemoteRoomPlan();
+        break;
+      }
+    }
+
+    return this.sitePositions;
+  }
+
+  executeOwnedRoomPlan(level: number): void {
+    const plan = this.plan.plan as OwnedRoomPlannerPlanMemory;
+
+    // Switch with highest level first so that the execution falls through to
+    // the levels below to "fix" the plan.
+    switch (level) {
+      case 8: {
+        // Level 8:
+        // - +1 Spawn
+        // - +10 Extensions
+        // - +2 Links
+        // - +3 Towers
+        // - Observer
+        // - Power spawn
+        // - +4 Labs
+        // - Nuker
+        this.buildMany(plan.extensions.slice(50), STRUCTURE_EXTENSION);
+        this.buildMany(plan.links.slice(4), STRUCTURE_LINK);
+        this.buildMany(plan.towers.slice(3), STRUCTURE_TOWER);
+      }
+      // falls through
+      case 7: {
+        // Level 7:
+        // - +1 Spawn
+        // - +10 Extensions
+        // - +1 Link
+        // - +1 Tower
+        // - +3 Labs
+        // - 1 Factory
+        this.buildMany(plan.extensions.slice(40, 50), STRUCTURE_EXTENSION);
+        this.buildMany(plan.links.slice(3, 4), STRUCTURE_LINK);
+        this.build(plan.towers[2], STRUCTURE_TOWER);
+      }
+      // falls through
+      case 6: {
+        // Level 6:
+        // - +10 Extensions
+        // - +1 Link
+        // - Extractor
+        // - Terminal
+        // - 3 labs
+        this.buildMany(plan.extensions.slice(30, 40), STRUCTURE_EXTENSION);
+        this.buildMany(plan.links.slice(2, 3), STRUCTURE_LINK);
+        if (plan.extractor != undefined && plan.roads.extractor != undefined) {
+          this.buildMany(plan.roads.extractor, STRUCTURE_EXTRACTOR);
+          this.build(plan.extractor, STRUCTURE_EXTRACTOR);
+        }
+      }
+      // falls through
+      case 5: {
+        // Level 5:
+        // - +10 Extensions
+        // - 2 Links
+        // - +1 Tower
+        this.buildMany(plan.extensions.slice(20, 30), STRUCTURE_EXTENSION);
+        this.buildMany(plan.links.slice(0, 2), STRUCTURE_LINK);
+        this.build(plan.towers[1], STRUCTURE_TOWER);
+      }
+      // falls through
+      case 4: {
+        // Level 4:
+        // - +10 Extensions
+        // - Storage
+        this.buildMany(plan.extensions.slice(10, 20), STRUCTURE_EXTENSION);
+        this.build(plan.storage, STRUCTURE_STORAGE);
+      }
+      // falls through
+      case 3: {
+        // Level 3:
+        // - +5 extensions
+        // - Tower
+        this.buildMany(plan.extensions.slice(5, 10), STRUCTURE_EXTENSION);
+        this.build(plan.towers[0], STRUCTURE_TOWER);
+      }
+      // falls through
+      case 2: {
+        // Level 2:
+        // - 5 extensions
+        // - Walls/ramparts
+        this.buildMany(plan.extensions.slice(0, 5), STRUCTURE_EXTENSION);
+      }
+      // falls through
+      case 1: {
+        // Level 0/1: Initial plan
+        // - Place spawn
+        // - Place roads
+        //   - Spawn ring road
+        //   - Source roads
+        //   - Controller roads
+        // - Place miner containers
+        this.build(plan.spawn, STRUCTURE_SPAWN);
+        this.buildMany(plan.roads.spawnRing, STRUCTURE_ROAD);
+        this.buildMany(plan.roads.sources, STRUCTURE_ROAD);
+        this.buildMany(plan.roads.controller, STRUCTURE_ROAD);
+        this.buildMany(plan.sourceContainers, STRUCTURE_CONTAINER);
+      }
+    }
+  }
+
+  executeRemoteRoomPlan(): void {
+    const plan = this.plan.plan as RemoteRoomPlannerPlanMemory;
+    this.buildMany(plan.roads.sources, STRUCTURE_ROAD);
+    this.buildMany(plan.roads.controller, STRUCTURE_ROAD);
+    this.buildMany(plan.sourceContainers, STRUCTURE_CONTAINER);
+  }
+
+  build(index: number, structureType: BuildableStructureConstant): void {
+    const pos = this.indexToRoomPosition(index);
+    const response = pos.createConstructionSite(structureType);
+    if (response === OK) {
+      this.sitePositions.push(pos);
+    } else {
+      warn(
+        `Attempted to build ${structureType} at (${pos.x}, ${
+          pos.y
+        }) with response ${errorConstant(response)}`,
+      );
+    }
+  }
+
+  buildMany(
+    indices: number[],
+    structureType: BuildableStructureConstant,
+  ): void {
+    _.forEach(indices, (index) => this.build(index, structureType));
   }
 }

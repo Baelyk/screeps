@@ -88,7 +88,10 @@ function infrequentRoomActions(room: VisibleRoom) {
 
     // If the controller has leveled up, level up the room
     if (room.levelChangeCheck()) {
-      room.executePlan();
+      // TODO: WHILE DEBUGING PLS STOP EXECUTING PLAN ON E15N41
+      if (room.name !== "E15N41") {
+        room.executePlan();
+      }
     }
 
     // Update special structure lists

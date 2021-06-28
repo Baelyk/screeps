@@ -1,6 +1,10 @@
 import { info, warn } from "utils/logger";
 import { GetByIdError, ScriptError } from "utils/errors";
-import { RoomPlannerMemory, RoomPlanner } from "classes/roomPlanner";
+import {
+  RoomPlannerMemory,
+  RoomPlanner,
+  RoomPlanExecuter,
+} from "classes/roomPlanner";
 import { census } from "population";
 import { createLinkMemory } from "links";
 import { Pos, Position } from "classes/position";
@@ -146,6 +150,11 @@ export class RoomInfo implements RoomMemory {
     throw new ScriptError(
       `Room ${this.name} is of type ${memory.roomType} not ${RoomType.remote}`,
     );
+  }
+
+  getEntrance(): { x: number; y: number } {
+    const remoteMemory = this.getRemoteMemory();
+    return remoteMemory.entrance;
   }
 
   getOwnedMemory(): OwnedRoomMemory {
@@ -712,14 +721,15 @@ export class VisibleRoom extends RoomInfo {
   }
 
   updatePlannerMemory(): void {
-    // TODO: currently only planning primary rooms
-    if (this.roomType !== RoomType.primary) {
-      info(`Skipped planning room ${this.name}`);
-      return;
+    const roomPlanner = new RoomPlanner(this.name, this.roomType);
+    let planner: RoomPlannerMemory;
+    if (this.roomType === RoomType.remote) {
+      const entrance = this.getEntrance();
+      const entranceIndex = entrance.x + entrance.y * 50;
+      planner = roomPlanner.planRoom(entranceIndex);
+    } else {
+      planner = roomPlanner.planRoom();
     }
-
-    const roomPlanner = new RoomPlanner(this.name);
-    const planner = roomPlanner.planRoom();
     Memory.rooms[this.name].planner = planner;
   }
 
@@ -763,7 +773,9 @@ export class VisibleRoom extends RoomInfo {
     const sites: RoomPosition[] = [];
     _.forEach(rooms, (roomName) => {
       const room = Game.rooms[roomName];
-      sites.push(..._.pluck(room.find(FIND_MY_CONSTRUCTION_SITES), "pos"));
+      if (room != undefined) {
+        sites.push(..._.pluck(room.find(FIND_MY_CONSTRUCTION_SITES), "pos"));
+      }
     });
     const queue: ConstructionQueue = _.map(sites, Position.serialize);
     const queuesMemory = this.getQueuesMemory();
@@ -926,7 +938,8 @@ export class VisibleRoom extends RoomInfo {
     }
     const planner = this.getPlannerMemory();
     if (planner != undefined) {
-      RoomPlanner.executePlan(planner, level);
+      const roomPlanExecuter = new RoomPlanExecuter(planner);
+      roomPlanExecuter.executePlan(level);
     } else {
       warn(`Attempted to execute plan for room ${this.name} lacking a plan`);
     }
