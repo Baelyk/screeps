@@ -36,7 +36,7 @@ function roomBehavior(roomName: string): void {
 
   wrapper(
     () => updateSpawnQueue(room),
-    `Errpr managing spawn queue for room ${room.name}`,
+    `Error managing spawn queue for room ${room.name}`,
   );
 
   if (room.roomLevel() >= 3) {
