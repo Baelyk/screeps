@@ -81,6 +81,11 @@ export function getEnergy(
   let response: ScreepsReturnCode;
   // If target isn't specified, try the room's storage
   if (target == undefined) {
+    // If no target specified, try and get from an adjacent pile first
+    response = recoverNearbyEnergy(creep);
+    if (response === OK) {
+      return response;
+    }
     // If there is a storage, make sure it has energy first
     if (
       creep.room.storage != undefined &&
