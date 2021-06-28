@@ -911,11 +911,7 @@ export class VisibleRoom extends RoomInfo {
   }
 
   public getNextRepairTarget(remove = false): Structure | undefined {
-    const firstId = this.getFromRepairQueue(remove);
-    if (firstId == undefined) {
-      return undefined;
-    }
-    let target = Game.getObjectById(firstId);
+    let target: Structure | null = null;
     while (target == undefined) {
       const nextId = this.getFromRepairQueue(remove);
       if (nextId == undefined) {
