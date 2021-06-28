@@ -86,6 +86,8 @@ declare const enum CreepTask {
   move = "move",
   /** Attack hostiles */
   attack = "attack",
+  /** Scout rooms without necessarily staying and signing */
+  scout = "scout",
 }
 
 declare const enum CreepRole {

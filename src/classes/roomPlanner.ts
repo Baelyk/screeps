@@ -56,7 +56,6 @@ interface RemoteRoomPlannerPlanMemory {
 }
 
 interface RemoteRoomPlannerRoadMemory {
-  controller: number[];
   sources: number[];
 }
 
@@ -356,7 +355,6 @@ export class RoomPlanner extends RoomPlannerBase {
 
     const roadMemory: RoomPlannerRoadMemory = {
       sources: roads[0],
-      controller: roads[1],
     };
 
     const planMemory: RoomPlannerPlanMemory = {
@@ -679,17 +677,7 @@ export class RoomPlanner extends RoomPlannerBase {
       sourceRoads.push(..._.map(road, (pos) => Graph.coordToIndex(pos)));
     });
 
-    // Road from the entrance to the controller
-    const controller = this.getRoom().controller;
-    if (controller == undefined) {
-      throw new RoomPlannerError(this.roomName, "Room lacks a controller");
-    }
-    const controllerRoad = _.map(
-      this.findPath(this.indexToRoomPosition(entrance), controller.pos, 1),
-      (pos) => Graph.coordToIndex(pos),
-    );
-
-    return [sourceRoads, controllerRoad];
+    return [sourceRoads];
   }
 
   findExtensionPodLocations(
@@ -874,7 +862,6 @@ export class RoomPlanExecuter extends RoomPlannerBase {
   executeRemoteRoomPlan(): void {
     const plan = this.plan.plan as RemoteRoomPlannerPlanMemory;
     this.buildMany(plan.roads.sources, STRUCTURE_ROAD);
-    this.buildMany(plan.roads.controller, STRUCTURE_ROAD);
     this.buildMany(plan.sourceContainers, STRUCTURE_CONTAINER);
   }
 

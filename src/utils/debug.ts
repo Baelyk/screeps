@@ -54,7 +54,8 @@ export function debugPostLoop(): void {
   // Warn if more than 5 CPU used during this tick
   const cpuUsed = Game.cpu.getUsed();
   if (cpuUsed >= 5) {
-    warn(`Used ${cpuUsed} cpu`);
+    const pop = _.keys(Game.creeps).length;
+    warn(`Used ${Math.round(cpuUsed * 100) / 100} cpu with ${pop} creeps`);
   }
 }
 
@@ -102,46 +103,18 @@ function debugGraphTesting(): void {
   }
 }
 
-function debugPlannerTesting(): void {
-  if (Memory.debug.plan == undefined) {
-    const planner = new RoomPlanner("E15N41");
-    planner.planRoom();
-  } else {
-    const visual = Game.rooms["E15N41"].visual;
-    _.forEach(Memory.debug.plan, (value, key) => {
-      if (key !== "occupied") {
-        let char = "?";
-        let array = [];
-        if (key === "spawnLocation") {
-          char = "H";
-        } else if (key === "storageLocation") {
-          char = "O";
-        } else if (key === "sourceContainers") {
-          char = "C";
-        } else if (key === "towerLocations") {
-          char = "T";
-        } else if (key === "linkLocation") {
-          char = "L";
-        } else if (key === "roads") {
-          char = "+";
-          value = _.flatten(value);
-        } else if (key === "extensionLocations") {
-          char = "E";
-        }
-        if (!Array.isArray(value)) {
-          array = [value];
-        } else {
-          array = value;
-        }
-        _.forEach(array, (spot) => {
-          visual.text(char, spot % 50, Math.floor(spot / 50), {
-            font: "1 monospace",
-            backgroundColor: "black",
-            backgroundPadding: 0,
-            opacity: 0.75,
-          });
-        });
-      }
-    });
-  }
-}
+/**
+ * Function debugPlannerTesting(): void { if (Memory.debug.plan == undefined) {
+ * const planner = new RoomPlanner("E15N41"); planner.planRoom(); } else {
+ * const visual = Game.rooms["E15N41"].visual; _.forEach(Memory.debug.plan,
+ * (value, key) => { if (key !== "occupied") { let char = "?"; let array = [];
+ * if (key === "spawnLocation") { char = "H"; } else if (key ===
+ * "storageLocation") { char = "O"; } else if (key === "sourceContainers") {
+ * char = "C"; } else if (key === "towerLocations") { char = "T"; } else if
+ * (key === "linkLocation") { char = "L"; } else if (key === "roads") { char =
+ * "+"; value = _.flatten(value); } else if (key === "extensionLocations") {
+ * char = "E"; } if (!Array.isArray(value)) { array = [value]; } else { array =
+ * value; } _.forEach(array, (spot) => { visual.text(char, spot % 50,
+ * Math.floor(spot / 50), { font: "1 monospace", backgroundColor: "black",
+ * backgroundPadding: 0, opacity: 0.75, }); }); } }); } }
+ */

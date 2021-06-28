@@ -23,7 +23,13 @@ import {
   InvalidCreepRoleError,
   wrapper,
 } from "utils/errors";
-import { bodyCost, countRole, livenRoomPosition } from "utils/helpers";
+import {
+  awayFromExitDirection,
+  bodyCost,
+  countRole,
+  livenRoomPosition,
+  findNearestUnscoutedRoom,
+} from "utils/helpers";
 import { respawnCreep } from "spawning";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 
@@ -724,9 +730,68 @@ function scout(creep: Creep) {
   }
 
   // Tasks for this creep:
-  // 1. claim: Move to target room
+  // 1. claim: Move to target room and stay
+  // 2. scout: Move to target room and then potentially move on to another room
   switch (creep.memory.task) {
-    // Creep is getting energy
+    case CreepTask.scout: {
+      // If creep is in the target room and not on an exit
+      if (
+        creep.room.name === creep.memory.room &&
+        creep.pos.x !== 0 &&
+        creep.pos.x !== 49 &&
+        creep.pos.y !== 0 &&
+        creep.pos.y !== 49
+      ) {
+        const newTarget = findNearestUnscoutedRoom(
+          creep.room.name,
+          50,
+          true,
+          (roomName) => {
+            // Avoid hostile rooms
+            try {
+              const room = Game.rooms[roomName];
+              if (room != undefined) {
+                if (
+                  room.find(FIND_HOSTILE_CREEPS).length > 0 ||
+                  room.find(FIND_HOSTILE_STRUCTURES).length > 0
+                ) {
+                  return false;
+                }
+              } else {
+                const roomInfo = new RoomInfo(roomName);
+                if (
+                  roomInfo.roomType === RoomType.occupied ||
+                  roomInfo.roomType === RoomType.central
+                ) {
+                  const scoutingMemory = roomInfo.getScoutingMemory();
+                  if (
+                    scoutingMemory != undefined &&
+                    Game.time - scoutingMemory.time < 5000
+                  ) {
+                    return true;
+                  }
+                  return false;
+                }
+              }
+            } catch (e) {
+              // Something went wrong, go to the default return
+            }
+            // Default to searching the room
+            return true;
+          },
+        );
+        if (newTarget == undefined) {
+          // Stay here
+          switchTaskAndDoRoll(creep, CreepTask.claim);
+          break;
+        } else {
+          creep.memory.room = newTarget;
+          info(`Creep ${creep.name} switching scout target to ${newTarget}`);
+          // Continue with behavior
+        }
+      }
+    }
+    // falls through
     case CreepTask.claim: {
       if (creep.room.name !== creep.memory.room) {
         moveToRoom(creep, creep.memory.room);
@@ -734,9 +799,11 @@ function scout(creep: Creep) {
         // If the controller has not already been signed, let's sign it
         const controller = creep.room.controller;
         if (controller == undefined) {
-          throw new ScriptError(
-            `Undefined controller in room ${creep.room.name}`,
+          warn(
+            `Creep ${creep.name} cannot find controller in ${creep.room.name}`,
           );
+          creep.move(awayFromExitDirection(creep.pos));
+          return;
         }
         if (controller.sign == undefined) {
           const response = creep.signController(
@@ -766,7 +833,10 @@ function scout(creep: Creep) {
       break;
     }
     default: {
-      throw new InvalidCreepTaskError(creep, [CreepTask.claim]);
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.claim,
+        CreepTask.scout,
+      ]);
     }
   }
 }
@@ -1051,9 +1121,16 @@ export function handleDead(name: string): void {
       respawnCreep(memory);
       break;
   }
+
   if (memory.room != undefined) {
-    const room = new VisibleRoom(memory.room);
-    room.updateTombsMemory();
+    try {
+      const room = new VisibleRoom(memory.room);
+      room.updateTombsMemory();
+    } catch (error) {
+      warn(
+        `Unable to update tombs memory for creep ${name} for ${memory.room}`,
+      );
+    }
   }
 }
 

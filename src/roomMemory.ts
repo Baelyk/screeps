@@ -56,6 +56,13 @@ declare global {
 
   interface RoomGeographyMemory {
     sources: Id<Source>[];
+    mineral: RoomGeographyMineralMemory;
+  }
+
+  interface RoomGeographyMineralMemory {
+    mineralType: MineralConstant;
+    density: number;
+    id: Id<Mineral>;
   }
 
   interface RemoteRoomMemory {
@@ -112,6 +119,8 @@ declare global {
     remote = "remote",
     neutral = "neutral",
     occupied = "occupied",
+    highway = "highway",
+    central = "central",
   }
 }
 
@@ -129,6 +138,22 @@ export class RoomInfo implements RoomMemory {
 
   getMemory(): RoomMemory {
     return Memory.rooms[this.name];
+  }
+
+  setRoomType(roomType: RoomType): void {
+    info(
+      `Updating room ${this.name} type from ${this.roomType} to ${roomType}`,
+    );
+    this.roomType = roomType;
+    Memory.rooms[this.name].roomType = roomType;
+  }
+
+  public getScoutingMemory(): RoomScoutingMemory {
+    const memory = this.getMemory();
+    if (memory.scouting == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks scouting memory`);
+    }
+    return memory.scouting;
   }
 
   getGeographyMemory(): RoomGeographyMemory {
@@ -576,7 +601,10 @@ export class VisibleRoom extends RoomInfo {
         break;
     }
 
-    this.updatePlannerMemory();
+    const plannableRoomTypes = [RoomType.primary, RoomType.neutral];
+    if (_.includes(plannableRoomTypes, this.roomType)) {
+      this.updatePlannerMemory();
+    }
     this.updateTombsMemory();
     this.updateQueuesMemory(reset);
     this.updatePopulationLimitMemory();
@@ -598,7 +626,23 @@ export class VisibleRoom extends RoomInfo {
         reserver = controller.reservation.username;
         reservedTicks = controller.reservation.ticksToEnd;
       }
+    } else {
+      // Check if central or highway
+      const sources = room.find(FIND_SOURCES);
+      if (sources.length > 0) {
+        this.setRoomType(RoomType.central);
+      } else {
+        this.setRoomType(RoomType.highway);
+      }
     }
+
+    if (
+      (owner != undefined && owner != "Baelyk") ||
+      (reserver != undefined && reserver != "Baelyk")
+    ) {
+      this.setRoomType(RoomType.occupied);
+    }
+
     Memory.rooms[this.name].scouting = {
       time: Game.time,
       owner,
@@ -610,8 +654,17 @@ export class VisibleRoom extends RoomInfo {
 
   updateGeographyMemory(): void {
     const room = this.getRoom();
+
     const sources = _.pluck(room.find(FIND_SOURCES), "id");
-    Memory.rooms[this.name].geography = { sources };
+    const mineral = _.map(room.find(FIND_MINERALS), (mineral) => {
+      return {
+        mineralType: mineral.mineralType,
+        density: mineral.density,
+        id: mineral.id,
+      };
+    })[0];
+
+    Memory.rooms[this.name].geography = { sources, mineral };
   }
 
   updateRemoteRoomMemory(reset = false): void {

@@ -1,12 +1,13 @@
 import { info } from "utils/logger";
 import { linkManager } from "links";
-import { wrapper } from "utils/errors";
+import { ScriptError, wrapper } from "utils/errors";
 import { towerManager } from "towers";
 import { census } from "population";
 import { roomDebugLoop } from "utils/debug";
 import { updateSpawnQueue } from "spawning";
 import { roomVisualManager } from "roomVisuals";
 import { RoomInfo, VisibleRoom } from "roomMemory";
+import { findNearestUnscoutedRoom } from "utils/helpers";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
@@ -34,6 +35,13 @@ function roomBehavior(roomName: string): void {
 
   wrapper(() => roomDebugLoop(room), `Error debugging for room ${room.name}`);
 
+  wrapper(() => scoutRoom(room), `Error scouting room ${room.name}`);
+
+  // Only primary and remote rooms have further behavior
+  if (room.roomType !== RoomType.primary && room.roomType !== RoomType.remote) {
+    return;
+  }
+
   wrapper(
     () => updateSpawnQueue(room),
     `Error managing spawn queue for room ${room.name}`,
@@ -59,6 +67,14 @@ function roomBehavior(roomName: string): void {
     wrapper(
       () => remoteManager(room),
       `Error managing remotes for room ${room.name}`,
+    );
+  }
+
+  // Scout rooms if primary room with no spawn queue
+  if (room.roomType === RoomType.primary && room.getSpawnQueue().length === 0) {
+    wrapper(
+      () => spawnScoutCreep(room),
+      `Error scouting for room ${room.name}`,
     );
   }
 
@@ -100,6 +116,13 @@ function infrequentRoomActions(room: VisibleRoom) {
     // Remote executePlan checker if no structures
     if (room.roomType === RoomType.remote) {
       const structures = room.getRoom().find(FIND_STRUCTURES);
+      // Don't count controllers or roads
+      _.remove(structures, (structure) => {
+        return (
+          structure.structureType === STRUCTURE_CONTROLLER ||
+          structure.structureType === STRUCTURE_ROAD
+        );
+      });
       if (structures.length === 0) {
         room.executePlan();
       }
@@ -133,4 +156,45 @@ function remoteBehavior(owner: VisibleRoom, remoteName: string): void {
     owner.concatToSpawnQueue(spawnQueue);
     remoteMemory.emptySpawnQueue();
   }
+}
+
+function scoutRoom(room: VisibleRoom): void {
+  let scoutTime = 0;
+  try {
+    const scoutingMemory = room.getScoutingMemory();
+    scoutTime = scoutingMemory.time;
+  } catch (error) {
+    info(`Room ${room.name} never before scouted`);
+  }
+  if (Game.time - scoutTime > 100) {
+    room.updateScoutingMemory();
+    room.updateGeographyMemory();
+  }
+}
+
+function spawnScoutCreep(room: VisibleRoom): void {
+  // Only spawn a scout creep if there is none in the queue and there are none
+  // alive
+  const spawnQueue = room.getSpawnQueue();
+  if (
+    _.find(spawnQueue, { role: CreepRole.scout }) ||
+    _.find(Memory.creeps, { role: CreepRole.scout })
+  ) {
+    return;
+  }
+
+  const targetRoom = findNearestUnscoutedRoom(room.name, 50, true);
+
+  // Unable to find a room to scout
+  if (targetRoom == undefined) {
+    info(`Unable to find room to scout for ${room.name}`);
+    return;
+  }
+
+  info(`Room ${room.name} spawning new scout for ${targetRoom}`);
+  // Add a scout to the spawn queue
+  room.addToSpawnQueue({
+    role: CreepRole.scout,
+    overrides: { task: CreepTask.scout, room: targetRoom, noRenew: true },
+  });
 }
