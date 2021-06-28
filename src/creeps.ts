@@ -175,7 +175,10 @@ function builder(creep: Creep) {
         }
         // If the creep was unable to obtain a construction site, switch tasks
         // to repairing.
-        info(`No items in the construction queue`, InfoType.general);
+        info(
+          `No items in the construction queue in ${room.name}`,
+          InfoType.general,
+        );
         switchTaskAndDoRoll(creep, CreepTask.repair);
         return;
       } else {
@@ -208,9 +211,26 @@ function builder(creep: Creep) {
         }
 
         if (creep.memory.assignedRepairs == undefined) {
-          const room = new VisibleRoom(creep.room.name);
+          // Try and get a repair in the creep's assigned room, then it's
+          // current room
+          let room;
+          if (VisibleRoom.isVisible(creep.memory.room)) {
+            room = new VisibleRoom(creep.memory.room);
+          } else {
+            room = new VisibleRoom(creep.room.name);
+          }
           const repairTarget = room.getNextRepairTarget();
           if (repairTarget == undefined) {
+            // No repair. If assigned to a remote, reassign to remote's owner
+            if (room.roomType === RoomType.remote) {
+              creep.memory.room = room.getRemoteOwner();
+              info(
+                `Creep ${creep.name} (in ${creep.room.name}) reassigned to remote's owner ${creep.memory.room}`,
+              );
+              // Try and build again
+              switchTaskAndDoRoll(creep, CreepTask.build);
+              return;
+            }
             switchTaskAndDoRoll(creep, CreepTask.idle);
             return;
           }
