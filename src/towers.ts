@@ -52,6 +52,11 @@ export function towerBehavior(tower: StructureTower): void {
         const response = errorConstant(tower.repair(target));
         if (response !== "OK") {
           info(`Tower ${tower.id} is repairing ${target.id}: ${response}`);
+          // Tower succesfully repairing target, so check if it will be at full
+          // and if so remove the target from the list
+          if (target.hitsMax - target.hits <= TOWER_POWER_REPAIR) {
+            room.getFromRepairQueue(true);
+          }
         }
       } else {
         info(`Tower ${tower.id} is in energy saver mode`);
