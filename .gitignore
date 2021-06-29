@@ -6,3 +6,5 @@ node_modules
 dist
 # Ignore multimeter history
 .screeps-multimeter.history
+.screeps.yaml
+multimeter.log
