@@ -580,47 +580,18 @@ function recoverNearbyEnergy(creep: Creep): ScreepsReturnCode {
  * Moves the creep to the target room. If the target room is unsupplied, uses
  * `creep.memory.room`.
  */
-export function moveToRoom(
-  creep: Creep,
-  destRoomName?: string,
-  resetPath = false,
-): void {
+export function moveToRoom(creep: Creep, destRoomName?: string): void {
   if (destRoomName == undefined) {
     destRoomName = creep.memory.room;
   }
 
-  if (
-    resetPath ||
-    creep.memory.path == undefined ||
-    creep.memory.path === "" ||
-    creep.memory.pathStartRoom == undefined ||
-    creep.room.name !== creep.memory.pathStartRoom
-  ) {
-    // This scout is new, so initialize its path to its target
-    const exitToRoom = creep.room.findExitTo(destRoomName);
-    if (exitToRoom === ERR_NO_PATH || exitToRoom === ERR_INVALID_ARGS) {
-      throw new ScriptError(
-        `Error finding path to room ${destRoomName} from ${
-          creep.room.name
-        }: ${errorConstant(exitToRoom)}`,
-      );
-    }
-    const exitPos = creep.pos.findClosestByPath(exitToRoom);
-    if (exitPos == undefined) {
-      throw new ScriptError(
-        `No closest exit (${exitToRoom}) in room ${creep.room.name}`,
-      );
-    }
-    const exitPath = creep.pos.findPathTo(exitPos);
-    creep.memory.path = Room.serializePath(exitPath);
-    creep.memory.pathStartRoom = creep.room.name;
-  }
-
-  // Use `creep.memory.path` to move
-  const response = creep.moveByPath(creep.memory.path);
+  const dummyPosition = new RoomPosition(24, 24, destRoomName);
+  const response = creep.moveTo(dummyPosition, { range: 22 });
   if (response !== OK && response !== ERR_TIRED) {
     warn(
-      `Creep ${creep.name} failed to move by path with response ${errorConstant(
+      `Creep ${
+        creep.name
+      } failed to move to ${destRoomName} with response ${errorConstant(
         response,
       )}`,
     );

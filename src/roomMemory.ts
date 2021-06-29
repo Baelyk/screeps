@@ -57,14 +57,15 @@ declare global {
   }
 
   interface RoomGeographyMemory {
-    sources: Id<Source>[];
-    mineral: RoomGeographyMineralMemory;
+    sources: { id: Id<Source>; pos: string }[];
+    mineral?: RoomGeographyMineralMemory;
   }
 
   interface RoomGeographyMineralMemory {
     mineralType: MineralConstant;
     density: number;
     id: Id<Mineral>;
+    pos: string;
   }
 
   interface RemoteRoomMemory {
@@ -129,6 +130,21 @@ declare global {
 export class RoomInfo implements RoomMemory {
   name: string;
   roomType: RoomType;
+
+  /**
+   * Get the time a room was scouted. Works with known and unknown rooms. If
+   * room is unknown, return 0 for the scouting time.
+   */
+  public static getScoutingTime(roomName: string): number {
+    try {
+      const info = new RoomInfo(roomName);
+      return info.getScoutingMemory().time;
+    } catch (e) {
+      // Room never scouted, or there's been an error and the scouting memory
+      // doesn't exist for some other reason.
+    }
+    return 0;
+  }
 
   constructor(roomName: string) {
     this.name = roomName;
@@ -286,7 +302,7 @@ export class RoomInfo implements RoomMemory {
   }
 
   public getSources(): Id<Source>[] {
-    return this.getGeographyMemory().sources || [];
+    return _.pluck(this.getGeographyMemory().sources, "id") || [];
   }
 
   /**
@@ -539,8 +555,8 @@ export class RoomInfo implements RoomMemory {
         throw new ScriptError(`Queue unexpectedly contains undefined`);
       }
 
-      // Try and find a room not in the memory
-      if (Memory.rooms[current] == undefined) {
+      // Try and find a room that hasn't been scouted recently
+      if (Game.time - RoomInfo.getScoutingTime(current) > 5000) {
         if (notCurrentlyScouting) {
           // Check that there is no scout assigned to this room
           const assignedScout = _.find(Memory.creeps, {
@@ -761,12 +777,18 @@ export class VisibleRoom extends RoomInfo {
   updateGeographyMemory(): void {
     const room = this.getRoom();
 
-    const sources = _.pluck(room.find(FIND_SOURCES), "id");
+    const sources = _.map(room.find(FIND_SOURCES), (source) => {
+      return {
+        id: source.id,
+        pos: Position.serialize(source.pos),
+      };
+    });
     const mineral = _.map(room.find(FIND_MINERALS), (mineral) => {
       return {
         mineralType: mineral.mineralType,
         density: mineral.density,
         id: mineral.id,
+        pos: Position.serialize(mineral.pos),
       };
     })[0];
 

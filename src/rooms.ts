@@ -177,7 +177,7 @@ function spawnScoutCreep(room: VisibleRoom): void {
   const spawnQueue = room.getSpawnQueue();
   if (
     _.find(spawnQueue, { role: CreepRole.scout }) ||
-    _.find(Memory.creeps, { role: CreepRole.scout })
+    _.find(Memory.creeps, { role: CreepRole.scout, task: CreepTask.scout })
   ) {
     return;
   }

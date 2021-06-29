@@ -28,6 +28,7 @@ import {
   bodyCost,
   countRole,
   livenRoomPosition,
+  onExit,
 } from "utils/helpers";
 import { respawnCreep } from "spawning";
 import { RoomInfo, VisibleRoom } from "roomMemory";
@@ -88,7 +89,7 @@ function miner(creep: Creep) {
     // Move remote miners to their room
     if (creep.room.name !== creep.memory.room) {
       // Move them to the room and reset the path
-      moveToRoom(creep, creep.memory.room, true);
+      moveToRoom(creep, creep.memory.room);
     }
   }
 
@@ -371,7 +372,7 @@ function hauler(creep: Creep) {
             throw new Error();
           }
           error(`Hauler creep ${creep.name} unable to get container`);
-            warn(`Hauler creep ${creep.name} attempting to recover at spot`);
+          warn(`Hauler creep ${creep.name} attempting to recover at spot`);
           if (
             creep.room.name === creep.memory.room &&
             creep.pos.inRangeTo(spot, 1)
@@ -765,14 +766,19 @@ function scout(creep: Creep) {
   // 2. scout: Move to target room and then potentially move on to another room
   switch (creep.memory.task) {
     case CreepTask.scout: {
-      // If creep is in the target room and not on an exit
-      if (creep.room.name === creep.memory.room) {
-        if (
-          creep.pos.x !== 0 &&
-          creep.pos.x !== 49 &&
-          creep.pos.y !== 0 &&
-          creep.pos.y !== 49
-        ) {
+      info(
+        `Creep ${creep.name} in ${creep.room.name} on ${creep.pos.x} ${creep.pos.y}`,
+      );
+      // If the creep just entered a room (i.e. on exit)
+      if (onExit(creep.pos)) {
+        // Move off the exit first
+        info(`Creep ${creep.name} on an exit`);
+        creep.move(awayFromExitDirection(creep.pos));
+        break;
+      } else {
+        if (creep.room.name === creep.memory.room) {
+          // Creep is not on an exit, so find where to go from here
+          info(`Creep ${creep.name} in room off exit`);
           const newTarget = RoomInfo.findNearestUnscoutedRoom(
             creep.room.name,
             50,
@@ -812,29 +818,26 @@ function scout(creep: Creep) {
             },
           );
           if (newTarget == undefined) {
-            // Stay here
+            // If unable to find a new target, stay here and provide vision
             switchTaskAndDoRoll(creep, CreepTask.claim);
             break;
           } else {
             creep.memory.room = newTarget;
             info(`Creep ${creep.name} switching scout target to ${newTarget}`);
-            moveToRoom(creep, creep.memory.room, true);
-            // Continue with behavior
+            moveToRoom(creep, creep.memory.room);
           }
         } else {
-          // In the room, but on an exit
-          creep.move(awayFromExitDirection(creep.pos));
-        }
-      } else {
-        // Move to the room
-        try {
-          moveToRoom(creep, creep.memory.room);
-        } catch (error) {
-          warn(
-            `Creep ${creep.name} unable to move to room. Abandoning room target`,
-          );
-          creep.memory.room = creep.room.name;
-          creep.move(awayFromExitDirection(creep.pos));
+          // Move to the room
+          try {
+            info(`Creep ${creep.name} off exit not in room`);
+            moveToRoom(creep, creep.memory.room);
+          } catch (error) {
+            warn(
+              `Creep ${creep.name} unable to move to room. Abandoning room target`,
+            );
+            creep.memory.room = creep.room.name;
+            creep.move(awayFromExitDirection(creep.pos));
+          }
         }
       }
       break;
