@@ -52,6 +52,8 @@ declare global {
     reserver: string | undefined;
     /** The ticks left on the reservation, undefined if unreserved */
     reservedTicks: number | undefined;
+    /** Exits that are blocked with walls/ramparts or otherwise */
+    blockedExits: ExitConstant[];
   }
 
   interface RoomGeographyMemory {
@@ -517,6 +519,83 @@ export class RoomInfo implements RoomMemory {
     popLimits[role] = limit;
     Memory.rooms[this.name].populationLimit = popLimits;
   }
+
+  public static findNearestUnscoutedRoom(
+    start: string,
+    maxSearch: number,
+    notCurrentlyScouting: boolean,
+    additionalSearchCheck?: (arg0: string) => boolean,
+  ): string | undefined {
+    const cpuBefore = Game.cpu.getUsed();
+
+    let targetRoom: string | undefined = undefined;
+    // FIFO queue
+    const queue: string[] = [start];
+    const discovered: string[] = [start];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current == undefined) {
+        throw new ScriptError(`Queue unexpectedly contains undefined`);
+      }
+
+      // Try and find a room not in the memory
+      if (Memory.rooms[current] == undefined) {
+        if (notCurrentlyScouting) {
+          // Check that there is no scout assigned to this room
+          const assignedScout = _.find(Memory.creeps, {
+            role: CreepTask.scout,
+            room: current,
+          });
+          if (assignedScout == undefined) {
+            targetRoom = current;
+            break;
+          }
+        } else {
+          targetRoom = current;
+          break;
+        }
+      }
+
+      // Limit to max search
+      if (discovered.length >= maxSearch) {
+        break;
+      }
+
+      const adjacents = RoomInfo.getAdjacentUnblockedRooms(current);
+      _.forEach(adjacents, (adjacent) => {
+        if (
+          adjacent != undefined &&
+          !_.includes(discovered, adjacent) &&
+          (additionalSearchCheck == undefined ||
+            additionalSearchCheck(adjacent))
+        ) {
+          queue.push(adjacent);
+          discovered.push(adjacent);
+        }
+      });
+    }
+
+    const cpuUsed = Game.cpu.getUsed() - cpuBefore;
+    info(
+      `Used ${cpuUsed} cpu scouting for rooms from ${start} (${discovered.length} / max ${maxSearch})`,
+    );
+
+    return targetRoom;
+  }
+
+  static getAdjacentUnblockedRooms(roomName: string): string[] {
+    const exits = Game.map.describeExits(roomName);
+    const rooms = _.values(exits) as string[];
+    try {
+      const room = new RoomInfo(roomName);
+      const scouting = room.getScoutingMemory();
+      _.forEach(scouting.blockedExits, (exitDir) => delete exits[exitDir]);
+    } catch (error) {
+      // Unable to account for blocked exits :(
+    }
+    return _.values(exits);
+  }
 }
 
 export class VisibleRoom extends RoomInfo {
@@ -604,10 +683,10 @@ export class VisibleRoom extends RoomInfo {
     const plannableRoomTypes = [RoomType.primary, RoomType.neutral];
     if (_.includes(plannableRoomTypes, this.roomType)) {
       this.updatePlannerMemory();
+      this.updateTombsMemory();
+      this.updateQueuesMemory(reset);
+      this.updatePopulationLimitMemory();
     }
-    this.updateTombsMemory();
-    this.updateQueuesMemory(reset);
-    this.updatePopulationLimitMemory();
   }
 
   updateScoutingMemory(): void {
@@ -643,12 +722,39 @@ export class VisibleRoom extends RoomInfo {
       this.setRoomType(RoomType.occupied);
     }
 
+    const blockedExits: ExitConstant[] = [];
+
+    try {
+      // Find the creep/structure giving me vision in the room
+      // TODO: Won't work with observers?
+      let seer: { pos: RoomPosition } = room.find(FIND_MY_CREEPS)[0];
+      if (seer == undefined) {
+        seer = room.find(FIND_MY_STRUCTURES)[0];
+      }
+      const pos = seer.pos;
+      const exitDirections = [
+        FIND_EXIT_TOP,
+        FIND_EXIT_LEFT,
+        FIND_EXIT_BOTTOM,
+        FIND_EXIT_RIGHT,
+      ];
+      _.forEach(exitDirections, (direction) => {
+        const exits = room.find(direction);
+        if (pos.findClosestByPath(exits) == undefined) {
+          blockedExits.push(direction);
+        }
+      });
+    } catch (error) {
+      warn(`Unable to identify blocked exits in room ${room.name}`);
+    }
+
     Memory.rooms[this.name].scouting = {
       time: Game.time,
       owner,
       level,
       reserver,
       reservedTicks,
+      blockedExits,
     };
   }
 

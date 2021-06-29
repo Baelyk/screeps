@@ -7,7 +7,6 @@ import { roomDebugLoop } from "utils/debug";
 import { updateSpawnQueue } from "spawning";
 import { roomVisualManager } from "roomVisuals";
 import { RoomInfo, VisibleRoom } from "roomMemory";
-import { findNearestUnscoutedRoom } from "utils/helpers";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
@@ -183,7 +182,7 @@ function spawnScoutCreep(room: VisibleRoom): void {
     return;
   }
 
-  const targetRoom = findNearestUnscoutedRoom(room.name, 50, true);
+  const targetRoom = RoomInfo.findNearestUnscoutedRoom(room.name, 50, true);
 
   // Unable to find a room to scout
   if (targetRoom == undefined) {

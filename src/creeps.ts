@@ -28,7 +28,6 @@ import {
   bodyCost,
   countRole,
   livenRoomPosition,
-  findNearestUnscoutedRoom,
 } from "utils/helpers";
 import { respawnCreep } from "spawning";
 import { RoomInfo, VisibleRoom } from "roomMemory";
@@ -366,11 +365,17 @@ function hauler(creep: Creep) {
           | StructureContainer
           | undefined;
         if (structure === undefined) {
+          // Throw an error for remote hauler creeps to return to remote
+          // specific behavior
+          if (creep.memory.role === CreepRole.remoteHauler) {
+            throw new Error();
+          }
           error(`Hauler creep ${creep.name} unable to get container`);
-          warn(
-            `Hauler creep ${creep.name} moving to spot and attempting to recover`,
-          );
-          if (creep.pos.inRangeTo(spot, 1)) {
+            warn(`Hauler creep ${creep.name} attempting to recover at spot`);
+          if (
+            creep.room.name === creep.memory.room &&
+            creep.pos.inRangeTo(spot, 1)
+          ) {
             recoverEnergy(creep);
           } else {
             creep.moveTo(spot);
@@ -761,63 +766,79 @@ function scout(creep: Creep) {
   switch (creep.memory.task) {
     case CreepTask.scout: {
       // If creep is in the target room and not on an exit
-      if (
-        creep.room.name === creep.memory.room &&
-        creep.pos.x !== 0 &&
-        creep.pos.x !== 49 &&
-        creep.pos.y !== 0 &&
-        creep.pos.y !== 49
-      ) {
-        const newTarget = findNearestUnscoutedRoom(
-          creep.room.name,
-          50,
-          true,
-          (roomName) => {
-            // Avoid hostile rooms
-            try {
-              const room = Game.rooms[roomName];
-              if (room != undefined) {
-                if (
-                  room.find(FIND_HOSTILE_CREEPS).length > 0 ||
-                  room.find(FIND_HOSTILE_STRUCTURES).length > 0
-                ) {
-                  return false;
-                }
-              } else {
-                const roomInfo = new RoomInfo(roomName);
-                if (
-                  roomInfo.roomType === RoomType.occupied ||
-                  roomInfo.roomType === RoomType.central
-                ) {
-                  const scoutingMemory = roomInfo.getScoutingMemory();
+      if (creep.room.name === creep.memory.room) {
+        if (
+          creep.pos.x !== 0 &&
+          creep.pos.x !== 49 &&
+          creep.pos.y !== 0 &&
+          creep.pos.y !== 49
+        ) {
+          const newTarget = RoomInfo.findNearestUnscoutedRoom(
+            creep.room.name,
+            50,
+            true,
+            (roomName) => {
+              // Avoid hostile rooms
+              try {
+                const room = Game.rooms[roomName];
+                if (room != undefined) {
                   if (
-                    scoutingMemory != undefined &&
-                    Game.time - scoutingMemory.time < 5000
+                    room.find(FIND_HOSTILE_CREEPS).length > 0 ||
+                    room.find(FIND_HOSTILE_STRUCTURES).length > 0
                   ) {
-                    return true;
+                    return false;
                   }
-                  return false;
+                } else {
+                  const roomInfo = new RoomInfo(roomName);
+                  if (
+                    roomInfo.roomType === RoomType.occupied ||
+                    roomInfo.roomType === RoomType.central
+                  ) {
+                    const scoutingMemory = roomInfo.getScoutingMemory();
+                    if (
+                      scoutingMemory != undefined &&
+                      Game.time - scoutingMemory.time < 5000
+                    ) {
+                      return true;
+                    }
+                    return false;
+                  }
                 }
+              } catch (e) {
+                // Something went wrong, go to the default return
               }
-            } catch (e) {
-              // Something went wrong, go to the default return
-            }
-            // Default to searching the room
-            return true;
-          },
-        );
-        if (newTarget == undefined) {
-          // Stay here
-          switchTaskAndDoRoll(creep, CreepTask.claim);
-          break;
+              // Default to searching the room
+              return true;
+            },
+          );
+          if (newTarget == undefined) {
+            // Stay here
+            switchTaskAndDoRoll(creep, CreepTask.claim);
+            break;
+          } else {
+            creep.memory.room = newTarget;
+            info(`Creep ${creep.name} switching scout target to ${newTarget}`);
+            moveToRoom(creep, creep.memory.room, true);
+            // Continue with behavior
+          }
         } else {
-          creep.memory.room = newTarget;
-          info(`Creep ${creep.name} switching scout target to ${newTarget}`);
-          // Continue with behavior
+          // In the room, but on an exit
+          creep.move(awayFromExitDirection(creep.pos));
+        }
+      } else {
+        // Move to the room
+        try {
+          moveToRoom(creep, creep.memory.room);
+        } catch (error) {
+          warn(
+            `Creep ${creep.name} unable to move to room. Abandoning room target`,
+          );
+          creep.memory.room = creep.room.name;
+          creep.move(awayFromExitDirection(creep.pos));
         }
       }
+      break;
     }
-    // falls through
     case CreepTask.claim: {
       if (creep.room.name !== creep.memory.room) {
         moveToRoom(creep, creep.memory.room);

@@ -182,7 +182,7 @@ function needRole(room: VisibleRoom, role: CreepRole): boolean {
       }
     }
     const inRoomQueue =
-      room.getSpawnQueue().find((entry) => entry.role === role) !== undefined;
+      room.getSpawnQueue().find((entry) => entry.role === role) != undefined;
 
     return !currentlySpawning && !inRoomQueue;
   }

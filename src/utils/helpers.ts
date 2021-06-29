@@ -107,69 +107,6 @@ export function livenRoomPosition(
   return livingPosition;
 }
 
-export function findNearestUnscoutedRoom(
-  start: string,
-  maxSearch: number,
-  notCurrentlyScouting: boolean,
-  additionalSearchCheck?: (arg0: string) => boolean,
-): string | undefined {
-  const cpuBefore = Game.cpu.getUsed();
-
-  let targetRoom: string | undefined = undefined;
-  // FIFO queue
-  const queue: string[] = [start];
-  const discovered: string[] = [start];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (current == undefined) {
-      throw new ScriptError(`Queue unexpectedly contains undefined`);
-    }
-
-    // Try and find a room not in the memory
-    if (Memory.rooms[current] == undefined) {
-      if (notCurrentlyScouting) {
-        // Check that there is no scout assigned to this room
-        const assignedScout = _.find(Memory.creeps, {
-          role: CreepTask.scout,
-          room: current,
-        });
-        if (assignedScout == undefined) {
-          targetRoom = current;
-          break;
-        }
-      } else {
-        targetRoom = current;
-        break;
-      }
-    }
-
-    // Limit to max search
-    if (discovered.length >= maxSearch) {
-      break;
-    }
-
-    const adjacents = Game.map.describeExits(current);
-    _.forEach(adjacents, (adjacent) => {
-      if (
-        adjacent != undefined &&
-        !_.includes(discovered, adjacent) &&
-        (additionalSearchCheck == undefined || additionalSearchCheck(adjacent))
-      ) {
-        queue.push(adjacent);
-        discovered.push(adjacent);
-      }
-    });
-  }
-
-  const cpuUsed = Game.cpu.getUsed() - cpuBefore;
-  info(
-    `Used ${cpuUsed} cpu scouting for rooms from ${start} (max ${maxSearch})`,
-  );
-
-  return targetRoom;
-}
-
 export function awayFromExitDirection(
   exitPos: RoomPosition,
 ): DirectionConstant {

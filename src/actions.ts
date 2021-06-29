@@ -592,6 +592,7 @@ export function moveToRoom(
   if (
     resetPath ||
     creep.memory.path == undefined ||
+    creep.memory.path === "" ||
     creep.memory.pathStartRoom == undefined ||
     creep.room.name !== creep.memory.pathStartRoom
   ) {
