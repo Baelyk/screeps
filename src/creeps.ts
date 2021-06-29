@@ -766,19 +766,14 @@ function scout(creep: Creep) {
   // 2. scout: Move to target room and then potentially move on to another room
   switch (creep.memory.task) {
     case CreepTask.scout: {
-      info(
-        `Creep ${creep.name} in ${creep.room.name} on ${creep.pos.x} ${creep.pos.y}`,
-      );
       // If the creep just entered a room (i.e. on exit)
       if (onExit(creep.pos)) {
         // Move off the exit first
-        info(`Creep ${creep.name} on an exit`);
         creep.move(awayFromExitDirection(creep.pos));
         break;
       } else {
         if (creep.room.name === creep.memory.room) {
           // Creep is not on an exit, so find where to go from here
-          info(`Creep ${creep.name} in room off exit`);
           const newTarget = RoomInfo.findNearestUnscoutedRoom(
             creep.room.name,
             50,
@@ -829,7 +824,6 @@ function scout(creep: Creep) {
         } else {
           // Move to the room
           try {
-            info(`Creep ${creep.name} off exit not in room`);
             moveToRoom(creep, creep.memory.room);
           } catch (error) {
             warn(
