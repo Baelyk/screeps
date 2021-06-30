@@ -9,7 +9,7 @@ export function updateSpawnQueue(room: VisibleRoom): void {
   // Add these roles to the top of the queue
   // Most important last
   const prioritySpawns = [
-    CreepRole.reserver,
+    CreepRole.claimer,
     CreepRole.guard,
     CreepRole.miner,
     CreepRole.tender,
@@ -36,8 +36,8 @@ export function updateSpawnQueue(room: VisibleRoom): void {
         case CreepRole.hauler:
           overrides = memoryOverridesHauler(room);
           break;
-        case CreepRole.reserver:
-          overrides = memoryOverridesReserver(room);
+        case CreepRole.claimer:
+          overrides = memoryOverridesClaimer(room);
           break;
         case CreepRole.scout:
           overrides = memoryOverridesScout(room);
@@ -74,7 +74,7 @@ function needRole(room: VisibleRoom, role: CreepRole): boolean {
       // However, the other need checks still need to be passed, so just return
       // false if these conditions are not met.
       if (
-        role !== CreepRole.reserver ||
+        role !== CreepRole.claimer ||
         hostileCreeps.length !== 0 ||
         hostileStructures.length !== 1 ||
         hostileStructures[0].structureType !== STRUCTURE_INVADER_CORE ||
@@ -279,7 +279,7 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
   return { room: room.name, spot };
 }
 
-function memoryOverridesReserver(room: VisibleRoom): Partial<CreepMemory> {
+function memoryOverridesClaimer(room: VisibleRoom): Partial<CreepMemory> {
   return { room: room.name, noRenew: true };
 }
 

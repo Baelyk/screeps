@@ -160,34 +160,24 @@ export class Graph {
         throw new Error("Queue unexpectedly has undefined element");
       }
 
-      // Check if this node has enough distance around it, and also is not in
-      // the list of nodes to ignore
-      if (/*distanceTransform[node] >= distance || */ null == undefined) {
-        // If there are tiles to ignore
-        if (ignore.length > 0) {
-          // First check that the tile isn't ignored
-          if (!_.includes(ignore, node)) {
-            // Then check that tiles within the ignore radius aren't ignored
-            if (ignoreRadius > 0) {
-              const radiusNeighbors = this.getNeighbors(node, ignoreRadius);
-              // Make sure there are no walls within the radius
-              if ((2 * ignoreRadius + 1) ** 2 === radiusNeighbors.length + 1) {
-                // Try and find a node in both the radius and ignore arrays
-                const overlap = _.find(radiusNeighbors, (neighbor) => {
-                  // TODO: Why is `|| []` necessary here?
-                  return _.includes(ignore || [], neighbor);
-                });
-                if (overlap == undefined) {
-                  return node;
-                }
-              }
-            } else {
-              // Ignore radius is 0, so since the tile isn't ignored, success
+      // First check that the tile isn't ignored
+      if (!_.includes(ignore, node)) {
+        // Then check that tiles within the ignore radius aren't ignored
+        if (ignoreRadius > 0) {
+          const radiusNeighbors = this.getNeighbors(node, ignoreRadius);
+          // Make sure there are no walls within the radius
+          if ((2 * ignoreRadius + 1) ** 2 === radiusNeighbors.length + 1) {
+            // Try and find a node in both the radius and ignore arrays
+            const overlap = _.find(radiusNeighbors, (neighbor) => {
+              // TODO: Why is `|| []` necessary here?
+              return _.includes(ignore || [], neighbor);
+            });
+            if (overlap == undefined) {
               return node;
             }
           }
         } else {
-          // Nothing to ignore
+          // Ignore radius is 0, so since the tile isn't ignored, success
           return node;
         }
       }

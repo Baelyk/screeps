@@ -21,7 +21,7 @@ export function census(room: VisibleRoom): void {
   let haulers = miners;
   let tenders = 0;
   let extractors = 0;
-  let reservers = 0;
+  let claimers = 0;
   let scouts = 0;
   let guards = 0;
   // One builder per two construction queue items
@@ -53,7 +53,7 @@ export function census(room: VisibleRoom): void {
     scouts = scoutLimit(room);
   }
 
-  // Allow 1 reserver in a remote room if the reservation is < 500 ticks or
+  // Allow 1 claimer in a remote room if the reservation is < 500 ticks or
   // not mine
   const controller = room.getRoom().controller;
   if (
@@ -63,7 +63,7 @@ export function census(room: VisibleRoom): void {
       controller.reservation.username != "Baelyk" ||
       controller.reservation.ticksToEnd < 500)
   ) {
-    reservers = 1;
+    claimers = 1;
   }
 
   // Primary rooms have 1 guard
@@ -78,7 +78,7 @@ export function census(room: VisibleRoom): void {
   room.setRoleLimit(CreepRole.hauler, haulers);
   room.setRoleLimit(CreepRole.tender, tenders);
   room.setRoleLimit(CreepRole.extractor, extractors);
-  room.setRoleLimit(CreepRole.reserver, reservers);
+  room.setRoleLimit(CreepRole.claimer, claimers);
   room.setRoleLimit(CreepRole.scout, scouts);
   room.setRoleLimit(CreepRole.guard, guards);
 }

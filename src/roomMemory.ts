@@ -124,6 +124,7 @@ declare global {
     occupied = "occupied",
     highway = "highway",
     central = "central",
+    expansion = "expansion",
   }
 }
 
@@ -158,7 +159,7 @@ export class RoomInfo implements RoomMemory {
     return Memory.rooms[this.name];
   }
 
-  setRoomType(roomType: RoomType): void {
+  public setRoomType(roomType: RoomType): void {
     info(
       `Updating room ${this.name} type from ${this.roomType} to ${roomType}`,
     );
@@ -645,6 +646,17 @@ export class VisibleRoom extends RoomInfo {
     return Game.rooms[roomName] != undefined;
   }
 
+  static controlledRooms(): string[] {
+    const controlledRooms: string[] = [];
+    for (const roomName in Game.rooms) {
+      const room = new VisibleRoom(roomName);
+      if (room.ownedBy()) {
+        controlledRooms.push(roomName);
+      }
+    }
+    return controlledRooms;
+  }
+
   constructor(roomName: string) {
     super(roomName);
     const room = Game.rooms[roomName];
@@ -696,7 +708,11 @@ export class VisibleRoom extends RoomInfo {
         break;
     }
 
-    const plannableRoomTypes = [RoomType.primary, RoomType.neutral];
+    const plannableRoomTypes = [
+      RoomType.primary,
+      RoomType.remote,
+      RoomType.expansion,
+    ];
     if (_.includes(plannableRoomTypes, this.roomType)) {
       this.updatePlannerMemory();
       this.updateTombsMemory();
@@ -1116,7 +1132,10 @@ export class VisibleRoom extends RoomInfo {
     const planner = this.getPlannerMemory();
     if (planner != undefined) {
       const roomPlanExecuter = new RoomPlanExecuter(planner);
-      roomPlanExecuter.executePlan(level);
+      const sites = roomPlanExecuter.executePlan(level);
+      this.concatToConstructionQueue(
+        _.map(sites, (site) => Position.serialize(site)),
+      );
     } else {
       warn(`Attempted to execute plan for room ${this.name} lacking a plan`);
     }
@@ -1159,6 +1178,13 @@ export class VisibleRoom extends RoomInfo {
       throw new GetByIdError(primarySpawnId, STRUCTURE_SPAWN);
     }
     return primarySpawn;
+  }
+
+  public getHostiles(): (Creep | Structure)[] {
+    const room = this.getRoom();
+    const hostiles: (Creep | Structure)[] = room.find(FIND_HOSTILE_CREEPS);
+    hostiles.concat(room.find(FIND_HOSTILE_STRUCTURES));
+    return hostiles;
   }
 }
 

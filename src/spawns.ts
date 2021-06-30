@@ -131,13 +131,10 @@ export function generateBodyByRole(
       }
       return body;
     }
-    case CreepRole.claimer: {
-      return [MOVE, CLAIM];
-    }
     case CreepRole.harvester: {
       return [MOVE, CARRY, WORK];
     }
-    case CreepRole.reserver: {
+    case CreepRole.claimer: {
       const body: BodyPartConstant[] = [];
       const availableEnergy = spawn.room.energyCapacityAvailable;
       const units = Math.min(

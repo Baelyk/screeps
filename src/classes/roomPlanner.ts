@@ -232,6 +232,7 @@ export class RoomPlanner extends RoomPlannerBase {
 
   public planRoom(entrance?: number): RoomPlannerMemory {
     switch (this.roomType) {
+      case RoomType.expansion:
       case RoomType.primary:
         return this.planOwnedRoom();
       case RoomType.remote: {
@@ -289,6 +290,7 @@ export class RoomPlanner extends RoomPlannerBase {
       spawnLocation,
       storageLocation,
       sourceContainers,
+      linkLocations[1],
       towerSetupLocation,
       extractorLocation,
     );
@@ -433,7 +435,7 @@ export class RoomPlanner extends RoomPlannerBase {
       2,
       this.distanceTransform,
       occupied,
-      0,
+      1,
     );
     if (storageLocation == undefined) {
       throw new RoomPlannerError(
@@ -574,6 +576,7 @@ export class RoomPlanner extends RoomPlannerBase {
     spawn: number,
     storage: number,
     sourceContainers: number[],
+    controllerLink: number,
     tower: number,
     extractor: number | undefined,
   ): number[][] {
@@ -599,13 +602,15 @@ export class RoomPlanner extends RoomPlannerBase {
     );
 
     // Road from spawn to controller
-    const controller = this.getRoom().controller;
-    if (controller == undefined) {
-      throw new RoomPlannerError(this.roomName, "Room lacks a controller");
-    }
     // Don't include initial spawn ring road
     const controllerRoad = _.map(
-      _.tail(this.findPath(this.indexToRoomPosition(spawn), controller.pos, 1)),
+      _.tail(
+        this.findPath(
+          this.indexToRoomPosition(spawn),
+          this.indexToRoomPosition(controllerLink),
+          1,
+        ),
+      ),
       (pos) => Graph.coordToIndex(pos),
     );
 
@@ -747,6 +752,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
     }
 
     switch (this.plan.roomType) {
+      case RoomType.expansion:
       case RoomType.primary: {
         this.executeOwnedRoomPlan(level);
         break;

@@ -140,7 +140,9 @@ function builder(creep: Creep) {
         // If the creep can hold more energy, keep getting energy
         getEnergy(creep);
       } else {
-        // If the creep has full energy, begin building
+        // If the creep has full energy, begin building, and remove the source
+        // that may have been assigned to it while getting energy
+        delete Memory.creeps[creep.name].assignedSource;
         switchTaskAndDoRoll(creep, CreepTask.build);
         return;
       }
@@ -557,108 +559,14 @@ function extractor(creep: Creep): void {
 }
 
 function claimer(creep: Creep) {
-  if (creep.memory.claimTarget == undefined) {
-    throw new CreepRoleMemoryError(creep, "claimTarget");
-  }
-
-  if (creep.memory.task === CreepTask.fresh) {
-    creep.memory.task = CreepTask.claim;
-    // This claimer is brand new, so initialize it's path to the new room
-    const exitToRoom = creep.room.findExitTo(creep.memory.claimTarget);
-    if (exitToRoom === ERR_NO_PATH || exitToRoom === ERR_INVALID_ARGS) {
-      throw new ScriptError(
-        `Error finding path to room ${creep.memory.claimTarget} from ${creep.room.name}`,
-      );
-    }
-    const exitPos = creep.pos.findClosestByPath(exitToRoom);
-    if (exitPos == undefined) {
-      throw new ScriptError(
-        `No closest exit (${exitToRoom}) in room ${creep.room.name}`,
-      );
-    }
-    const exitPath = creep.pos.findPathTo(exitPos);
-    creep.memory.path = Room.serializePath(exitPath);
-  }
-
-  // Tasks for this creep:
-  // 1. getEnergy: Get energy from fullest container
-  // 2. deposit: Deposit into spawn/extension or least full container
-  switch (creep.memory.task) {
-    // Creep is getting energy
-    case CreepTask.claim: {
-      if (creep.room.name !== creep.memory.claimTarget) {
-        if (creep.memory.path == undefined) {
-          throw new CreepRoleMemoryError(
-            creep,
-            "path",
-            "Claimers need a path to their destination room",
-          );
-        }
-        const path = Room.deserializePath(creep.memory.path);
-        const exitPos = creep.room.getPositionAt(
-          path[path.length - 1].x,
-          path[path.length - 1].y,
-        );
-        if (exitPos == undefined) {
-          throw new ScriptError(`Final position of path doesn't exist in room`);
-        }
-        if (creep.pos.isEqualTo(exitPos)) {
-          // Move to room
-        } else {
-          const response = creep.moveByPath(path);
-          if (response !== OK && response !== ERR_TIRED) {
-            warn(
-              `Creep ${
-                creep.name
-              } failed to move by path with response ${errorConstant(
-                response,
-              )}`,
-            );
-          }
-        }
-      } else {
-        const controller = creep.room.controller;
-        if (controller == undefined) {
-          throw new ScriptError(
-            `Undefined controller in room ${creep.room.name}`,
-          );
-        }
-        if (controller.my) {
-          info(`Creep ${creep.name} successfully claimed ${creep.room.name}`);
-          if (
-            controller.sign == undefined ||
-            controller.sign.username !== "Baelyk"
-          ) {
-            creep.signController(controller, "hey I got it to work");
-          }
-          return;
-        }
-        const response = creep.claimController(controller);
-        if (response === ERR_NOT_IN_RANGE) {
-          creep.moveTo(controller);
-        } else if (response !== OK) {
-          warn(
-            `Creep ${creep.name} failed to claim controller in ${
-              creep.room.name
-            } with response ${errorConstant(response)}`,
-          );
-        }
-      }
-      break;
-    }
-    default: {
-      throw new InvalidCreepTaskError(creep, [CreepTask.claim]);
-    }
-  }
-}
-
-function reserver(creep: Creep) {
   if (creep.memory.task === CreepTask.fresh)
-    creep.memory.task = CreepTask.claim;
+    creep.memory.task = CreepTask.reserve;
 
   // Tasks for this creep:
-  // 1. claim: Move to and start/maintain controller reservation
+  // 1. reserve: Move to and start/maintain controller reservation
+  // 2. claim: Move to and claim controller
   switch (creep.memory.task) {
+    case CreepTask.reserve:
     case CreepTask.claim: {
       const targetRoom = Game.rooms[creep.memory.room];
       if (targetRoom == undefined) {
@@ -676,14 +584,23 @@ function reserver(creep: Creep) {
           "Claimer creep room must have controller",
         );
       }
-      let response: CreepActionReturnCode;
+      let response: ScreepsReturnCode;
       let action = "";
       if (
         controller.reservation == undefined ||
         controller.reservation.username === "Baelyk"
       ) {
-        response = creep.reserveController(controller);
-        action = "reserve";
+        if (creep.memory.task === CreepTask.claim) {
+          response = creep.claimController(controller);
+          action = "claim";
+          creep.signController(
+            controller,
+            "It would be a shame if this doesn't work",
+          );
+        } else {
+          response = creep.reserveController(controller);
+          action = "reserve";
+        }
       } else {
         response = creep.attackController(controller);
         action = "attack";
@@ -1128,9 +1045,6 @@ function creepBehavior(creep: Creep): void {
       break;
     case CreepRole.claimer:
       claimer(creep);
-      break;
-    case CreepRole.reserver:
-      reserver(creep);
       break;
     case CreepRole.remoteHauler:
       remoteHauler(creep);

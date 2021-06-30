@@ -1,6 +1,6 @@
 import { info } from "utils/logger";
 import { linkManager } from "links";
-import { ScriptError, wrapper } from "utils/errors";
+import { wrapper } from "utils/errors";
 import { towerManager } from "towers";
 import { census } from "population";
 import { roomDebugLoop } from "utils/debug";
@@ -36,8 +36,12 @@ function roomBehavior(roomName: string): void {
 
   wrapper(() => scoutRoom(room), `Error scouting room ${room.name}`);
 
-  // Only primary and remote rooms have further behavior
-  if (room.roomType !== RoomType.primary && room.roomType !== RoomType.remote) {
+  // Only primary, remote, and expansion rooms have further behavior
+  if (
+    room.roomType !== RoomType.primary &&
+    room.roomType !== RoomType.remote &&
+    room.roomType !== RoomType.expansion
+  ) {
     return;
   }
 
@@ -90,7 +94,8 @@ function infrequentRoomActions(room: VisibleRoom) {
   if (Game.time % 100 === 0) {
     if (
       room.roomType !== RoomType.primary &&
-      room.roomType !== RoomType.remote
+      room.roomType !== RoomType.remote &&
+      room.roomType !== RoomType.expansion
     ) {
       // Only primary and remote rooms need infrequent actions
       return;

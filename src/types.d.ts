@@ -82,6 +82,7 @@ declare const enum CreepTask {
   repair = "repair",
   renew = "renew",
   claim = "claim",
+  reserve = "reserve",
   /** Move to target */
   move = "move",
   /** Attack hostiles */
@@ -107,8 +108,6 @@ declare const enum CreepRole {
   tender = "tender",
   /** Creep that works mineral deposits */
   extractor = "extractor",
-  /** Creep that starts and maintains reservations */
-  reserver = "reserver",
   /** Creep that hauls between remotes */
   remoteHauler = "remote_hauler",
   /** Creep that moves to a room to provide vision */

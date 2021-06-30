@@ -18,6 +18,9 @@ export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
   if (source == undefined) {
     if (creep.memory.assignedSource == undefined) {
       const sources = [...creep.room.find(FIND_SOURCES)]
+        .filter((source) => {
+          return source.energy > 0;
+        })
         .map((source) => {
           return { source, path: creep.pos.findPathTo(source) };
         })
@@ -66,6 +69,12 @@ export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
         amount: harvested,
       };
     }
+  } else if (
+    response === ERR_NOT_ENOUGH_RESOURCES &&
+    creep.memory.role !== CreepRole.miner &&
+    creep.memory.role !== CreepRole.extractor
+  ) {
+    delete Memory.creeps[creep.name].assignedSource;
   }
 }
 
