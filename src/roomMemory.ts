@@ -54,6 +54,8 @@ declare global {
     reservedTicks: number | undefined;
     /** Exits that are blocked with walls/ramparts or otherwise */
     blockedExits: ExitConstant[];
+    /** RoomPositions that have an obstacle (unwalkable structure */
+    obstacles: string[];
   }
 
   interface RoomGeographyMemory {
@@ -780,6 +782,13 @@ export class VisibleRoom extends RoomInfo {
       warn(`Unable to identify blocked exits in room ${room.name}`);
     }
 
+    const obstacles: string[] = [];
+    _.forEach(room.find(FIND_STRUCTURES), (structure) => {
+      if (_.includes(OBSTACLE_OBJECT_TYPES, structure.structureType)) {
+        obstacles.push(Position.serialize(structure.pos));
+      }
+    });
+
     Memory.rooms[this.name].scouting = {
       time: Game.time,
       owner,
@@ -787,6 +796,7 @@ export class VisibleRoom extends RoomInfo {
       reserver,
       reservedTicks,
       blockedExits,
+      obstacles,
     };
   }
 
