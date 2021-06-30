@@ -136,7 +136,10 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
-      if (countRole(creep.room, CreepRole.miner) < creep.room.find(FIND_SOURCES).length) {
+      if (
+        countRole(creep.room, CreepRole.miner) <
+        creep.room.find(FIND_SOURCES).length
+      ) {
         harvestEnergy(creep);
       } else {
         // No structures, no harvesting, so try and find energy on the ground.
@@ -377,7 +380,7 @@ export function upgradeController(creep: Creep): void {
   const response = creep.upgradeController(controller);
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(controller);
-  } else if (response !== OK) {
+  } else if (response !== OK && response !== ERR_NO_BODYPART) {
     warn(
       `Creep ${creep.name} attempting to upgrade controller with response ${response}`,
     );

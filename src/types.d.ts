@@ -67,6 +67,8 @@ interface CreepMemory {
   pathStartRoom?: string;
   /** The room this creep is targetting */
   roomTarget?: string;
+  /** Whether this creep should have attack notifications enabled */
+  attackNotifications?: boolean;
 }
 
 // The exact task depends also on the role

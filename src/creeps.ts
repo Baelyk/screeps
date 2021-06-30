@@ -416,9 +416,13 @@ function hauler(creep: Creep) {
           }
         }
         if (storage == undefined) {
-          warn(
-            `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`,
-          );
+          if (room.roomLevel() >= 4) {
+            // Only warn about no storage when RCL is enough for a storage to
+            // exist
+            warn(
+              `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`,
+            );
+          }
           storeEnergy(creep);
         } else {
           storeEnergy(creep, storage);
@@ -1018,6 +1022,14 @@ function renewCheck(creep: Creep): void {
 function creepBehavior(creep: Creep): void {
   if (creep.spawning) return;
   if (Memory.debug.sayTask) creep.say(creep.memory.task);
+
+  if (creep.memory.attackNotifications != undefined) {
+    info(
+      `Creep ${creep.name} changing attack notifications to ${creep.memory.attackNotifications}`,
+    );
+    creep.notifyWhenAttacked(creep.memory.attackNotifications);
+    delete creep.memory.attackNotifications;
+  }
 
   try {
     // The renew task is the same regardless of role

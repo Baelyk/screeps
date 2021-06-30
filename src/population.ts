@@ -156,8 +156,6 @@ function upgraderLimit(room: VisibleRoom): number {
   const lifetimeCost =
     cost + workParts * UPGRADE_CONTROLLER_POWER * CREEP_LIFE_TIME;
 
-  info(`${energy} ${cost} ${workParts} ${lifetimeCost}`);
-
   // At least 1 upgrader, but up to as many as the storage can afford over
   // the creeps entire lifetime
   return Math.max(1, Math.floor(energy / lifetimeCost));

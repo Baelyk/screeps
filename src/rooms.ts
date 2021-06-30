@@ -199,6 +199,11 @@ function spawnScoutCreep(room: VisibleRoom): void {
   // Add a scout to the spawn queue
   room.addToSpawnQueue({
     role: CreepRole.scout,
-    overrides: { task: CreepTask.scout, room: targetRoom, noRenew: true },
+    overrides: {
+      task: CreepTask.scout,
+      room: targetRoom,
+      noRenew: true,
+      attackNotifications: false,
+    },
   });
 }
