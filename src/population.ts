@@ -28,6 +28,7 @@ export function census(room: VisibleRoom): void {
   let builders = room.getConstructionQueue().length > 0 ? 1 : 0;
   // If there isn't a tower, builders must repair too
   if (
+    room.roomType === RoomType.primary &&
     room
       .getRoom()
       .find(FIND_MY_STRUCTURES, { filter: { structureType: STRUCTURE_TOWER } })
