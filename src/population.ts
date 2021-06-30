@@ -31,7 +31,7 @@ export function census(room: VisibleRoom): void {
     room
       .getRoom()
       .find(FIND_MY_STRUCTURES, { filter: { structureType: STRUCTURE_TOWER } })
-      .length > 0
+      .length === 0
   ) {
     builders = Math.max(room.getRepairQueue().length > 0 ? 1 : 0, builders);
   }
