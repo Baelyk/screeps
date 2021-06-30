@@ -671,7 +671,7 @@ function remoteHauler(creep: Creep) {
       .lookFor(LOOK_STRUCTURES)
       .find((structure) => structure.structureType === STRUCTURE_CONTAINER);
     if (container != undefined && container.hits < container.hitsMax) {
-      if (container.hits < container.hitsMax * 0.1) {
+      if (container.hits < container.hitsMax * 0.9) {
         // TODO: Don't wanna move, not really sure how this works
         creep.cancelOrder("move");
         creep.cancelOrder("moveTo");
