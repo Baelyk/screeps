@@ -166,9 +166,9 @@ export class RoomPlanner extends RoomPlannerBase {
       }
     }
     // Add constructed walls
-    _.map(
+    _.forEach(
       room.find(FIND_STRUCTURES, { filter: { structureType: STRUCTURE_WALL } }),
-      (structure) => structure.pos.x + structure.pos.y * 50,
+      (structure) => walls.push(structure.pos.x + structure.pos.y * 50),
     );
 
     const exits: number[] = _.map(
@@ -186,6 +186,15 @@ export class RoomPlanner extends RoomPlannerBase {
     this.costMatrix = new PathFinder.CostMatrix();
     this.graph = RoomPlanner.createGraph(roomName);
     this.distanceTransform = [0]; // this.graph.distanceTransform();
+
+    // Mark constructed walls as obstructions
+    _.forEach(
+      this.getRoom().find(FIND_STRUCTURES, {
+        filter: { structureType: STRUCTURE_WALL },
+      }),
+      (structure) =>
+        this.addObstruction(structure.pos.x + structure.pos.y * 50),
+    );
   }
 
   /**
