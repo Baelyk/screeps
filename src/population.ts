@@ -123,16 +123,40 @@ function upgraderLimit(room: VisibleRoom): number {
     return 1;
   }
 
-  const spawn = room.getPrimarySpawn();
+  const gameRoom = room.getRoom();
 
-  const energy = room.storedResourceAmount(RESOURCE_ENERGY);
+  // If there is a storage, use the storage to calculate how many upgraders.
+  // Otherwise, use containers, or suppose 0 energy.
+  let energy = 0;
+  if (
+    gameRoom.find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_STORAGE },
+    }).length !== 0
+  ) {
+    energy = room.storedResourceAmount(RESOURCE_ENERGY);
+  } else {
+    const containers = gameRoom.find(FIND_STRUCTURES, {
+      filter: { structureType: STRUCTURE_CONTAINER },
+    }) as StructureContainer[];
+    _.forEach(
+      containers,
+      (container) =>
+        (energy += container.store.getUsedCapacity(RESOURCE_ENERGY)),
+    );
+    const piles = gameRoom.find(FIND_DROPPED_RESOURCES, {
+      filter: { resourceType: RESOURCE_ENERGY },
+    });
+    _.forEach(piles, (pile) => (energy += pile.amount));
+  }
 
-  const body = generateBodyByRole(spawn, CreepRole.upgrader);
+  const body = generateBodyByRole(room.getPrimarySpawn(), CreepRole.upgrader);
   const cost = bodyCost(body);
   const workParts = countBodyPart(body, WORK);
   // Upper limit on the amount of energy an upgrader will use in its lifetime
   const lifetimeCost =
     cost + workParts * UPGRADE_CONTROLLER_POWER * CREEP_LIFE_TIME;
+
+  info(`${energy} ${cost} ${workParts} ${lifetimeCost}`);
 
   // At least 1 upgrader, but up to as many as the storage can afford over
   // the creeps entire lifetime

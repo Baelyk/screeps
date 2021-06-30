@@ -110,6 +110,7 @@ declare global {
     [key: string]: boolean | undefined;
     removeConstructionSites?: boolean;
     resetConstructionSites?: boolean;
+    resetPopLimits?: boolean;
   }
 
   interface RoomDebugEnergyFlow {
@@ -1025,7 +1026,7 @@ export class VisibleRoom extends RoomInfo {
     Memory.rooms[this.name].queues = queuesMemory;
   }
 
-  updatePopulationLimitMemory(): void {
+  public updatePopulationLimitMemory(): void {
     try {
       this.getPopLimitMemory();
     } catch (error) {

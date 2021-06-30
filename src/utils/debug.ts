@@ -68,6 +68,10 @@ export function roomDebugLoop(room: VisibleRoom): void {
     room.updateConstructionQueue();
     room.removeDebugFlag("resetConstructionSites");
   }
+  if (room.getDebugFlag("resetPopLimits")) {
+    room.updatePopulationLimitMemory();
+    room.removeDebugFlag("resetPopLimits");
+  }
 }
 
 function debugGraphTesting(): void {
