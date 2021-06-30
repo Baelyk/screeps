@@ -111,6 +111,7 @@ declare global {
     removeConstructionSites?: boolean;
     resetConstructionSites?: boolean;
     resetPopLimits?: boolean;
+    executePlan?: boolean;
   }
 
   interface RoomDebugEnergyFlow {

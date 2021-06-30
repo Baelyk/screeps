@@ -72,6 +72,14 @@ export function roomDebugLoop(room: VisibleRoom): void {
     room.updatePopulationLimitMemory();
     room.removeDebugFlag("resetPopLimits");
   }
+  if (room.getDebugFlag("recreatePlan")) {
+    room.updatePlannerMemory();
+    room.removeDebugFlag("recreatePlan");
+  }
+  if (room.getDebugFlag("executePlan")) {
+    room.executePlan();
+    room.removeDebugFlag("executePlan");
+  }
 }
 
 function debugGraphTesting(): void {
