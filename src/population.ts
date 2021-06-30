@@ -27,11 +27,13 @@ export function census(room: VisibleRoom): void {
   // One builder per two construction queue items
   let builders = room.getConstructionQueue().length > 0 ? 1 : 0;
   // If there isn't a tower, builders must repair too
-  if (room.roomLevel() < 3) {
-    builders = Math.max(
-      Math.floor(room.getConstructionQueue().length / 2),
-      builders,
-    );
+  if (
+    room
+      .getRoom()
+      .find(FIND_MY_STRUCTURES, { filter: { structureType: STRUCTURE_TOWER } })
+      .length > 0
+  ) {
+    builders = Math.max(room.getRepairQueue().length > 0 ? 1 : 0, builders);
   }
   if (miners === 0) {
     // If we have no miners, we need harvesters
