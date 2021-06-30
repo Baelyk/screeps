@@ -309,6 +309,15 @@ function catastropheSpawning(room: VisibleRoom): void {
   switch (room.roomType) {
     case RoomType.remote:
       return;
+    case RoomType.expansion: {
+      try {
+        room.getPrimarySpawn();
+      } catch (error) {
+        // No spawn, not ready for catastrophe spawning
+        break;
+      }
+    }
+    // falls through
     case RoomType.primary: {
       // No harvester in/for the room
       const harvesterExists = _.some(Memory.creeps, {
