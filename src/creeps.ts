@@ -1013,12 +1013,23 @@ function creepBehavior(creep: Creep): void {
   if (creep.spawning) return;
   if (Memory.debug.sayTask) creep.say(creep.memory.task);
 
-  // The renew task is the same regardless of role
-  renewCheck(creep);
-  if (creep.memory.task === CreepTask.renew) {
-    renewCreep(creep);
-    // Creep is renewing; don't process normal behavior
-    return;
+  try {
+    // The renew task is the same regardless of role
+    renewCheck(creep);
+    if (creep.memory.task === CreepTask.renew) {
+      renewCreep(creep);
+      // Creep is renewing; don't process normal behavior
+      return;
+    }
+  } catch (error) {
+    // Renewing didn't work :(
+    warn(
+      `Due to a failed renew, Creep ${creep.name} no longer eligible for renewal`,
+    );
+    creep.memory.noRenew = true;
+    if (creep.memory.task === CreepTask.renew) {
+      creep.memory.task = CreepTask.fresh;
+    }
   }
 
   switch (creep.memory.role) {
