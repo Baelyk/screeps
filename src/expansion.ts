@@ -130,12 +130,6 @@ function expansionBehavior(expansionName: string): void {
     return;
   }
 
-  // Change type to expansion and update memory (also replans)
-  if (expansion.roomType !== RoomType.expansion) {
-    expansion.setRoomType(RoomType.expansion);
-    expansion.updateMemory();
-  }
-
   // Let's get building
   if (expansion.roomLevel() === 0) {
     expansion.levelChangeCheck();
@@ -147,6 +141,22 @@ function expansionBehavior(expansionName: string): void {
   caretaker.concatToConstructionQueue(expansion.getConstructionQueue());
   if (expansion.roomLevel() <= 4) {
     expansion.emptyConstructionQueue();
+  }
+
+  // Once an expansion has a spawn, it is now a primary room
+  if (
+    _.find(expansion.getRoom().find(FIND_MY_STRUCTURES), {
+      structureType: STRUCTURE_SPAWN,
+    }) != undefined
+  ) {
+    if (expansion.roomType !== RoomType.primary) {
+      expansion.setRoomType(RoomType.primary);
+      expansion.updateMemory();
+    }
+  } else if (expansion.roomType !== RoomType.expansion) {
+    // Change type to expansion and update memory (also replans)
+    expansion.setRoomType(RoomType.expansion);
+    expansion.updateMemory();
   }
 
   info(`Expansion ${expansionName} should be all set`);

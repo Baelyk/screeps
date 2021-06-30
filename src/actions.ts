@@ -115,6 +115,15 @@ export function getEnergy(
           structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
         );
       })
+      .filter((structure) => {
+        const workParts = countBodyPart(creep.body, WORK);
+        return (
+          (structure as
+            | StructureContainer
+            | StructureStorage).store.getUsedCapacity(RESOURCE_ENERGY) >
+          workParts * HARVEST_POWER
+        );
+      })
       .map((structure) => {
         return { structure, path: creep.pos.findPathTo(structure) };
       })
@@ -127,7 +136,7 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
-      if (countRole(creep.room, CreepRole.miner) === 0) {
+      if (countRole(creep.room, CreepRole.miner) < creep.room.find(FIND_SOURCES).length) {
         harvestEnergy(creep);
       } else {
         // No structures, no harvesting, so try and find energy on the ground.

@@ -1179,7 +1179,7 @@ export class VisibleRoom extends RoomInfo {
   public getPrimarySpawn(): StructureSpawn {
     if (this.roomType !== RoomType.primary) {
       throw new ScriptError(
-        `Room ${this.name} of type ${this.roomType} lacks a primary spawn since it is not a ${RoomType.primary} room`,
+        `Room ${this.name} of type ${this.roomType} lacks a primary spawn since it is not an primary room`,
       );
     }
     const primarySpawnId = this.getOwnedMemory().spawns[0];

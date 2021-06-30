@@ -1,6 +1,6 @@
 import { ScriptError } from "utils/errors";
 import { Graph } from "classes/graph";
-import { warn, errorConstant } from "utils/logger";
+import { info, warn, errorConstant } from "utils/logger";
 
 class RoomPlannerError extends ScriptError {
   constructor(roomName: string, message: string) {
@@ -47,6 +47,7 @@ interface OwnedRoomPlannerRoadMemory {
   sources: number[];
   tower: number[];
   extractor?: number[];
+  extensions: number[];
 }
 
 interface RemoteRoomPlannerPlanMemory {
@@ -317,6 +318,7 @@ export class RoomPlanner extends RoomPlannerBase {
       sources: roads[4],
       tower: roads[5],
       extractor: roads[6],
+      extensions: roads[7],
     };
 
     const planMemory: RoomPlannerPlanMemory = {
@@ -737,12 +739,14 @@ export class RoomPlanner extends RoomPlannerBase {
 export class RoomPlanExecuter extends RoomPlannerBase {
   plan: RoomPlannerMemory;
   sitePositions: RoomPosition[];
+  invalidTargets: number;
 
   constructor(plan: RoomPlannerMemory) {
     super(plan.roomName);
 
     this.plan = plan;
     this.sitePositions = [];
+    this.invalidTargets = 0;
   }
 
   executePlan(level: number): RoomPosition[] {
@@ -763,6 +767,9 @@ export class RoomPlanExecuter extends RoomPlannerBase {
       }
     }
 
+    info(
+      `Room ${this.roomName} plan execution for level ${level} encountered ${this.invalidTargets} invalid targets`,
+    );
     return this.sitePositions;
   }
 
@@ -846,6 +853,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - 5 extensions
         // - Walls/ramparts
         this.buildMany(plan.extensions.slice(0, 5), STRUCTURE_EXTENSION);
+        this.buildMany(plan.roads.extensions, STRUCTURE_ROAD);
       }
       // falls through
       case 1: {
@@ -876,6 +884,8 @@ export class RoomPlanExecuter extends RoomPlannerBase {
     const response = pos.createConstructionSite(structureType);
     if (response === OK) {
       this.sitePositions.push(pos);
+    } else if (response === ERR_INVALID_TARGET) {
+      this.invalidTargets++;
     } else {
       warn(
         `Attempted to build ${structureType} at (${pos.x}, ${

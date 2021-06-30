@@ -68,7 +68,11 @@ export function census(room: VisibleRoom): void {
 
   // Primary rooms have 1 guard
   if (room.roomType === RoomType.primary) {
-    guards = 1;
+    const unitCost =
+      2 * BODYPART_COST[MOVE] +
+      BODYPART_COST[ATTACK] +
+      BODYPART_COST[RANGED_ATTACK];
+    guards = room.getRoom().energyCapacityAvailable > unitCost ? 1 : 0;
   }
 
   room.setRoleLimit(CreepRole.miner, miners);

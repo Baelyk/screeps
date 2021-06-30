@@ -119,7 +119,12 @@ export function generateBodyByRole(
       // Haulers/tenders don't really need more thnat 30 body parts, allowing
       // them 1000 carry capacity and 1 move speed on roads empty and full.
       // Energy capacity minus work cost divided by MOVE/CARRY cost
-      const bodyUnits = Math.min(30, Math.floor(availableEnergy / 50));
+      //
+      // Also, require at least 2 body units for a move and a carry
+      const bodyUnits = Math.max(
+        2,
+        Math.min(30, Math.floor(availableEnergy / 50)),
+      );
       // 1/3 MOVE, rest CARRY
       for (let i = 0; i < bodyUnits; i++) {
         // Prioritize MOVE parts so that the creep always moves in 1
@@ -182,9 +187,13 @@ export function generateBodyByRole(
       const toughs = Math.floor(
         Math.min(
           50 - bodyUnits * 4,
-          Math.floor((energy - bodyUnits * unitCost) / 10),
+          Math.floor(
+            (energy - bodyUnits * unitCost) /
+              (BODYPART_COST[TOUGH] + BODYPART_COST[MOVE]),
+          ),
         ) / 2,
       );
+      info(`${energy} ${unitCost} ${bodyUnits} ${toughs}`);
       const body: BodyPartConstant[] = [];
       for (let i = 0; i < toughs; i++) {
         body.push(TOUGH);

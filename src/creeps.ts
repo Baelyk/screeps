@@ -443,6 +443,12 @@ function tender(creep: Creep) {
   if (creep.memory.task === CreepTask.fresh)
     creep.memory.task = CreepTask.getEnergy;
 
+  if (creep.store.getCapacity() == undefined) {
+    warn(`Creep ${creep.name} has no capacity so will suicide`);
+    creep.suicide();
+    return;
+  }
+
   // Tasks for this creep:
   // 1. getEnergy: Get energy from fullest container
   // 2. deposit: Deposit into spawn/extension or least full container
