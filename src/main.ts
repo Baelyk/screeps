@@ -6,8 +6,8 @@ import { wrapper } from "utils/errors";
 import { creepManager } from "creeps";
 import { spawnManager } from "spawns";
 import { roomManager } from "rooms";
-import { testFunction } from "roomMemory";
 import { expansionManager } from "expansion";
+import { mapVisualManager } from "mapVisuals";
 
 console.log("- - - - RESTARTING - - - -");
 
@@ -29,6 +29,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
   wrapper(() => roomManager(), `Error managing rooms`);
   // Process expansion behavior
   wrapper(() => expansionManager(), `Error managing expansions`);
+  // Process map visuals
+  wrapper(() => mapVisualManager(), `Error managing map visuals`);
 
   // Debug post-loop actions
   wrapper(() => debugPostLoop(), `Error in debug post loop`);
