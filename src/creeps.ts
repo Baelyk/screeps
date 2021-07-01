@@ -952,10 +952,16 @@ function renewCreep(creep: Creep): void {
   // to combat tender renewal preventing all other creeps from spawning.
   if (creep.ticksToLive && creep.ticksToLive < 1400 && energyRatio > 0.5) {
     // If the creep is adjacent to the spawn
-    if (creep.pos.getRangeTo(spawn) === 1) {
-      spawn.renewCreep(creep);
-    } else {
+    const response = spawn.renewCreep(creep);
+    if (response === ERR_NOT_IN_RANGE) {
       creep.moveTo(spawn);
+    } else if (response !== OK) {
+      info(
+        `Creep ${
+          creep.name
+        } cancelling renew due to spawn renew ${errorConstant(response)}`,
+      );
+      switchTaskAndDoRoll(creep, CreepTask.fresh);
     }
   } else {
     switchTaskAndDoRoll(creep, CreepTask.fresh);
