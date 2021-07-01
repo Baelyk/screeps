@@ -1,47 +1,80 @@
-import { error, errorConstant, info, warn } from "utils/logger";
-import { getLinksInRoom } from "utils/helpers";
+import { errorConstant, warn } from "utils/logger";
 import { getSurroundingTiles } from "construct";
-import {
-  GetByIdError,
-  RoomMemoryError,
-  ScriptError,
-  wrapper,
-} from "utils/errors";
+import { GetByIdError, ScriptError, wrapper } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
-export function resetLinkMemory(linkId: Id<StructureLink>): void {
+declare global {
+  interface RoomLinksMemory {
+    all: { [id: string]: LinkMemory };
+    spawn?: Id<StructureLink>;
+    controller?: Id<StructureLink>;
+  }
+
+  interface LinkMemory {
+    mode: LinkMode;
+    type: LinkType;
+  }
+
+  const enum LinkMode {
+    none = "none",
+    send = "send",
+    recieve = "recieve",
+  }
+
+  const enum LinkType {
+    spawn = "spawn",
+    controller = "controller",
+    source = "source",
+    unknown = "unknown",
+  }
+}
+
+export function createLinkMemory(
+  room: VisibleRoom,
+  linkId: Id<StructureLink>,
+): LinkMemory {
+  // TODO: Leaving the room.memory use for now until the planner is rewritten
   const link = Game.getObjectById(linkId);
   if (link == null) {
     throw new GetByIdError(linkId, STRUCTURE_LINK);
   }
+
   let linkMode = LinkMode.none;
   let linkType = LinkType.unknown;
-  if (link.room.memory.planner != undefined) {
-    const linkPlanner = link.room.memory.planner.plan[STRUCTURE_LINK];
-    if (linkPlanner != null) {
-      const spawnLinkPos = linkPlanner.pos[0];
-      const controllerLinkPos = linkPlanner.pos[1];
-      if (link.pos.x == spawnLinkPos.x && link.pos.y == spawnLinkPos.y) {
-        linkType = LinkType.spawn;
-      }
-      if (
-        link.pos.x == controllerLinkPos.x &&
-        link.pos.y == controllerLinkPos.y
-      ) {
-        linkMode = LinkMode.recieve;
-        linkType = LinkType.controller;
-      }
+
+  // Try and identify spawn/controller link
+  const gameRoom = room.getRoom();
+  const storage = gameRoom.storage;
+  if (storage == undefined) {
+    warn(
+      `Room ${room.name} lacks a storage, preventing identification of the spawn link`,
+    );
+  } else {
+    // The link adjacent to the storage is the spawn link
+    if (link.pos.inRangeTo(storage.pos, 1)) {
+      linkType = LinkType.spawn;
     }
   }
-  link.room.memory.links.all[linkId] = { mode: linkMode, type: linkType };
+  const controller = gameRoom.controller;
+  if (controller == undefined) {
+    warn(
+      `Room ${room.name} lacks a controller, preventing identification of the controller link`,
+    );
+  } else {
+    // The link adjacent to the controller is the controller link
+    if (link.pos.inRangeTo(controller.pos, 1)) {
+      linkType = LinkType.controller;
+      linkMode = LinkMode.recieve;
+    }
+  }
+
+  return { mode: linkMode, type: linkType };
 }
 
 function linkBehavior(link: StructureLink): void {
-  if (getLinkMemory(link) == undefined) {
-    warn(`Reseting memory of link ${link.id}`);
-    resetLinkMemory(link.id);
-  }
-
   const memory = getLinkMemory(link);
+  const room = new VisibleRoom(link.room.name);
+  const linksMemory = room.getLinksMemory();
 
   // Link mode is send
   if (memory.mode === LinkMode.send) {
@@ -52,21 +85,13 @@ function linkBehavior(link: StructureLink): void {
     // Link is not spawn link
     if (memory.type !== LinkType.spawn) {
       // Send to spawn if spawn is recieving
-      let spawnLink: StructureLink | undefined = undefined;
-      for (const linkId in link.room.memory.links.all) {
-        if (link.room.memory.links.all[linkId].type === LinkType.spawn) {
-          const otherLink = Game.getObjectById(linkId) as StructureLink | null;
-          if (otherLink == undefined) {
-            warn(`Unable to get other link of id ${linkId}`);
-          } else {
-            spawnLink = otherLink;
-          }
-        }
+      const spawnLinkId = linksMemory.spawn;
+      if (spawnLinkId == undefined) {
+        throw new ScriptError(`Room ${link.room.name} lacks a spawn link`);
       }
+      const spawnLink = Game.getObjectById(spawnLinkId);
       if (spawnLink == undefined) {
-        throw new ScriptError(
-          `Unable to get spawn link in room ${link.room.name}`,
-        );
+        throw new GetByIdError(spawnLinkId, STRUCTURE_LINK);
       }
       const response = link.transferEnergy(spawnLink);
       if (response !== OK) {
@@ -87,12 +112,16 @@ function linkBehavior(link: StructureLink): void {
     link.store.getUsedCapacity(RESOURCE_ENERGY) > 0
   ) {
     // Get other links
-    const links = Object.values(getLinksInRoom(link.room));
+    const gameRoom = room.getRoom();
+    const links = gameRoom.find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_LINK },
+    }) as StructureLink[];
     const targetLink = links
       .filter(
         (link) =>
-          link.room.memory.links.all[link.id].type !== LinkType.spawn &&
-          link.room.memory.links.all[link.id].mode === LinkMode.recieve &&
+          linksMemory.all[link.id] != undefined &&
+          linksMemory.all[link.id].type !== LinkType.spawn &&
+          linksMemory.all[link.id].mode === LinkMode.recieve &&
           link.store.getFreeCapacity(RESOURCE_ENERGY) !== 0,
       )
       .sort(
@@ -123,38 +152,10 @@ function linkBehavior(link: StructureLink): void {
 }
 
 function getLinkMemory(link: StructureLink): LinkMemory {
-  const memory = link.room.memory.links.all[link.id];
+  const memory = new VisibleRoom(link.room.name).getLinksMemory().all[link.id];
   if (memory == undefined) {
-    throw new RoomMemoryError(
-      link.room,
-      "links",
-      `Unable to get memory of link ${link.id} in room ${link.room.name}`,
-    );
-  }
-  return memory;
-}
-
-function getLinkMemoryById(
-  linkId: Id<StructureLink> | string,
-  room?: Room,
-): LinkMemory | undefined {
-  // If room wasn't specified, get the link structure and use the other override
-  // which takes a StructureLink
-  if (room == undefined) {
-    const link = Game.getObjectById(linkId as Id<StructureLink>);
-    if (link != undefined) {
-      return getLinkMemory(link);
-    } else {
-      throw new GetByIdError(linkId, STRUCTURE_LINK);
-    }
-  }
-  // If room was specified, just use the room's memory
-  const memory = room.memory.links.all[linkId];
-  if (memory == undefined) {
-    throw new RoomMemoryError(
-      room,
-      "links",
-      `Unable to get memory of link ${linkId} in room ${room.name}`,
+    throw new ScriptError(
+      `Room ${link.room.name} lacks link memory for link ${link.id}`,
     );
   }
   return memory;
@@ -177,8 +178,8 @@ export function isControllerLink(link: StructureLink): boolean {
   return foundController;
 }
 
-export function linkManager(room: Room): void {
-  for (const linkId in room.memory.links.all) {
+export function linkManager(room: VisibleRoom): void {
+  for (const linkId in room.getLinksMemory().all) {
     const link = Game.getObjectById(linkId) as StructureLink | null;
     if (link != undefined) {
       wrapper(

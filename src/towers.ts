@@ -1,12 +1,8 @@
-import {
-  build,
-  buildRoad,
-  getSurroundingTiles,
-  updateWallRepair,
-} from "construct";
+import { getSurroundingTiles } from "construct";
 import { errorConstant, info, warn } from "utils/logger";
 import { countBodyPart, hasBodyPart } from "utils/helpers";
-import { GetByIdError, GetPositionError, wrapper } from "utils/errors";
+import { GetByIdError, wrapper } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 export function towerBehavior(tower: StructureTower): void {
   // const tower = Game.getObjectById(towerId) as StructureTower;
@@ -29,28 +25,24 @@ export function towerBehavior(tower: StructureTower): void {
       // a reserve to attack/heal in case a tower is no longer being resupplied,
       // like if the tender dies (and is taking a while to spawn, or can't spawn).
       if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > 200) {
-        // Intentionally not using fromRepairQueue() as to not remove from the queue
-        target = Game.getObjectById(
-          tower.room.memory.repairQueue[0],
-        ) as Structure;
-        // If the target is full health, take it off the queue
-        while (target != undefined && target.hits === target.hitsMax) {
-          if (target.hits === target.hitsMax) {
-            tower.room.memory.repairQueue.shift();
-          }
-          target = Game.getObjectById(tower.room.memory.repairQueue[0]);
-        }
+        const room = new VisibleRoom(tower.room.name);
+        target = room.getNextRepairTarget() || null;
 
         // There are no creeps, structures to target
         if (target == undefined) {
-          updateWallRepair(tower.room);
-          target = Game.getObjectById(tower.room.memory.wallRepairQueue[0]);
-          if (target != undefined) {
-            target = target as Structure;
-            // Target is a wall/rampart in need of repair
-            const response = errorConstant(tower.repair(target));
-            if (response !== "OK") {
-              info(`Tower ${tower.id} is repairing ${target.id}: ${response}`);
+          room.updateWallRepairQueue();
+          const wallId = room.getFromWallRepairQueue();
+          if (wallId != undefined) {
+            target = Game.getObjectById(wallId);
+            if (target != undefined) {
+              target = target as Structure;
+              // Target is a wall/rampart in need of repair
+              const response = errorConstant(tower.repair(target));
+              if (response !== "OK") {
+                info(
+                  `Tower ${tower.id} is repairing ${target.id}: ${response}`,
+                );
+              }
             }
           }
           return;
@@ -60,6 +52,11 @@ export function towerBehavior(tower: StructureTower): void {
         const response = errorConstant(tower.repair(target));
         if (response !== "OK") {
           info(`Tower ${tower.id} is repairing ${target.id}: ${response}`);
+          // Tower succesfully repairing target, so check if it will be at full
+          // and if so remove the target from the list
+          if (target.hitsMax - target.hits <= TOWER_POWER_REPAIR) {
+            room.getFromRepairQueue(true);
+          }
         }
       } else {
         info(`Tower ${tower.id} is in energy saver mode`);
@@ -78,31 +75,6 @@ export function towerBehavior(tower: StructureTower): void {
     warn(
       `Tower ${tower.id} is attacking ${target.owner.username}'s creep ${target.name}: ${response}`,
     );
-  }
-}
-
-export function buildTower(roomName: string): void {
-  const room = Game.rooms[roomName];
-
-  const spawn = room.find(FIND_MY_SPAWNS)[0];
-  const pos = room.getPositionAt(spawn.pos.x - 5, spawn.pos.y);
-
-  if (pos === null) {
-    throw new GetPositionError({
-      x: spawn.pos.x - 5,
-      y: spawn.pos.y,
-      roomName,
-    });
-  }
-
-  const response = build(pos, STRUCTURE_TOWER);
-
-  if (response) {
-    info(`Successfully queued tower at ${JSON.stringify(pos)}`);
-    const roads = getSurroundingTiles(pos, 1);
-    buildRoad(roads);
-  } else {
-    warn(`Failed to build tower at ${JSON.stringify(pos)}`);
   }
 }
 
@@ -203,22 +175,20 @@ function calculateTowerFalloff(
   );
 }
 
-export function towerManager(room: Room): void {
-  for (const towerIndex in room.memory.towers) {
-    const tower = Game.getObjectById(
-      room.memory.towers[towerIndex],
-    ) as StructureTower;
-    if (tower !== null) {
+export function towerManager(room: VisibleRoom): void {
+  _.forEach(room.getTowers(), (towerId) => {
+    const tower = Game.getObjectById(towerId);
+    if (tower != undefined) {
       wrapper(
         () => towerBehavior(tower),
         `Error processing tower ${tower.id} behavior`,
       );
     } else {
       throw new GetByIdError(
-        room.memory.towers[towerIndex],
+        towerId,
         STRUCTURE_TOWER,
         `The tower should be in room ${room.name}`,
       );
     }
-  }
+  });
 }

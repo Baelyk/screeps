@@ -3,24 +3,23 @@ import { watcher } from "utils/watch-client";
 import { tick } from "utils/logger";
 import { debugPostLoop, debugLoop } from "utils/debug";
 import { wrapper } from "utils/errors";
-import { init } from "initialize";
 import { creepManager } from "creeps";
 import { spawnManager } from "spawns";
 import { roomManager } from "rooms";
-//import { testFunction } from "roomMemory";
+import { expansionManager } from "expansion";
+import { mapVisualManager } from "mapVisuals";
 
 console.log("- - - - RESTARTING - - - -");
 
 export const loop = ErrorMapper.wrapLoop(() => {
   tick();
 
-  // If uninitialized, initialize
   if (Memory.uninitialized) {
-    wrapper(() => init(), `Error initializing`);
+    console.log(`!! Uninitialized !!`);
   }
 
   // Debug
-  debugLoop();
+  wrapper(() => debugLoop(), `Error in debug loop`);
 
   // Process spawn behavior
   wrapper(() => creepManager(), `Error managing creeps`);
@@ -28,10 +27,13 @@ export const loop = ErrorMapper.wrapLoop(() => {
   wrapper(() => spawnManager(), `Error managing spawns`);
   // Process room behavior
   wrapper(() => roomManager(), `Error managing rooms`);
-  _.filter(["hello"], { key: "world" });
+  // Process expansion behavior
+  wrapper(() => expansionManager(), `Error managing expansions`);
+  // Process map visuals
+  wrapper(() => mapVisualManager(), `Error managing map visuals`);
 
   // Debug post-loop actions
-  debugPostLoop();
+  wrapper(() => debugPostLoop(), `Error in debug post loop`);
 
   // screeps-multimeter watcher
   watcher();

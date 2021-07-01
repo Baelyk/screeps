@@ -1,4 +1,5 @@
-import { GetByIdError, ScriptError } from "utils/errors";
+import { ScriptError } from "utils/errors";
+import { info } from "utils/logger";
 
 export function hasBodyPart(creep: Creep, partType: BodyPartConstant): boolean {
   const body = creep.body;
@@ -85,19 +86,6 @@ export function nameCreep(memory: CreepMemory): string {
   return name + number;
 }
 
-export function getLinksInRoom(room: Room): Record<string, StructureLink> {
-  const links: Record<string, StructureLink> = {};
-  for (const linkId in room.memory.links.all) {
-    const link = Game.getObjectById(linkId as Id<StructureLink>);
-    if (link != undefined) {
-      links[linkId] = link;
-    } else {
-      throw new GetByIdError(linkId, STRUCTURE_LINK);
-    }
-  }
-  return links;
-}
-
 export function livenRoomPosition(
   position:
     | RoomPosition
@@ -117,4 +105,24 @@ export function livenRoomPosition(
     throw new ScriptError(`Invalid room position (${x}, ${y}) in ${roomName}`);
   }
   return livingPosition;
+}
+
+export function awayFromExitDirection(
+  exitPos: RoomPosition,
+): DirectionConstant {
+  let direction: DirectionConstant = TOP;
+  if (exitPos.x === 0) {
+    direction = RIGHT;
+  } else if (exitPos.x === 49) {
+    direction = LEFT;
+  } else if (exitPos.y === 0) {
+    direction = BOTTOM;
+  } else if (exitPos.y === 49) {
+    direction = TOP;
+  }
+  return direction;
+}
+
+export function onExit(pos: RoomPosition): boolean {
+  return pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49;
 }

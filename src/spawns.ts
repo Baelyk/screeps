@@ -1,13 +1,7 @@
-import { nameCreep, countRole } from "utils/helpers";
-import { errorConstant, stringifyBody, info, warn } from "utils/logger";
-import { buildRoad, buildStructure, getSurroundingTiles } from "construct";
-import { getExtensionSpots, getExtensionRoadSpots } from "planner";
-import {
-  GetPositionError,
-  ScriptError,
-  SpawnMemoryError,
-  wrapper,
-} from "utils/errors";
+import { nameCreep } from "utils/helpers";
+import { errorConstant, stringifyBody, info } from "utils/logger";
+import { ScriptError, wrapper } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 /**
  * Process spawn behavior
@@ -15,11 +9,13 @@ import {
  * @param spawn The spawn to process
  */
 function spawnBehavior(spawn: StructureSpawn): void {
+  const room = new VisibleRoom(spawn.room.name);
+
   let allowSpawn = !spawn.spawning;
 
   // Spawn from spawn queue
   if (allowSpawn) {
-    const creepFromQueue = spawn.room.memory.spawnQueue.shift();
+    const creepFromQueue = room.getFromSpawnQueue();
     if (creepFromQueue != undefined) {
       spawnCreep(spawn, creepFromQueue.role, creepFromQueue.overrides);
       allowSpawn = false;
@@ -48,7 +44,8 @@ function spawnCreep(
   );
   // If spawn unsuccessful, readd to queue
   if (response !== OK) {
-    spawn.room.memory.spawnQueue.unshift({ role, overrides, name });
+    const room = new VisibleRoom(spawn.room.name);
+    room.addToSpawnQueue({ role, overrides, name }, true);
   }
 }
 
@@ -122,7 +119,12 @@ export function generateBodyByRole(
       // Haulers/tenders don't really need more thnat 30 body parts, allowing
       // them 1000 carry capacity and 1 move speed on roads empty and full.
       // Energy capacity minus work cost divided by MOVE/CARRY cost
-      const bodyUnits = Math.min(30, Math.floor(availableEnergy / 50));
+      //
+      // Also, require at least 2 body units for a move and a carry
+      const bodyUnits = Math.max(
+        2,
+        Math.min(30, Math.floor(availableEnergy / 50)),
+      );
       // 1/3 MOVE, rest CARRY
       for (let i = 0; i < bodyUnits; i++) {
         // Prioritize MOVE parts so that the creep always moves in 1
@@ -134,13 +136,10 @@ export function generateBodyByRole(
       }
       return body;
     }
-    case CreepRole.claimer: {
-      return [MOVE, CLAIM];
-    }
     case CreepRole.harvester: {
       return [MOVE, CARRY, WORK];
     }
-    case CreepRole.reserver: {
+    case CreepRole.claimer: {
       const body: BodyPartConstant[] = [];
       const availableEnergy = spawn.room.energyCapacityAvailable;
       const units = Math.min(
@@ -188,9 +187,13 @@ export function generateBodyByRole(
       const toughs = Math.floor(
         Math.min(
           50 - bodyUnits * 4,
-          Math.floor((energy - bodyUnits * unitCost) / 10),
+          Math.floor(
+            (energy - bodyUnits * unitCost) /
+              (BODYPART_COST[TOUGH] + BODYPART_COST[MOVE]),
+          ),
         ) / 2,
       );
+      info(`${energy} ${unitCost} ${bodyUnits} ${toughs}`);
       const body: BodyPartConstant[] = [];
       for (let i = 0; i < toughs; i++) {
         body.push(TOUGH);
@@ -219,89 +222,6 @@ function generateMemoryByRole(role: CreepRole, room: Room): CreepMemory {
     task: CreepTask.fresh,
     room: room.name,
   };
-}
-
-function requestExtentions(spawn: StructureSpawn) {
-  if (spawn.memory.extensions === undefined) {
-    spawn.memory.extensions = [];
-  }
-  // Only request an extension when there is nothing in the build/repair queues
-  if (
-    spawn.room.memory.constructionQueue.length === 0 &&
-    spawn.room.memory.repairQueue.length === 0
-  ) {
-    if (spawn.memory.extensionSpots === undefined) {
-      throw new SpawnMemoryError(spawn, "extensionSpots");
-    }
-    const spot = spawn.memory.extensionSpots.shift();
-    if (spot == undefined) {
-      throw new ScriptError(
-        `Spawn ${spawn.name} has run out of extension spots`,
-      );
-    }
-    const position = spawn.room.getPositionAt(spot.x, spot.y);
-    if (position == undefined) {
-      throw new GetPositionError(spot);
-    }
-    info(
-      `Spawn ${spawn.name} requesting extention at ${JSON.stringify(position)}`,
-      InfoType.build,
-    );
-    if (buildStructure(position, STRUCTURE_EXTENSION)) {
-      spawn.memory.extensions.push(position);
-    } else {
-      warn(
-        `Spawn ${spawn.name} failed extention request at ${JSON.stringify(
-          position,
-        )}`,
-      );
-    }
-  }
-}
-
-function getSpawnExtensions(spawn: StructureSpawn): StructureExtension[] {
-  const extensions: StructureExtension[] = [];
-  if (spawn.memory.extensions == undefined) return [];
-  spawn.memory.extensions.forEach((position) => {
-    const pos = spawn.room.getPositionAt(position.x, position.y);
-    if (pos == undefined) return;
-    pos
-      .lookFor(LOOK_STRUCTURES)
-      .filter((structure) => {
-        return structure.structureType === STRUCTURE_EXTENSION;
-      })
-      .forEach((extension) => {
-        extensions.push(extension as StructureExtension);
-      });
-  });
-  return extensions;
-}
-
-export function getMaxExtensions(level: number): number {
-  return CONTROLLER_STRUCTURES["extension"][level];
-}
-
-export function initSpawn(spawn: StructureSpawn): void {
-  info(`Initializing spawn ${spawn.name}...`);
-
-  // Construct a ring of roads around the spawn
-  const spawn_ring = getSurroundingTiles(spawn.pos, 1);
-  info(`Spawn ring road: ${JSON.stringify(spawn_ring)}`, InfoType.build);
-  buildRoad(spawn_ring);
-
-  // Construct the extension roads
-  const extensionRoads = getExtensionRoadSpots(spawn.room);
-  info(
-    `Spawn extension road: ${JSON.stringify(extensionRoads)}`,
-    InfoType.build,
-  );
-  buildRoad(extensionRoads);
-
-  // Add the extension spots to the memory
-  const extensionSpots = getExtensionSpots(spawn.room);
-  spawn.memory.extensionSpots = extensionSpots;
-
-  info(`Finished initizalizing spawn ${spawn.name}`);
 }
 
 export function spawnManager(): void {

@@ -1,98 +1,20 @@
 import { info, warn } from "utils/logger";
-import { census } from "population";
-import {
-  executePlan,
-  getExitWallsAndRamparts,
-  getExtensionSpots,
-  makePlan,
-} from "planner";
-import { updateRoomMemory, remoteTargetAnalysis } from "rooms";
-import { resetConstructionQueue } from "construct";
+import { VisibleRoom } from "roomMemory";
+import { Graph } from "classes/graph";
+import { RoomPlanner } from "classes/roomPlanner";
 
 export function debugLoop(): void {
-  const spawn = Game.spawns[Memory.initialSpawn];
-
-  if (Memory.debug.resetExtensions) {
-    resetExtensionSpots();
-    Memory.debug.resetExtensions = false;
-  }
-
   if (Memory.debug.resetRoomMemory) {
     resetRoomMemory();
     Memory.debug.resetRoomMemory = false;
   }
-
-  if (Memory.debug.resetPopLimits) {
-    resetPopLimits();
-    Memory.debug.resetPopLimits = false;
-  }
-
-  if (Memory.debug.testWallPlanner) {
-    getExitWallsAndRamparts(spawn.room);
-    Memory.debug.testWallPlanner = false;
-  }
-
-  if (Memory.debug.resetPlanner) {
-    makePlan(spawn.room);
-    Memory.debug.resetPlanner = false;
-  }
-
-  if (Memory.debug.executePlan) {
-    executePlan(spawn.room);
-    Memory.debug.executePlan = false;
-  }
-}
-
-function resetMemory(): void {
-  warn("Reseting memory");
-  Memory.uninitialized = true;
-  Memory.initialSpawn = "Spawn1";
-  Memory.watch = {};
-  Memory.debug = {
-    log: {
-      infoSettings: {
-        build: true,
-        general: true,
-        idleCreep: true,
-        spawn: true,
-        task: true,
-      },
-    },
-  };
-}
-
-function resetExtensionSpots(): void {
-  warn("Resetting extensions");
-  const spawn = Game.spawns[Memory.initialSpawn];
-  // Reset spawn extensionSpots memory
-  spawn.memory.extensionSpots = getExtensionSpots(spawn.room);
-  // Reset list of (built) extensions
-  const extensions = spawn.room
-    .find(FIND_MY_STRUCTURES)
-    .filter((structure) => structure.structureType === STRUCTURE_EXTENSION)
-    .map((extension) => extension.pos);
-  const extensionSites = spawn.room
-    .find(FIND_MY_CONSTRUCTION_SITES)
-    .filter((structure) => structure.structureType === STRUCTURE_EXTENSION)
-    .map((extension) => extension.pos);
-  spawn.memory.extensions = extensions.concat(extensionSites);
 }
 
 function resetRoomMemory(): void {
   warn("Resetting room memory");
   for (const roomName in Game.rooms) {
-    updateRoomMemory(Game.rooms[roomName]);
-  }
-}
-
-function resetPopLimits(): void {
-  warn("Resetting population limits");
-  for (const roomName in Game.rooms) {
-    const room = Game.rooms[roomName];
-    census(room);
-
-    // Only run once
-    break;
+    const room = new VisibleRoom(roomName);
+    room.updateMemory();
   }
 }
 
@@ -123,57 +45,88 @@ export function debugPostLoop(): void {
   // Debug testing for energy harvested
   debugEnergyHarvested();
 
+  // Graph testing
+  // debugGraphTesting();
+
+  // Planner testing
+  // debugPlannerTesting();
+
   // Warn if more than 5 CPU used during this tick
   const cpuUsed = Game.cpu.getUsed();
   if (cpuUsed >= 5) {
-    warn(`Used ${cpuUsed} cpu`);
+    const pop = _.keys(Game.creeps).length;
+    warn(`Used ${Math.round(cpuUsed * 100) / 100} cpu with ${pop} creeps`);
   }
 }
 
-export function roomDebugLoop(room: Room): void {
-  if (room.memory.debug == undefined) {
-    return;
+export function roomDebugLoop(room: VisibleRoom): void {
+  if (room.getDebugFlag("removeConstructionSites")) {
+    room.removeAllConstructionSites();
+    room.removeDebugFlag("removeConstructionSites");
   }
+  if (room.getDebugFlag("resetConstructionSites")) {
+    room.updateConstructionQueue();
+    room.removeDebugFlag("resetConstructionSites");
+  }
+  if (room.getDebugFlag("resetPopLimits")) {
+    room.updatePopulationLimitMemory();
+    room.removeDebugFlag("resetPopLimits");
+  }
+  if (room.getDebugFlag("recreatePlan")) {
+    room.updatePlannerMemory();
+    room.removeDebugFlag("recreatePlan");
+  }
+  if (room.getDebugFlag("executePlan")) {
+    room.executePlan();
+    room.removeDebugFlag("executePlan");
+  }
+}
 
-  if (room.memory.debug.removeConstructionSites) {
-    roomRemoveConstructionSites(room);
-    delete room.memory.debug.removeConstructionSites;
-  }
-  if (room.memory.debug.resetConstructionSites) {
-    roomResetConstructionSites(room);
-    delete room.memory.debug.resetConstructionSites;
-  }
-  if (
-    room.memory.debug.energyFlow == undefined ||
-    room.memory.debug.energyFlow.restart
-  ) {
-    roomDebugResetEnergyFlow(room);
-  }
+function debugGraphTesting(): void {
+  if (Memory.debug.distTran == undefined) {
+    const room = Game.rooms["E15N41"];
+    const walls: number[] = [];
+    const exits: number[] = _.map(
+      room.find(FIND_EXIT),
+      (pos) => pos.x + pos.y * 50,
+    );
 
-  if (room.memory.debug.remoteAnalysis && room.memory.owner != undefined) {
-    const owner = Game.rooms[room.memory.owner];
-    if (owner != undefined) {
-      remoteTargetAnalysis(owner, room);
+    // Note: this does not get built walls
+    const terrain = room.getTerrain();
+    for (let i = 0; i < 50 * 50; i++) {
+      const tile = terrain.get(i % 50, Math.floor(i / 50));
+      if (tile === TERRAIN_MASK_WALL) {
+        walls.push(i);
+      }
     }
-    room.memory.debug.remoteAnalysis = false;
+
+    const graph = new Graph(walls, exits);
+    const distTran = graph.distanceTransform();
+    const visual = new RoomVisual("E15N41");
+    _.forEach(distTran, (dist, index) => {
+      if (dist !== -1) {
+        visual.text(dist.toString(), index % 50, Math.floor(index / 50));
+      }
+    });
+    Memory.debug.distTran = visual.export();
+  } else {
+    // const visual = new RoomVisual("E15N41");
+    // visual.import(Memory.debug.distTran);
   }
 }
 
-function roomRemoveConstructionSites(room: Room): void {
-  room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => site.remove());
-}
-
-function roomResetConstructionSites(room: Room): void {
-  resetConstructionQueue(room);
-}
-
-export function roomDebugResetEnergyFlow(room: Room): void {
-  if (room.memory.debug == undefined) {
-    room.memory.debug = {};
-  }
-  room.memory.debug.energyFlow = {
-    start: Game.time,
-    cost: 0,
-    gain: 0,
-  };
-}
+/**
+ * Function debugPlannerTesting(): void { if (Memory.debug.plan == undefined) {
+ * const planner = new RoomPlanner("E15N41"); planner.planRoom(); } else {
+ * const visual = Game.rooms["E15N41"].visual; _.forEach(Memory.debug.plan,
+ * (value, key) => { if (key !== "occupied") { let char = "?"; let array = [];
+ * if (key === "spawnLocation") { char = "H"; } else if (key ===
+ * "storageLocation") { char = "O"; } else if (key === "sourceContainers") {
+ * char = "C"; } else if (key === "towerLocations") { char = "T"; } else if
+ * (key === "linkLocation") { char = "L"; } else if (key === "roads") { char =
+ * "+"; value = _.flatten(value); } else if (key === "extensionLocations") {
+ * char = "E"; } if (!Array.isArray(value)) { array = [value]; } else { array =
+ * value; } _.forEach(array, (spot) => { visual.text(char, spot % 50,
+ * Math.floor(spot / 50), { font: "1 monospace", backgroundColor: "black",
+ * backgroundPadding: 0, opacity: 0.75, }); }); } }); } }
+ */

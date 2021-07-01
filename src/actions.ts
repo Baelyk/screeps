@@ -1,8 +1,8 @@
-import { fromRepairQueue, getSurroundingTiles } from "construct";
+import { getSurroundingTiles } from "construct";
 import { error, errorConstant, warn, info } from "utils/logger";
 import { countBodyPart, countRole } from "utils/helpers";
-import { getNextTombInRoom } from "rooms";
 import { CreepMemoryError, ScriptError } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 /**
  * Harvest energy from a specified Source or find the first Source in the room.
@@ -18,6 +18,9 @@ export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
   if (source == undefined) {
     if (creep.memory.assignedSource == undefined) {
       const sources = [...creep.room.find(FIND_SOURCES)]
+        .filter((source) => {
+          return source.energy > 0;
+        })
         .map((source) => {
           return { source, path: creep.pos.findPathTo(source) };
         })
@@ -66,6 +69,12 @@ export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
         amount: harvested,
       };
     }
+  } else if (
+    response === ERR_NOT_ENOUGH_RESOURCES &&
+    creep.memory.role !== CreepRole.miner &&
+    creep.memory.role !== CreepRole.extractor
+  ) {
+    delete Memory.creeps[creep.name].assignedSource;
   }
 }
 
@@ -81,6 +90,11 @@ export function getEnergy(
   let response: ScreepsReturnCode;
   // If target isn't specified, try the room's storage
   if (target == undefined) {
+    // If no target specified, try and get from an adjacent pile first
+    response = recoverNearbyEnergy(creep);
+    if (response === OK) {
+      return response;
+    }
     // If there is a storage, make sure it has energy first
     if (
       creep.room.storage != undefined &&
@@ -101,6 +115,15 @@ export function getEnergy(
           structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
         );
       })
+      .filter((structure) => {
+        const workParts = countBodyPart(creep.body, WORK);
+        return (
+          (structure as
+            | StructureContainer
+            | StructureStorage).store.getUsedCapacity(RESOURCE_ENERGY) >
+          workParts * HARVEST_POWER
+        );
+      })
       .map((structure) => {
         return { structure, path: creep.pos.findPathTo(structure) };
       })
@@ -113,7 +136,10 @@ export function getEnergy(
       warn(
         `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
-      if (countRole(creep.room, CreepRole.miner) === 0) {
+      if (
+        countRole(creep.room, CreepRole.miner) <
+        creep.room.find(FIND_SOURCES).length
+      ) {
         harvestEnergy(creep);
       } else {
         // No structures, no harvesting, so try and find energy on the ground.
@@ -209,7 +235,8 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
     );
   }
   if (target == undefined) {
-    const spawnLinkId = creep.room.memory.links.spawn;
+    const room = new VisibleRoom(creep.room.name);
+    const spawnLinkId = room.getLinksMemory().spawn;
     if (spawnLinkId != undefined) {
       const spawnLink = Game.getObjectById(spawnLinkId);
       if (spawnLink != undefined) {
@@ -353,7 +380,7 @@ export function upgradeController(creep: Creep): void {
   const response = creep.upgradeController(controller);
   if (response === ERR_NOT_IN_RANGE) {
     creep.moveTo(controller);
-  } else if (response !== OK) {
+  } else if (response !== OK && response !== ERR_NO_BODYPART) {
     warn(
       `Creep ${creep.name} attempting to upgrade controller with response ${response}`,
     );
@@ -398,10 +425,15 @@ export function build(creep: Creep, building?: ConstructionSite): void {
         building.structureType === STRUCTURE_RAMPART) &&
       building.progress === building.progressTotal
     ) {
+      const room = new VisibleRoom(creep.room.name);
       const wallOrRampart = building.pos.lookFor(LOOK_STRUCTURES)[0];
-      if (wallOrRampart != undefined) {
-        creep.room.memory.wallRepairQueue.unshift(
-          wallOrRampart.id as Id<StructureWall> | Id<StructureRampart>,
+      if (
+        wallOrRampart != undefined &&
+        (wallOrRampart.structureType === STRUCTURE_RAMPART ||
+          wallOrRampart.structureType === STRUCTURE_WALL)
+      ) {
+        room.addToWallRepairQueue(
+          wallOrRampart.id as Id<StructureRampart | StructureWall>,
         );
         creep.memory.assignedRepairs = wallOrRampart.id;
         creep.memory.task = CreepTask.repair;
@@ -417,12 +449,13 @@ export function build(creep: Creep, building?: ConstructionSite): void {
  * @param repair The structure to repair
  */
 export function repair(creep: Creep, repair?: Structure): void {
+  const room = new VisibleRoom(creep.room.name);
   if (repair == undefined) {
     if (creep.memory.assignedRepairs == undefined) {
-      const idToRepair = fromRepairQueue(creep.room);
-      repair =
-        (Game.getObjectById(idToRepair || "") as Structure | null) || undefined;
-      creep.memory.assignedRepairs = idToRepair;
+      repair = room.getNextRepairTarget();
+      if (repair != undefined) {
+        creep.memory.assignedRepairs = repair.id;
+      }
     } else {
       repair =
         (Game.getObjectById(
@@ -486,8 +519,9 @@ export function recoverEnergy(creep: Creep, range = 1): ScreepsReturnCode {
   if (range === 1) {
     return recoverNearbyEnergy(creep);
   } else if (range === -1) {
+    const room = new VisibleRoom(creep.room.name);
     // If range is -1, get a tomb from the room's lst of tombs
-    const tomb = getNextTombInRoom(creep.room);
+    const tomb = room.getNextTombstone();
     if (tomb != undefined) {
       let response: ScreepsReturnCode = creep.withdraw(tomb, RESOURCE_ENERGY);
       if (response === ERR_NOT_IN_RANGE) {
@@ -567,46 +601,18 @@ function recoverNearbyEnergy(creep: Creep): ScreepsReturnCode {
  * Moves the creep to the target room. If the target room is unsupplied, uses
  * `creep.memory.room`.
  */
-export function moveToRoom(
-  creep: Creep,
-  destRoomName?: string,
-  resetPath = false,
-): void {
+export function moveToRoom(creep: Creep, destRoomName?: string): void {
   if (destRoomName == undefined) {
     destRoomName = creep.memory.room;
   }
 
-  if (
-    resetPath ||
-    creep.memory.path == undefined ||
-    creep.memory.pathStartRoom == undefined ||
-    creep.room.name !== creep.memory.pathStartRoom
-  ) {
-    // This scout is new, so initialize its path to its target
-    const exitToRoom = creep.room.findExitTo(destRoomName);
-    if (exitToRoom === ERR_NO_PATH || exitToRoom === ERR_INVALID_ARGS) {
-      throw new ScriptError(
-        `Error finding path to room ${destRoomName} from ${
-          creep.room.name
-        }: ${errorConstant(exitToRoom)}`,
-      );
-    }
-    const exitPos = creep.pos.findClosestByPath(exitToRoom);
-    if (exitPos == undefined) {
-      throw new ScriptError(
-        `No closest exit (${exitToRoom}) in room ${creep.room.name}`,
-      );
-    }
-    const exitPath = creep.pos.findPathTo(exitPos);
-    creep.memory.path = Room.serializePath(exitPath);
-    creep.memory.pathStartRoom = creep.room.name;
-  }
-
-  // Use `creep.memory.path` to move
-  const response = creep.moveByPath(creep.memory.path);
+  const dummyPosition = new RoomPosition(24, 24, destRoomName);
+  const response = creep.moveTo(dummyPosition, { range: 22 });
   if (response !== OK && response !== ERR_TIRED) {
     warn(
-      `Creep ${creep.name} failed to move by path with response ${errorConstant(
+      `Creep ${
+        creep.name
+      } failed to move to ${destRoomName} with response ${errorConstant(
         response,
       )}`,
     );

@@ -3,13 +3,14 @@ import { info } from "utils/logger";
 import { generateBodyByRole } from "spawns";
 import { bodyCost, countBodyPart } from "utils/helpers";
 import { GetByIdError, ScriptError } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 /**
  * Reasses population limits
  *
  * @param room The room
  */
-export function census(room: Room): void {
+export function census(room: VisibleRoom): void {
   info(`Updating population limits`, InfoType.spawn);
   // Recalculate miners
   const miners = minerLimit(room);
@@ -20,24 +21,27 @@ export function census(room: Room): void {
   let haulers = miners;
   let tenders = 0;
   let extractors = 0;
-  let reservers = 0;
+  let claimers = 0;
   let scouts = 0;
   let guards = 0;
   // One builder per two construction queue items
-  let builders = room.memory.constructionQueue.length > 0 ? 1 : 0;
+  let builders = room.getConstructionQueue().length > 0 ? 1 : 0;
   // If there isn't a tower, builders must repair too
-  if (room.memory.level < 3) {
-    builders = Math.max(
-      Math.floor(room.memory.constructionQueue.length / 2),
-      builders,
-    );
+  if (
+    room.roomType === RoomType.primary &&
+    room
+      .getRoom()
+      .find(FIND_MY_STRUCTURES, { filter: { structureType: STRUCTURE_TOWER } })
+      .length === 0
+  ) {
+    builders = Math.max(room.getRepairQueue().length > 0 ? 1 : 0, builders);
   }
   if (miners === 0) {
     // If we have no miners, we need harvesters
     harvesters = 2;
     // If we have no miners, no more than harvesters + 1 builders
     builders = Math.min(harvesters + 1, builders);
-  } else if (room.memory.roomType != RoomType.remote) {
+  } else if (room.roomType != RoomType.remote) {
     // if we have miners, no more than 1 builder per miner
     builders = Math.min(miners, builders);
     // If we have miners, we want upgraders
@@ -52,46 +56,48 @@ export function census(room: Room): void {
     scouts = scoutLimit(room);
   }
 
-  // Allow 1 reserver in a remote room if the reservation is < 500 ticks or
+  // Allow 1 claimer in a remote room if the reservation is < 500 ticks or
   // not mine
+  const controller = room.getRoom().controller;
   if (
-    room.memory.roomType === RoomType.remote &&
-    room.controller != undefined &&
-    (room.controller.reservation == undefined ||
-      room.controller.reservation.username != "Baelyk" ||
-      room.controller.reservation.ticksToEnd < 500)
+    room.roomType === RoomType.remote &&
+    controller != undefined &&
+    (controller.reservation == undefined ||
+      controller.reservation.username != "Baelyk" ||
+      controller.reservation.ticksToEnd < 500)
   ) {
-    reservers = 1;
+    claimers = 1;
   }
 
   // Primary rooms have 1 guard
-  if (room.memory.roomType === RoomType.primary) {
-    guards = 1;
+  if (room.roomType === RoomType.primary) {
+    const unitCost =
+      2 * BODYPART_COST[MOVE] +
+      BODYPART_COST[ATTACK] +
+      BODYPART_COST[RANGED_ATTACK];
+    guards = room.getRoom().energyCapacityAvailable > unitCost ? 1 : 0;
   }
 
-  room.memory.populationLimit.miner = miners;
-  room.memory.populationLimit.harvester = harvesters;
-  room.memory.populationLimit.upgrader = upgraders;
-  room.memory.populationLimit.builder = builders;
-  room.memory.populationLimit.hauler = haulers;
-  room.memory.populationLimit.tender = tenders;
-  room.memory.populationLimit.extractor = extractors;
-  room.memory.populationLimit.reserver = reservers;
-  room.memory.populationLimit.scout = scouts;
-  room.memory.populationLimit.guard = guards;
+  room.setRoleLimit(CreepRole.miner, miners);
+  room.setRoleLimit(CreepRole.harvester, harvesters);
+  room.setRoleLimit(CreepRole.upgrader, upgraders);
+  room.setRoleLimit(CreepRole.builder, builders);
+  room.setRoleLimit(CreepRole.hauler, haulers);
+  room.setRoleLimit(CreepRole.tender, tenders);
+  room.setRoleLimit(CreepRole.extractor, extractors);
+  room.setRoleLimit(CreepRole.claimer, claimers);
+  room.setRoleLimit(CreepRole.scout, scouts);
+  room.setRoleLimit(CreepRole.guard, guards);
 }
 
-function minerLimit(room: Room): number {
+function minerLimit(room: VisibleRoom): number {
   let miners = 0;
   // Remote rooms don't *need* containers
-  if (
-    room.memory.roomType === RoomType.remote &&
-    room.memory.sources != undefined
-  ) {
-    return room.memory.sources.length;
+  if (room.roomType === RoomType.remote) {
+    return room.getSources().length;
   }
   // One miner per source with a container around it
-  room.memory.sources.forEach((sourceId) => {
+  room.getSources().forEach((sourceId) => {
     const source = Game.getObjectById(sourceId) as Source;
     if (source != undefined) {
       let containersAroundSource = 0;
@@ -112,24 +118,39 @@ function minerLimit(room: Room): number {
   return miners;
 }
 
-function upgraderLimit(room: Room): number {
-  const spawn = Game.getObjectById(room.memory.spawn) as StructureSpawn;
-  if (spawn == undefined) {
-    throw new GetByIdError(room.memory.spawn, STRUCTURE_SPAWN);
-  }
-
-  const storage = room.storage;
-  if (storage == undefined) {
-    info(
-      `Room ${room.name} not ready for advance upgrader population limiting`,
-    );
-    // Default to 1 upgrader
+function upgraderLimit(room: VisibleRoom): number {
+  // RCL 8 rooms can have max 1 upgrader due to controller upgrade limit
+  if (room.roomLevel() === 8) {
     return 1;
   }
 
-  const energy = storage.store.getUsedCapacity(RESOURCE_ENERGY);
+  const gameRoom = room.getRoom();
 
-  const body = generateBodyByRole(spawn, CreepRole.upgrader);
+  // If there is a storage, use the storage to calculate how many upgraders.
+  // Otherwise, use containers, or suppose 0 energy.
+  let energy = 0;
+  if (
+    gameRoom.find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_STORAGE },
+    }).length !== 0
+  ) {
+    energy = room.storedResourceAmount(RESOURCE_ENERGY);
+  } else {
+    const containers = gameRoom.find(FIND_STRUCTURES, {
+      filter: { structureType: STRUCTURE_CONTAINER },
+    }) as StructureContainer[];
+    _.forEach(
+      containers,
+      (container) =>
+        (energy += container.store.getUsedCapacity(RESOURCE_ENERGY)),
+    );
+    const piles = gameRoom.find(FIND_DROPPED_RESOURCES, {
+      filter: { resourceType: RESOURCE_ENERGY },
+    });
+    _.forEach(piles, (pile) => (energy += pile.amount));
+  }
+
+  const body = generateBodyByRole(room.getPrimarySpawn(), CreepRole.upgrader);
   const cost = bodyCost(body);
   const workParts = countBodyPart(body, WORK);
   // Upper limit on the amount of energy an upgrader will use in its lifetime
@@ -141,19 +162,20 @@ function upgraderLimit(room: Room): number {
   return Math.max(1, Math.floor(energy / lifetimeCost));
 }
 
-function extractorLimit(room: Room): number {
-  if (room.memory.level < 6) {
+function extractorLimit(room: VisibleRoom): number {
+  if (room.roomLevel() < 6) {
     // Save some time, if an extractor couldn't exist, don't waste CPU looking
     return 0;
   }
 
+  const gameRoom = room.getRoom();
   // A room without a storage is a room not ready for extractors
-  if (room.storage == undefined) {
+  if (gameRoom.storage == undefined) {
     return 0;
   }
 
   // TODO: Only supports one extractor in a room. Is this a problem?
-  const extractor = room
+  const extractor = gameRoom
     .find(FIND_STRUCTURES)
     .find((struc) => struc.structureType === STRUCTURE_EXTRACTOR);
   if (extractor == undefined) {
@@ -174,7 +196,7 @@ function extractorLimit(room: Room): number {
   }
 
   // If we already have 100k of the mineral, no extract pls
-  if (room.storage.store.getUsedCapacity(mineral.mineralType) > 100000) {
+  if (room.storedResourceAmount(mineral.mineralType) > 100000) {
     return 0;
   }
 
@@ -182,13 +204,9 @@ function extractorLimit(room: Room): number {
   return 1;
 }
 
-function scoutLimit(room: Room): number {
-  if (room.memory.remotes == undefined) {
-    return 0;
-  }
+function scoutLimit(room: VisibleRoom): number {
   let count = 0;
-  room.memory.remotes.forEach((remoteName) => {
-    // TODO: Don't assume that the name is valid
+  room.getRemotes().forEach((remoteName) => {
     const remote = Game.rooms[remoteName];
     // Visionless remotes require a scout
     if (remote == undefined) {
