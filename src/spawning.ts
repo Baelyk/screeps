@@ -347,8 +347,15 @@ function catastropheSpawning(room: VisibleRoom): void {
 
         // If there is a harvester, let's now prioritize the spawn queue
         // If there are no miners alive, spawn a miner first. Then, spawn a
-        // tender. Then carry on.
+        // tender, then spawn haulers. Then carry on.
         if (countRole(room.getRoom(), CreepRole.miner) === 0) {
+          const hauler = _.remove(room.getSpawnQueue(), {
+            role: CreepRole.hauler,
+            overrides: { room: room.name },
+          })[0];
+          if (hauler != undefined) {
+            room.addToSpawnQueue(hauler, true);
+          }
           const tender = _.remove(room.getSpawnQueue(), {
             role: CreepRole.tender,
             overrides: { room: room.name },
@@ -356,7 +363,7 @@ function catastropheSpawning(room: VisibleRoom): void {
           if (tender != undefined) {
             room.addToSpawnQueue(tender, true);
           }
-          // Remove whatever miner is in the room
+          // Remove whatever miner is in the room queue
           let miner = _.remove(room.getSpawnQueue(), {
             role: CreepRole.miner,
           })[0];
