@@ -49,7 +49,7 @@ export function updateSpawnQueue(room: VisibleRoom): void {
       }
 
       const queueEntry = { role, overrides };
-      room.addToSpawnQueue(queueEntry, _.includes(prioritySpawns, role));
+      room.addToSpawnQueue(queueEntry, isPriority(room, role, overrides));
     }
   });
 
@@ -393,4 +393,40 @@ function catastropheSpawning(room: VisibleRoom): void {
       );
       break;
   }
+}
+
+function isPriority(
+  room: VisibleRoom,
+  role: CreepRole,
+  overrides: Partial<CreepMemory>,
+): boolean {
+  if (role === CreepRole.tender && room.name === overrides.room) {
+    return true;
+  }
+  if (role === CreepRole.miner && room.name === overrides.room) {
+    return true;
+  }
+  if (role === CreepRole.hauler && room.name === overrides.room) {
+    return true;
+  }
+
+  const gameRoom = room.getRoom();
+  const energySystemRunning =
+    countRole(gameRoom, CreepRole.tender) >= 1 &&
+    countRole(gameRoom, CreepRole.miner) >= 2 &&
+    countRole(gameRoom, CreepRole.hauler) >= 2;
+  // If the energy system is running, the following aren't priorities
+  if (!energySystemRunning) {
+    return false;
+  }
+
+  if (role === CreepRole.guard) {
+    return true;
+  }
+  if (role === CreepRole.claimer) {
+    return true;
+  }
+
+  // Default to false
+  return false;
 }
