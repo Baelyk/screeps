@@ -114,7 +114,7 @@ function miner(creep: Creep) {
     throw new CreepRoleMemoryError(creep, "spot");
   }
   if (creep.pos.x !== spot.x || creep.pos.y !== spot.y) {
-    const response = errorConstant(creep.moveTo(spot));
+    const response = creep.moveTo(spot);
     return;
   }
   const source: Source | null = Game.getObjectById(

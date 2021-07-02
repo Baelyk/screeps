@@ -199,6 +199,15 @@ function memoryOverridesMiner(room: VisibleRoom): Partial<CreepMemory> {
   // This miner's target source should be the "first" source in the room not
   // assigned to a miner in the room.
   const minedSources = miners.map((minerMem) => minerMem.assignedSource);
+  _.forEach(room.getSpawnQueue(), (item) => {
+    if (
+      item.role === CreepRole.miner &&
+      item.overrides != undefined &&
+      item.overrides.assignedSource != undefined
+    ) {
+      minedSources.push(item.overrides.assignedSource);
+    }
+  });
   const sourceId = room
     .getSources()
     .find((roomSource) => minedSources.indexOf(roomSource) === -1);
@@ -256,7 +265,15 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
   const haulerSpots = haulers.map((creepMem) =>
     livenRoomPosition(creepMem.spot),
   );
-  info(haulerSpots);
+  _.forEach(room.getSpawnQueue(), (item) => {
+    if (
+      item.role === CreepRole.hauler &&
+      item.overrides != undefined &&
+      item.overrides.spot != undefined
+    ) {
+      haulerSpots.push(item.overrides.spot);
+    }
+  });
 
   // Find miners for the room
   const miners = _.filter(Memory.creeps, {
