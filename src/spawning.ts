@@ -324,19 +324,20 @@ function catastropheSpawning(room: VisibleRoom): void {
         room: room.name,
         role: CreepRole.harvester,
       });
-      if (harvesterExists) {
-        return;
-      }
-      // Less than 300 energy available
-      const energy =
-        room.getRoom().energyAvailable +
-        room.storedResourceAmount(RESOURCE_ENERGY);
-      // No harvested queued
       const harvesterQueued = _.some(room.getSpawnQueue(), {
         role: CreepRole.harvester,
       });
+      if (harvesterExists || harvesterQueued) {
+        return;
+      }
 
-      if (energy <= 300 && !harvesterQueued) {
+      // There is a catastrophe if there is less than 300 energy available in
+      // the room, or there are no harvesters/miners.
+
+      const energy =
+        room.getRoom().energyAvailable +
+        room.storedResourceAmount(RESOURCE_ENERGY);
+      if (energy <= 300 || countRole(room.getRoom(), CreepRole.miner) === 0) {
         // Catastrophe detected!
         warn(`Catastrophe detected in ${room.roomType} room ${room.name}`);
         room.addToSpawnQueue({ role: CreepRole.harvester }, true);
