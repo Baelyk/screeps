@@ -77,34 +77,8 @@ export function generateBodyByRole(
     case CreepRole.extractor:
     case CreepRole.builder:
     case CreepRole.upgrader: {
-      const body: BodyPartConstant[] = [];
-      const bodyUnits = Math.min(
-        50,
-        Math.floor(spawn.room.energyCapacityAvailable / 50),
-      );
-      // 1/3 each in priority order:
-      // MOVE
-      // WORK
-      // CARRY
-      // However, since WORK parts cost twice the normal, it's actually by 1/4s
-      // of body units, which will produce the 1/3 body ratio.
-      const fourth = bodyUnits / 4;
-      const moves = Math.ceil(fourth);
-      const works = Math.floor(fourth);
-      const carries = Math.ceil(fourth);
-      for (let i = 0; i < bodyUnits; i++) {
-        if (i < moves) {
-          body.push(MOVE);
-        } else if (i < moves + works) {
-          body.push(WORK);
-        } else if (i < moves + works + carries) {
-          body.push(CARRY);
-        } else {
-          // Done building the body
-          break;
-        }
-      }
-      return body;
+      const energy = spawn.room.energyCapacityAvailable;
+      return bodyFromSegments([MOVE, WORK, CARRY], energy);
     }
     case CreepRole.tender:
     case CreepRole.hauler: {
@@ -140,20 +114,8 @@ export function generateBodyByRole(
       return [MOVE, CARRY, WORK];
     }
     case CreepRole.claimer: {
-      const body: BodyPartConstant[] = [];
-      const availableEnergy = spawn.room.energyCapacityAvailable;
-      const units = Math.min(
-        9,
-        Math.floor(
-          availableEnergy / (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]),
-        ),
-      );
-      for (let i = 0; i < units; i++) {
-        body.push(CLAIM);
-        body.push(MOVE);
-      }
-      body.sort();
-      return body;
+      const energy = spawn.room.energyCapacityAvailable;
+      return bodyFromSegments([CLAIM, MOVE], energy, 9);
     }
     case CreepRole.remoteHauler: {
       const availableEnergy = spawn.room.energyCapacityAvailable;
@@ -232,4 +194,39 @@ export function spawnManager(): void {
       `Error processing spawn behavior for spawn ${spawn.name}`,
     );
   }
+}
+
+function bodyFromSegments(
+  segment: BodyPartConstant[],
+  energy: number,
+  maxUnits = 50,
+): BodyPartConstant[] {
+  // 50 parts max, so 50 / parts in a segment max
+  if (maxUnits === 50) {
+    maxUnits = Math.floor(50 / segment.length);
+  }
+  const cost = _.sum(segment, (part) => {
+    return BODYPART_COST[part];
+  });
+  const units = Math.min(maxUnits, Math.floor(energy / cost));
+  const parts = _.countBy(segment, _.identity);
+  const body: BodyPartConstant[] = [];
+  let addMove = false;
+
+  _.forEach(parts, (count, part) => {
+    let quantity = count * units;
+    if (part === MOVE) {
+      addMove = true;
+      quantity = count * units - 1;
+    }
+    for (let i = 0; i < quantity; i++) {
+      body.push(part as BodyPartConstant);
+    }
+  });
+
+  if (addMove) {
+    body.push(MOVE);
+  }
+
+  return body;
 }
