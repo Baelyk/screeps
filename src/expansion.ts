@@ -138,8 +138,14 @@ function expansionBehavior(expansionName: string): void {
 
   // Add expansion's construction queue to it's caretakers, but only empty the
   // expansion's queue if it's below RCL 4
-  caretaker.concatToConstructionQueue(expansion.getConstructionQueue());
-  if (expansion.roomLevel() <= 4) {
+  const caretakerQueue = caretaker.getConstructionQueue();
+  caretaker.concatToConstructionQueue(
+    _.filter(
+      expansion.getConstructionQueue(),
+      (item) => !_.includes(caretakerQueue, item),
+    ),
+  );
+  if (expansion.roomLevel() < 4) {
     expansion.emptyConstructionQueue();
   }
 
