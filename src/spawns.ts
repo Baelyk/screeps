@@ -62,7 +62,7 @@ export function generateBodyByRole(
 ): BodyPartConstant[] {
   switch (role) {
     case CreepRole.miner: {
-      const body: BodyPartConstant[] = [MOVE];
+      const body: BodyPartConstant[] = [MOVE, CARRY];
       // The capacity minus the carry and move part cost divided by the work part cost
       const workParts = Math.min(
         7,

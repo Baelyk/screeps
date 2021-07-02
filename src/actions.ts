@@ -10,7 +10,7 @@ import { VisibleRoom } from "roomMemory";
  * @param creep The creep to harvest the energy
  * @param source The Source, or undefined
  */
-export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
+export function harvestEnergy(creep: Creep, source?: Source | Mineral): ScreepsReturnCode {
   // TODO: This currently permanently assigns a source to creeps that shouldn't have a permanent
   // source. Additionally, this is a LOT of CPU for harvesting. Even worse, this doesn't even solve
   // the problem I wrote it to solve, which was picking a source not blocked by another creep.
@@ -76,6 +76,7 @@ export function harvestEnergy(creep: Creep, source?: Source | Mineral): void {
   ) {
     delete Memory.creeps[creep.name].assignedSource;
   }
+  return response;
 }
 
 /**

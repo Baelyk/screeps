@@ -27,6 +27,7 @@ import {
   awayFromExitDirection,
   bodyCost,
   countRole,
+  countBodyPart,
   livenRoomPosition,
   onExit,
 } from "utils/helpers";
@@ -109,14 +110,33 @@ function miner(creep: Creep) {
       creep.memory.spot.y,
     );
   }
-  if (spot && (creep.pos.x !== spot.x || creep.pos.y !== spot.y)) {
+  if (spot == undefined) {
+    throw new CreepRoleMemoryError(creep, "spot");
+  }
+  if (creep.pos.x !== spot.x || creep.pos.y !== spot.y) {
     const response = errorConstant(creep.moveTo(spot));
     return;
   }
   const source: Source | null = Game.getObjectById(
     creep.memory.assignedSource || "",
   );
-  harvestEnergy(creep, source || undefined);
+  const response = harvestEnergy(creep, source || undefined);
+  if (
+    response === ERR_NOT_ENOUGH_RESOURCES &&
+    countBodyPart(creep.body, CARRY) > 0
+  ) {
+    const container = _.find(spot.lookFor(LOOK_STRUCTURES), {
+      structureType: STRUCTURE_CONTAINER,
+    });
+    if (container == undefined) {
+      return;
+    }
+    if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+      getEnergy(creep, container);
+    } else {
+      repair(creep, container);
+    }
+  }
 }
 
 /**
@@ -663,22 +683,6 @@ function remoteHauler(creep: Creep) {
     .find((structure) => structure.structureType === STRUCTURE_ROAD);
   if (road != undefined && road.hits < road.hitsMax) {
     creep.repair(road);
-  } else if (
-    Game.rooms[creep.memory.room] != undefined &&
-    creep.pos.isNearTo(livenRoomPosition(creep.memory.spot))
-  ) {
-    const container = livenRoomPosition(creep.memory.spot)
-      .lookFor(LOOK_STRUCTURES)
-      .find((structure) => structure.structureType === STRUCTURE_CONTAINER);
-    if (container != undefined && container.hits < container.hitsMax) {
-      if (container.hits < container.hitsMax * 0.9) {
-        // TODO: Don't wanna move, not really sure how this works
-        creep.cancelOrder("move");
-        creep.cancelOrder("moveTo");
-        creep.cancelOrder("moveByPath");
-      }
-      creep.repair(container);
-    }
   }
 }
 
@@ -952,10 +956,16 @@ function renewCreep(creep: Creep): void {
   // to combat tender renewal preventing all other creeps from spawning.
   if (creep.ticksToLive && creep.ticksToLive < 1400 && energyRatio > 0.5) {
     // If the creep is adjacent to the spawn
-    if (creep.pos.getRangeTo(spawn) === 1) {
-      spawn.renewCreep(creep);
-    } else {
+    const response = spawn.renewCreep(creep);
+    if (response === ERR_NOT_IN_RANGE) {
       creep.moveTo(spawn);
+    } else if (response !== OK) {
+      info(
+        `Creep ${
+          creep.name
+        } cancelling renew due to spawn renew ${errorConstant(response)}`,
+      );
+      switchTaskAndDoRoll(creep, CreepTask.fresh);
     }
   } else {
     switchTaskAndDoRoll(creep, CreepTask.fresh);
