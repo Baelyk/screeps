@@ -10,7 +10,10 @@ import { VisibleRoom } from "roomMemory";
  * @param creep The creep to harvest the energy
  * @param source The Source, or undefined
  */
-export function harvestEnergy(creep: Creep, source?: Source | Mineral): ScreepsReturnCode {
+export function harvestEnergy(
+  creep: Creep,
+  source?: Source | Mineral,
+): ScreepsReturnCode {
   // TODO: This currently permanently assigns a source to creeps that shouldn't have a permanent
   // source. Additionally, this is a LOT of CPU for harvesting. Even worse, this doesn't even solve
   // the problem I wrote it to solve, which was picking a source not blocked by another creep.
@@ -138,23 +141,13 @@ export function getEnergy(
         `Creep ${creep.name} unable to find suitable structure for getEnergy`,
       );
       if (
+        countBodyPart(creep.body, WORK) > 0 &&
         countRole(creep.room, CreepRole.miner) <
-        creep.room.find(FIND_SOURCES).length
+          creep.room.find(FIND_SOURCES).length
       ) {
         harvestEnergy(creep);
       } else {
-        // No structures, no harvesting, so try and find energy on the ground.
-        const pile = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-          filter: {
-            resourceType: RESOURCE_ENERGY,
-          },
-        });
-        if (pile != undefined) {
-          const response = creep.pickup(pile);
-          if (response === ERR_NOT_IN_RANGE) {
-            creep.moveTo(pile);
-          }
-        }
+        recoverEnergy(creep, 50);
       }
       // You just have to say you're OK because they would never understand
       return OK;
