@@ -319,29 +319,65 @@ function catastropheSpawning(room: VisibleRoom): void {
     }
     // falls through
     case RoomType.primary: {
-      // No harvester in/for the room
-      const harvesterExists = _.some(Memory.creeps, {
-        room: room.name,
-        role: CreepRole.harvester,
-      });
+      // If a harvester is queued, stop for now
       const harvesterQueued = _.some(room.getSpawnQueue(), {
         role: CreepRole.harvester,
       });
-      if (harvesterExists || harvesterQueued) {
+      if (harvesterQueued) {
         return;
       }
-
       // There is a catastrophe if there is less than 300 energy available in
       // the room, or there are no harvesters/miners.
-
       const energy =
         room.getRoom().energyAvailable +
         room.storedResourceAmount(RESOURCE_ENERGY);
       if (energy <= 300 || countRole(room.getRoom(), CreepRole.miner) === 0) {
         // Catastrophe detected!
         warn(`Catastrophe detected in ${room.roomType} room ${room.name}`);
-        room.addToSpawnQueue({ role: CreepRole.harvester }, true);
+
+        // Spawn a harvester if there isn't one
+        const harvesterExists = _.some(Memory.creeps, {
+          room: room.name,
+          role: CreepRole.harvester,
+        });
+        if (!harvesterExists) {
+          room.addToSpawnQueue({ role: CreepRole.harvester }, true);
+          return;
+        }
+
+        // If there is a harvester, let's now prioritize the spawn queue
+        // If there are no miners alive, spawn a miner first. Then, spawn a
+        // tender. Then carry on.
+        if (countRole(room.getRoom(), CreepRole.miner) === 0) {
+          const tender = _.remove(room.getSpawnQueue(), {
+            role: CreepRole.tender,
+            overrides: { room: room.name },
+          })[0];
+          if (tender != undefined) {
+            room.addToSpawnQueue(tender, true);
+          }
+          // Remove whatever miner is in the room
+          let miner = _.remove(room.getSpawnQueue(), {
+            role: CreepRole.miner,
+          })[0];
+          // If the removed miner wasn't for this room (but probably for a
+          // remote room), readd a miner for this room instead.
+          if (
+            miner != undefined &&
+            miner.overrides != undefined &&
+            miner.overrides.room !== room.name
+          ) {
+            miner = {
+              role: CreepRole.miner,
+              overrides: memoryOverridesMiner(room),
+            };
+          }
+          if (miner != undefined) {
+            room.addToSpawnQueue(miner, true);
+          }
+        }
       }
+
       break;
     }
     default:
