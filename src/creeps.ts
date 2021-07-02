@@ -131,10 +131,10 @@ function miner(creep: Creep) {
     if (container == undefined) {
       return;
     }
-    if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-      getEnergy(creep, container);
-    } else {
+    if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
       repair(creep, container);
+    } else {
+      getEnergy(creep, container);
     }
   }
 }
