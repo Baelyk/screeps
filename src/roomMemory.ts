@@ -8,6 +8,7 @@ import {
 import { census } from "population";
 import { createLinkMemory } from "links";
 import { Pos, Position } from "classes/position";
+import { TerminalMemory, TerminalInfo } from "terminalMemory";
 
 export function testFunction(): void {
   info(`Testfunction`);
@@ -80,6 +81,7 @@ declare global {
     towers: Id<StructureTower>[];
     links: RoomLinksMemory;
     remotes?: string[];
+    terminal?: TerminalMemory;
   }
 
   interface RoomQueueMemory {
@@ -224,6 +226,14 @@ export class RoomInfo implements RoomMemory {
       throw new ScriptError(`Room ${this.name} lacks links memory`);
     }
     return ownedMemory.links;
+  }
+
+  public getTerminalMemory(): TerminalMemory {
+    const ownedMemory = this.getOwnedMemory();
+    if (ownedMemory.terminal == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks terminal memory`);
+    }
+    return ownedMemory.terminal;
   }
 
   getPlannerMemory(): RoomPlannerMemory | undefined {
@@ -866,7 +876,12 @@ export class VisibleRoom extends RoomInfo {
     const ownedMemory = Memory.rooms[this.name].owned;
     let remotes = [];
 
-    const { spawns, towers, links } = this.createSpecialStructuresMemory();
+    const {
+      spawns,
+      towers,
+      links,
+      terminal,
+    } = this.createSpecialStructuresMemory();
 
     if (ownedMemory == undefined) {
       reset = true;
@@ -888,13 +903,20 @@ export class VisibleRoom extends RoomInfo {
       remotes = ownedMemory.remotes;
     }
 
-    Memory.rooms[this.name].owned = { spawns, towers, links, remotes };
+    Memory.rooms[this.name].owned = {
+      spawns,
+      towers,
+      links,
+      terminal,
+      remotes,
+    };
   }
 
   createSpecialStructuresMemory(): {
     spawns: Id<StructureSpawn>[];
     towers: Id<StructureTower>[];
     links: RoomLinksMemory;
+    terminal?: TerminalMemory;
   } {
     let spawns = [];
     let towers = [];
@@ -926,7 +948,16 @@ export class VisibleRoom extends RoomInfo {
       },
     );
 
-    return { spawns, towers, links };
+    const terminalStructure = _.find(structures, {
+      structureType: STRUCTURE_TERMINAL,
+    }) as StructureTerminal | undefined;
+
+    let terminal: TerminalMemory | undefined = undefined;
+    if (terminalStructure != undefined) {
+      terminal = TerminalInfo.createMemory(terminalStructure);
+    }
+
+    return { spawns, towers, links, terminal };
   }
 
   updatePlannerMemory(): void {
