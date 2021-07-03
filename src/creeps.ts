@@ -1124,10 +1124,6 @@ export function handleDead(name: string): void {
         unassignConstruction(name);
       }
       break;
-    // Bandaid/potentially better way to replace dead haulers
-    case CreepRole.hauler:
-      respawnCreep(memory);
-      break;
   }
 
   if (memory.room != undefined) {
