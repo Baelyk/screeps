@@ -283,7 +283,24 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
 
   // Find a miner with a spot that no hauler has
   const associatedMiner = miners.find((minerMemory) => {
-    return haulerSpots.indexOf(livenRoomPosition(minerMemory.spot)) === -1;
+    const spot = livenRoomPosition(minerMemory.spot);
+    // TODO: Uhhh, does the below line work since it compares RoomPosition
+    // objects
+    if (haulerSpots.indexOf(spot) === -1) {
+      if (room.roomType === RoomType.primary) {
+        // In primary rooms, check that there isn't a link adjacent
+        return (
+          spot.findInRange(FIND_MY_STRUCTURES, 1, {
+            filter: { structureType: STRUCTURE_LINK },
+          }).length === 0
+        );
+      } else {
+        // Remote rooms won't have links, so this spot works
+        return true;
+      }
+    }
+    // Another hauler has this spot
+    return false;
   });
 
   if (associatedMiner == undefined) {

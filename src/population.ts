@@ -49,7 +49,7 @@ export function census(room: VisibleRoom): void {
     // One hauler per tender upgraders with a minimum of 1 tender
     tenders = Math.floor(upgraders / 4) || 1;
     // One hauler per miner
-    haulers = miners;
+    haulers = haulerLimit(room);
     // One extractor creep per extractor structure (also one max)
     extractors = extractorLimit(room);
     // Scouts based on visionless remotes of this room
@@ -222,4 +222,27 @@ function scoutLimit(room: VisibleRoom): number {
     }
   });
   return count;
+}
+
+function haulerLimit(room: VisibleRoom): number {
+  // Need RCL 7 to have miner links
+  const sources = room.getSources();
+  if (room.roomLevel() < 7) {
+    return sources.length;
+  }
+  let minerLinks = 0;
+  _.forEach(sources, (sourceId) => {
+    const source = Game.getObjectById(sourceId);
+    if (source != undefined) {
+      if (
+        source.pos.findInRange(FIND_MY_STRUCTURES, 2, {
+          filter: { structureType: STRUCTURE_LINK },
+        })
+      ) {
+        minerLinks++;
+      }
+    }
+  });
+  // Need a hauler for each source without a miner link
+  return sources.length - minerLinks;
 }
