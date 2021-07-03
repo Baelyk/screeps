@@ -504,8 +504,31 @@ function tender(creep: Creep) {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has energy, keep depositing
         const deposited = depositEnergy(creep, true);
-        // If not depositing, recover energy from tombs
-        if (!deposited) recoverEnergy(creep, -1);
+        // If not depositing, empty the spawn link, and then recover tombs
+        if (!deposited) {
+          let emptyingSpawnLink = false;
+          try {
+            const room = new VisibleRoom(creep.room.name);
+            const spawnLink = room.getSpawnLink();
+            if (
+              spawnLink.store.getUsedCapacity(RESOURCE_ENERGY) >
+              LINK_CAPACITY / 2
+            ) {
+              emptyingSpawnLink = true;
+              if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+                getEnergy(creep, spawnLink);
+              } else {
+                storeEnergy(creep, creep.room.storage);
+              }
+            }
+          } catch (error) {
+            // No spawn link, I guess
+          }
+
+          if (!emptyingSpawnLink) {
+            recoverEnergy(creep, -1);
+          }
+        }
       } else {
         // If the creep has no energy, begin getting energy
         switchTaskAndDoRoll(creep, CreepTask.getEnergy);
