@@ -62,16 +62,31 @@ export function generateBodyByRole(
 ): BodyPartConstant[] {
   switch (role) {
     case CreepRole.miner: {
-      const body: BodyPartConstant[] = [MOVE, CARRY];
-      // The capacity minus the carry and move part cost divided by the work part cost
-      const workParts = Math.min(
-        7,
-        Math.floor((spawn.room.energyCapacityAvailable - 100) / 100),
-      );
-      for (let i = 0; i < workParts; i++) {
-        body.push(WORK);
+      let energy = spawn.room.energyCapacityAvailable;
+      if (
+        energy >
+        BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
+      ) {
+        // Enough energy to use segmented miner
+        return ([CARRY] as BodyPartConstant[]).concat(
+          bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
+        );
+      } else {
+        // Prioritize work parts over move parts
+        energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
+        const body: BodyPartConstant[] = [CARRY, MOVE];
+        // The capacity minus the carry and move part cost divided by the work part cost
+        const workParts = Math.min(7, energy / BODYPART_COST[WORK]);
+        energy -= workParts * BODYPART_COST[WORK];
+        const additionalMoves = energy / BODYPART_COST[MOVE];
+        for (let i = 0; i < additionalMoves; i++) {
+          body.push(MOVE);
+        }
+        for (let i = 0; i < workParts; i++) {
+          body.push(WORK);
+        }
+        return body;
       }
-      return body;
     }
     // General body
     case CreepRole.extractor:
