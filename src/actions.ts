@@ -99,8 +99,21 @@ export function getEnergy(
     if (response === OK) {
       return response;
     }
+    // If the spawn link is above half energy, get energy from it
+    try {
+      const spawnLink = new VisibleRoom(creep.room.name).getSpawnLink();
+      if (
+        spawnLink.store.getUsedCapacity(RESOURCE_ENERGY) >
+        LINK_CAPACITY / 2
+      ) {
+        target = spawnLink;
+      }
+    } catch (e) {
+      // Spawn link is not going to work
+    }
     // If there is a storage, make sure it has energy first
     if (
+      target == undefined &&
       creep.room.storage != undefined &&
       creep.room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0
     ) {
@@ -254,8 +267,18 @@ export function depositEnergy(creep: Creep, disableUpgrading = false): boolean {
     target != undefined &&
     target.store.getFreeCapacity(RESOURCE_ENERGY) !== 0
   ) {
+    let amount = Math.min(
+      target.store.getFreeCapacity(RESOURCE_ENERGY),
+      creep.store.getUsedCapacity(RESOURCE_ENERGY),
+    );
+    if (target.structureType === STRUCTURE_LINK) {
+      amount = Math.min(
+        amount,
+        LINK_CAPACITY / 2 - target.store.getUsedCapacity(RESOURCE_ENERGY),
+      );
+    }
     // Try to transfer energy to the target.
-    const response = creep.transfer(target, RESOURCE_ENERGY);
+    const response = creep.transfer(target, RESOURCE_ENERGY, amount);
     if (response === ERR_NOT_IN_RANGE) {
       // If the spawn is not in range, move towards the spawn
       creep.moveTo(target);
@@ -330,7 +353,7 @@ export function storeEnergy(creep: Creep, target?: Structure): void {
     }
   } else if (response !== OK) {
     warn(
-      `Creep ${creep.name} getting energy ${
+      `Creep ${creep.name} storing energy ${
         structure.pos
       } with response ${errorConstant(response)}`,
     );

@@ -118,12 +118,14 @@ function miner(creep: Creep) {
     return;
   }
 
-  // If there is a link with space, transfer energy into it
-  const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
-    filter: { structureType: STRUCTURE_LINK },
-  })[0] as StructureLink | undefined;
-  if (link != undefined && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-    storeEnergy(creep, link);
+  if (creep.store[RESOURCE_ENERGY] > 0) {
+    // If there is a link with space, transfer energy into it
+    const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
+      filter: { structureType: STRUCTURE_LINK },
+    })[0] as StructureLink | undefined;
+    if (link != undefined && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+      storeEnergy(creep, link);
+    }
   }
 
   // Harvest energy from the source

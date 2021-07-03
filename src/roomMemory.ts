@@ -1229,6 +1229,19 @@ export class VisibleRoom extends RoomInfo {
     hostiles.concat(room.find(FIND_HOSTILE_STRUCTURES));
     return hostiles;
   }
+
+  public getSpawnLink(): StructureLink {
+    const links = this.getLinksMemory();
+    const linkId = links.spawn;
+    if (linkId == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks a spawn link`);
+    }
+    const link = Game.getObjectById(linkId);
+    if (link == undefined) {
+      throw new GetByIdError(linkId, STRUCTURE_LINK);
+    }
+    return link;
+  }
 }
 
 class OwnedRoom extends VisibleRoom {

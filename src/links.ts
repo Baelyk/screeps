@@ -42,7 +42,7 @@ export function createLinkMemory(
   let linkMode = LinkMode.none;
   let linkType = LinkType.unknown;
 
-  // Try and identify spawn/controller link
+  // Try and identify link type
   const gameRoom = room.getRoom();
   const storage = gameRoom.storage;
   if (storage == undefined) {
@@ -66,6 +66,10 @@ export function createLinkMemory(
       linkType = LinkType.controller;
       linkMode = LinkMode.recieve;
     }
+  }
+  if (link.pos.findInRange(FIND_SOURCES, 2).length > 0) {
+    linkType = LinkType.source;
+    linkMode = LinkMode.send;
   }
 
   return { mode: linkMode, type: linkType };
