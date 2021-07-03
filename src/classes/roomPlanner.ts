@@ -33,7 +33,7 @@ interface OwnedRoomPlannerPlanMemory {
   storage: number;
   sourceContainers: number[];
   towers: number[];
-  links: number[];
+  links: [number, number, number[]];
   extractor?: number;
   roads: OwnedRoomPlannerRoadMemory;
   extensions: number[];
@@ -286,6 +286,7 @@ export class RoomPlanner extends RoomPlannerBase {
     const linkLocations = this.findLinkLocations(
       spawnLocation,
       storageLocation,
+      sourceContainers,
       occupied,
     );
     // Mark the controller link location as occupied. Storage link placed in an
@@ -293,6 +294,8 @@ export class RoomPlanner extends RoomPlannerBase {
     occupied.push(linkLocations[1]);
     this.addObstruction(linkLocations[0]);
     this.addObstruction(linkLocations[1]);
+    this.addObstruction(linkLocations[2][0]);
+    this.addObstruction(linkLocations[2][1]);
 
     const extractorLocation = this.findExtractorLocation();
 
@@ -529,8 +532,9 @@ export class RoomPlanner extends RoomPlannerBase {
   findLinkLocations(
     spawn: number,
     storage: number,
+    sourceContainers: number[],
     occupied: number[],
-  ): number[] {
+  ): [number, number, number[]] {
     // The storage link should be on one of the diagonals of the storage, which
     // is already marked occupied. However, it should not be placed within the
     // spawn's ring of roads, in the case that the storage and spawn are close.
@@ -571,7 +575,23 @@ export class RoomPlanner extends RoomPlannerBase {
       );
     }
 
-    return [storageLink, controllerLink];
+    const sourceLinks: number[] = [];
+    _.forEach(sourceContainers, (sourceContainer) => {
+      const adjacents = this.graph.getNeighbors(sourceContainer, 1, true);
+      const sourceLink = _.find(
+        adjacents,
+        (adjacent) => !_.includes(occupied, adjacent),
+      );
+      if (sourceLink == undefined) {
+        throw new RoomPlannerError(
+          this.roomName,
+          `Unable to find source link from container ${sourceContainer}`,
+        );
+      }
+      sourceLinks.push(sourceLink);
+    });
+
+    return [storageLink, controllerLink, sourceLinks];
   }
 
   findExtractorLocation(): number | undefined {
@@ -799,7 +819,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - +4 Labs
         // - Nuker
         this.buildMany(plan.extensions.slice(50), STRUCTURE_EXTENSION);
-        this.buildMany(plan.links.slice(4), STRUCTURE_LINK);
+        // this.buildMany(plan.links.slice(4), STRUCTURE_LINK);
         this.buildMany(plan.towers.slice(3), STRUCTURE_TOWER);
       }
       // falls through
@@ -812,7 +832,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - +3 Labs
         // - 1 Factory
         this.buildMany(plan.extensions.slice(40, 50), STRUCTURE_EXTENSION);
-        this.buildMany(plan.links.slice(3, 4), STRUCTURE_LINK);
+        this.build(plan.links[2][1], STRUCTURE_LINK);
         this.build(plan.towers[2], STRUCTURE_TOWER);
       }
       // falls through
@@ -824,7 +844,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - Terminal
         // - 3 labs
         this.buildMany(plan.extensions.slice(30, 40), STRUCTURE_EXTENSION);
-        this.buildMany(plan.links.slice(2, 3), STRUCTURE_LINK);
+        this.build(plan.links[2][0], STRUCTURE_LINK);
         if (plan.extractor != undefined && plan.roads.extractor != undefined) {
           this.buildMany(plan.roads.extractor, STRUCTURE_EXTRACTOR);
           this.build(plan.extractor, STRUCTURE_EXTRACTOR);
@@ -837,7 +857,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - 2 Links
         // - +1 Tower
         this.buildMany(plan.extensions.slice(20, 30), STRUCTURE_EXTENSION);
-        this.buildMany(plan.links.slice(0, 2), STRUCTURE_LINK);
+        this.buildMany([plan.links[0], plan.links[1]], STRUCTURE_LINK);
         this.build(plan.towers[1], STRUCTURE_TOWER);
       }
       // falls through
