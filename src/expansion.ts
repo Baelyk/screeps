@@ -165,6 +165,12 @@ function expansionBehavior(expansionName: string): void {
     expansion.updateMemory();
   }
 
+  // Once an expansion has a storage, it can be freed
+  // if (expansion.getRoom().storage != undefined) {
+  //   info(`Room ${expansionName} has a storage and is no longer an in progress expansion`);
+  //   _.remove(Memory.expansion.inProgress, expansionName);
+  // }
+
   info(`Expansion ${expansionName} should be all set`);
 }
 
