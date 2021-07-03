@@ -1225,8 +1225,8 @@ export class VisibleRoom extends RoomInfo {
 
   public getHostiles(): (Creep | Structure)[] {
     const room = this.getRoom();
-    const hostiles: (Creep | Structure)[] = room.find(FIND_HOSTILE_CREEPS);
-    hostiles.concat(room.find(FIND_HOSTILE_STRUCTURES));
+    let hostiles: (Creep | Structure)[] = room.find(FIND_HOSTILE_CREEPS);
+    hostiles = hostiles.concat(room.find(FIND_HOSTILE_STRUCTURES));
     return hostiles;
   }
 
