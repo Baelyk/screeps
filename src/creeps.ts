@@ -399,7 +399,7 @@ function hauler(creep: Creep) {
           .find((found) => found.structureType === STRUCTURE_CONTAINER) as
           | StructureContainer
           | undefined;
-        if (structure === undefined) {
+        if (structure == undefined) {
           // Throw an error for remote hauler creeps to return to remote
           // specific behavior
           if (creep.memory.role === CreepRole.remoteHauler) {
@@ -417,13 +417,12 @@ function hauler(creep: Creep) {
           }
         }
 
-        // Every 10 ticks check for nearby energy to recover. Otherwise, get
-        // energy like normal.
-        let response: ScreepsReturnCode = OK;
-        if (Game.time % 10 === 0) {
-          response = recoverEnergy(creep);
-        }
-        if (response === OK) {
+        if (
+          structure != undefined &&
+          structure.store.getUsedCapacity(RESOURCE_ENERGY) === 0
+        ) {
+          recoverEnergy(creep);
+        } else {
           // Get energy from the container
           getEnergy(creep, structure);
         }
