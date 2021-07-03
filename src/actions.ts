@@ -393,6 +393,12 @@ export function upgradeController(creep: Creep): void {
     throw new ScriptError("upgradeController: creep.room.controller undefined");
   }
 
+  // Only upgrade the controller if I own it
+  if (!controller.my && creep.room.name !== creep.memory.room) {
+    moveToRoom(creep, creep.memory.room);
+    return;
+  }
+
   // Attempt to upgrade the controller, and save the response (OK or error)
   const response = creep.upgradeController(controller);
   if (response === ERR_NOT_IN_RANGE) {
@@ -501,7 +507,7 @@ export function repair(creep: Creep, repair?: Structure): void {
 export function idle(creep: Creep, position?: RoomPosition): void {
   if (position === undefined) {
     // Idle creeps upgrade the controller
-    upgradeController(creep);
+    const response = upgradeController(creep);
   } else if (creep.pos != position) {
     creep.moveTo(position);
   }
