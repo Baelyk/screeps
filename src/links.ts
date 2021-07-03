@@ -88,6 +88,9 @@ function linkBehavior(link: StructureLink): void {
     }
     // Link is not spawn link
     if (memory.type !== LinkType.spawn) {
+      if (link.cooldown > 0) {
+        return;
+      }
       // Send to spawn if spawn is recieving
       const spawnLinkId = linksMemory.spawn;
       if (spawnLinkId == undefined) {
