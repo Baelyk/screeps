@@ -16,7 +16,7 @@ interface ExpansionMemory {
 
 function getExpansionTarget(): string | undefined {
   // TODO: Not hardcoded
-  return "E14N43";
+  return "E16N43";
 }
 
 export function expansionManager(): void {
@@ -75,7 +75,16 @@ function expansionBehavior(expansionName: string): void {
   const expansion = new VisibleRoom(expansionName);
 
   // Wait until there are no present hostiles
-  const hostiles = expansion.getHostiles();
+  const hostiles = _.filter(expansion.getHostiles(), (hostile) => {
+    // Ignore big ramparts
+    if (
+      (hostile as Structure).structureType === STRUCTURE_RAMPART &&
+      hostile.hits > 100000
+    ) {
+      return false;
+    }
+    return true;
+  });
   if (hostiles.length > 0) {
     // Check if a guard is on the way or in the spawn queue
     const caretakerSpawnQueue = caretaker.getSpawnQueue();

@@ -805,6 +805,10 @@ function scout(creep: Creep) {
       if (creep.room.name !== creep.memory.room) {
         moveToRoom(creep, creep.memory.room);
       } else {
+        if (onExit(creep.pos)) {
+          creep.move(awayFromExitDirection(creep.pos));
+          return;
+        }
         // If the controller has not already been signed, let's sign it
         const controller = creep.room.controller;
         if (controller == undefined) {
@@ -820,7 +824,7 @@ function scout(creep: Creep) {
             "no this is my favorite room so far",
           );
           if (response === ERR_NOT_IN_RANGE) {
-            creep.moveTo(controller);
+            creep.moveTo(controller, { maxRooms: 1 });
           }
         } else {
           if (creep.pos.isNearTo(controller.pos)) {
@@ -835,7 +839,7 @@ function scout(creep: Creep) {
             // Be near the controller
             // TODO: This isn't really necessary, the creep just needs to be in
             // the room and ideally out of the way
-            creep.moveTo(controller.pos);
+            creep.moveTo(controller.pos, { maxRooms: 1 });
           }
         }
       }
@@ -916,7 +920,7 @@ function guard(creep: Creep) {
         FIND_HOSTILE_CREEPS,
       );
       targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES));
-      const target = creep.pos.findClosestByPath(targets);
+      const target = _.min(targets, "hits"); // creep.pos.findClosestByPath(targets);
       // If there are no hostiles left, done attacking, go idle
       if (target == undefined) {
         switchTaskAndDoRoll(creep, CreepTask.idle);
@@ -931,7 +935,6 @@ function guard(creep: Creep) {
           target.id
         } with response ${errorConstant(moveResponse)}`,
       );
-      // if (creep.pos.isNearTo(target.pos)) {
       const attackResponse = creep.attack(target);
       info(
         `Creep ${creep.name} melee attacking ${
@@ -939,15 +942,22 @@ function guard(creep: Creep) {
         } with response ${errorConstant(attackResponse)}
           `,
       );
-      // }
-      // if (creep.pos.inRangeTo(target.pos, 3)) {
-      const rangedResponse = creep.rangedAttack(target);
-      info(
-        `Creep ${creep.name} ranged attacking ${
-          target.id
-        } with response ${errorConstant(rangedResponse)}`,
-      );
-      // }
+      const range = creep.pos.getRangeTo(target);
+      if (range > 1 && range <= 3) {
+        const rangedResponse = creep.rangedAttack(target);
+        info(
+          `Creep ${creep.name} ranged attacking ${
+            target.id
+          } with response ${errorConstant(rangedResponse)}`,
+        );
+      } else {
+        const massResponse = creep.rangedMassAttack();
+        info(
+          `Creep ${
+            creep.name
+          } mass range attacking with response ${errorConstant(massResponse)}`,
+        );
+      }
       break;
     }
     default: {
