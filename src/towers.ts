@@ -16,7 +16,12 @@ export function towerBehavior(tower: StructureTower): void {
       filter: (creep) => creep.hits < creep.hitsMax,
     });
     if (lowHealthCreeps.length > 0) {
-      target = _.min(lowHealthCreeps, "hits");
+      const lowest = _.min(lowHealthCreeps, "hits");
+      if ((lowest as Creep | number) === Infinity) {
+        target = null;
+      } else {
+        target = lowest;
+      }
     }
 
     // If all creeps are full health, repair instead
@@ -30,19 +35,14 @@ export function towerBehavior(tower: StructureTower): void {
 
         // There are no creeps, structures to target
         if (target == undefined) {
-          room.updateWallRepairQueue();
-          const wallId = room.getFromWallRepairQueue();
-          if (wallId != undefined) {
-            target = Game.getObjectById(wallId);
-            if (target != undefined) {
-              target = target as Structure;
-              // Target is a wall/rampart in need of repair
-              const response = errorConstant(tower.repair(target));
-              if (response !== "OK") {
-                info(
-                  `Tower ${tower.pos} is repairing ${target.pos}: ${response}`,
-                );
-              }
+          target = room.getNextWallRepairTarget() || null;
+          if (target != undefined) {
+            // Target is a wall/rampart in need of repair
+            const response = errorConstant(tower.repair(target));
+            if (response !== "OK") {
+              info(
+                `Tower ${tower.pos} is repairing ${target.pos}: ${response}`,
+              );
             }
           }
           return;

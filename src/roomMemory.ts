@@ -1147,6 +1147,47 @@ export class VisibleRoom extends RoomInfo {
     return tomb;
   }
 
+  public getNextWallRepairTarget():
+    | StructureWall
+    | StructureRampart
+    | undefined {
+    this.updateWallRepairQueue();
+    let targetId = this.getFromWallRepairQueue();
+    if (targetId == undefined) {
+      targetId = this.getFromWallRepairQueue();
+    }
+    if (
+      targetId == undefined &&
+      this.storedResourceAmount(RESOURCE_ENERGY) > 250000
+    ) {
+      return this.getLowestWallRampart();
+    }
+    info(`not getting lowest`);
+    if (targetId == undefined) {
+      return undefined;
+    }
+    return Game.getObjectById(targetId) || undefined;
+  }
+
+  getLowestWallRampart(): StructureWall | StructureRampart | undefined {
+    const room = this.getRoom();
+    const wallRamparts = _.filter(room.find(FIND_STRUCTURES), (structure) => {
+      return (
+        structure.structureType === STRUCTURE_WALL ||
+        structure.structureType === STRUCTURE_RAMPART
+      );
+    }) as (StructureWall | StructureRampart)[];
+    const lowest = _.min(wallRamparts, "hits") as
+      | StructureWall
+      | StructureRampart
+      | typeof Infinity;
+    info(`getLowest ${lowest}`);
+    if (lowest === Infinity) {
+      return undefined;
+    }
+    return lowest as StructureWall | StructureRampart;
+  }
+
   public removeAllConstructionSites(): void {
     const room = this.getRoom();
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => site.remove());
