@@ -76,9 +76,12 @@ export function generateBodyByRole(
         energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
         const body: BodyPartConstant[] = [CARRY, MOVE];
         // The capacity minus the carry and move part cost divided by the work part cost
-        const workParts = Math.min(7, energy / BODYPART_COST[WORK]);
+        const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
         energy -= workParts * BODYPART_COST[WORK];
-        const additionalMoves = energy / BODYPART_COST[MOVE];
+        const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
+        info(
+          `${spawn.room.energyCapacityAvailable} ${workParts} ${additionalMoves} ${energy}`,
+        );
         for (let i = 0; i < additionalMoves; i++) {
           body.push(MOVE);
         }

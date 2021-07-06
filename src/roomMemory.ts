@@ -8,7 +8,7 @@ import {
 import { census } from "population";
 import { createLinkMemory } from "links";
 import { Pos, Position } from "classes/position";
-import { TerminalMemory, TerminalInfo } from "terminalMemory";
+import { TerminalInfo, TerminalMemory } from "terminalMemory";
 
 export function testFunction(): void {
   info(`Testfunction`);
@@ -1241,6 +1241,19 @@ export class VisibleRoom extends RoomInfo {
       throw new GetByIdError(linkId, STRUCTURE_LINK);
     }
     return link;
+  }
+
+  public updateTerminalMemory(terminalMemory: TerminalMemory): void {
+    const owned = this.getOwnedMemory();
+    owned.terminal = terminalMemory;
+    Memory.rooms[this.name].owned = owned;
+  }
+
+  public getTerminalInfo(): TerminalInfo {
+    if (this.getRoom().terminal == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks a terminal`);
+    }
+    return new TerminalInfo(this.name);
   }
 }
 

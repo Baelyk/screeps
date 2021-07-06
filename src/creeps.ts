@@ -506,9 +506,9 @@ function tender(creep: Creep) {
         const deposited = depositEnergy(creep, true);
         // If not depositing, empty the spawn link, and then recover tombs
         if (!deposited) {
+          const room = new VisibleRoom(creep.room.name);
           let emptyingSpawnLink = false;
           try {
-            const room = new VisibleRoom(creep.room.name);
             const spawnLink = room.getSpawnLink();
             if (
               spawnLink.store.getUsedCapacity(RESOURCE_ENERGY) >
@@ -523,6 +523,22 @@ function tender(creep: Creep) {
             }
           } catch (error) {
             // No spawn link, I guess
+          }
+
+          // Manage the terminal
+          if (creep.room.terminal != undefined) {
+            const terminalInfo = room.getTerminalInfo();
+            const [resource, amount] = terminalInfo.getNextUnsatisfiedRequest();
+            if (resource != undefined && amount > 0) {
+              const storageResourceAmount = room.storedResourceAmount(resource);
+              if (storageResourceAmount > 0) {
+                if (creep.store.getUsedCapacity() > 0) {
+                  storeEnergy(creep, creep.room.storage);
+                } else {
+                  const storage = creep.room.storage;
+                }
+              }
+            }
           }
 
           if (!emptyingSpawnLink) {
@@ -920,9 +936,12 @@ function guard(creep: Creep) {
         FIND_HOSTILE_CREEPS,
       );
       targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES));
-      const target = _.min(targets, "hits"); // creep.pos.findClosestByPath(targets);
+      const target = _.min(targets, "hits") as
+        | Creep
+        | Structure
+        | typeof Infinity;
       // If there are no hostiles left, done attacking, go idle
-      if (target == undefined) {
+      if (target == undefined || typeof target === "number") {
         switchTaskAndDoRoll(creep, CreepTask.idle);
         return;
       }
