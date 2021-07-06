@@ -40,7 +40,7 @@ export function towerBehavior(tower: StructureTower): void {
               const response = errorConstant(tower.repair(target));
               if (response !== "OK") {
                 info(
-                  `Tower ${tower.id} is repairing ${target.id}: ${response}`,
+                  `Tower ${tower.pos} is repairing ${target.pos}: ${response}`,
                 );
               }
             }
@@ -51,7 +51,7 @@ export function towerBehavior(tower: StructureTower): void {
         // Target is a structure in need of repair
         const response = errorConstant(tower.repair(target));
         if (response !== "OK") {
-          info(`Tower ${tower.id} is repairing ${target.id}: ${response}`);
+          info(`Tower ${tower.pos} is repairing ${target.pos}: ${response}`);
           // Tower succesfully repairing target, so check if it will be at full
           // and if so remove the target from the list
           if (target.hitsMax - target.hits <= TOWER_POWER_REPAIR) {
@@ -59,21 +59,21 @@ export function towerBehavior(tower: StructureTower): void {
           }
         }
       } else {
-        info(`Tower ${tower.id} is in energy saver mode`);
+        info(`Tower ${tower.pos} is in energy saver mode`);
       }
     } else {
       info(JSON.stringify(target));
       // Target is an injured friendly creep
       const response = errorConstant(tower.heal(target));
       if (response !== "OK") {
-        info(`Tower ${tower.id} is healing creep ${target.name}: ${response}`);
+        info(`Tower ${tower.pos} is healing creep ${target.name}: ${response}`);
       }
     }
   } else {
     // Target is a hostile creep
     const response = errorConstant(tower.attack(target));
     warn(
-      `Tower ${tower.id} is attacking ${target.owner.username}'s creep ${target.name}: ${response}`,
+      `Tower ${tower.pos} is attacking ${target.owner.username}'s creep ${target.name}: ${response}`,
     );
   }
 }
@@ -137,7 +137,7 @@ function aquireHostileTarget(tower: StructureTower): Creep | null {
   }
 
   if (target == undefined) {
-    info(`Tower ${tower.id} unable to find worthwhile hostile to target`);
+    info(`Tower ${tower.pos} unable to find worthwhile hostile to target`);
   }
 
   // Convert undefined to null
@@ -181,7 +181,7 @@ export function towerManager(room: VisibleRoom): void {
     if (tower != undefined) {
       wrapper(
         () => towerBehavior(tower),
-        `Error processing tower ${tower.id} behavior`,
+        `Error processing tower ${tower.pos} behavior`,
       );
     } else {
       throw new GetByIdError(
