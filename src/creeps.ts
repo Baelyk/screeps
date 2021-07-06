@@ -337,8 +337,11 @@ function upgrader(creep: Creep) {
     // The creep is depositing
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        // If hauler creeps exist, upgraders should exclusively upgrade
-        if (countRole(creep.room, CreepRole.hauler) > 0) {
+        // If tender/hauler creeps exist, upgraders should exclusively upgrade
+        if (
+          countRole(creep.room, CreepRole.tender) > 0 ||
+          countRole(creep.room, CreepRole.hauler) > 0
+        ) {
           upgradeController(creep);
         } else {
           depositEnergy(creep);
