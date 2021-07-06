@@ -121,6 +121,11 @@ function minerLimit(room: VisibleRoom): number {
 function upgraderLimit(room: VisibleRoom): number {
   // RCL 8 rooms can have max 1 upgrader due to controller upgrade limit
   if (room.roomLevel() === 8) {
+    // If there is more than 100k energy, spawn an upgrader anyway
+    if (room.storedResourceAmount(RESOURCE_ENERGY) > 100000) {
+      return 1;
+    }
+
     const controller = room.getRoom().controller;
     if (controller == undefined) {
       throw new ScriptError(`Room ${room.name} lacks a controller`);
