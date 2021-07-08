@@ -30,8 +30,16 @@ function actionWarn(
 function move(
   creep: Creep,
   target: RoomPosition | { pos: RoomPosition },
-  options: Partial<MoveActionOptions>,
+  providedOptions: Partial<MoveActionOptions>,
 ): ScreepsReturnCode {
+  const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
+    range: 0,
+  };
+  const options: MoveActionOptions = _.assign(
+    MOVE_ACTION_DEFAULTS,
+    providedOptions,
+  );
+
   return creep.moveTo(target, options);
 }
 
