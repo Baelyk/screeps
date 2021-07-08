@@ -1162,7 +1162,6 @@ export class VisibleRoom extends RoomInfo {
     ) {
       return this.getLowestWallRampart();
     }
-    info(`not getting lowest`);
     if (targetId == undefined) {
       return undefined;
     }
@@ -1181,7 +1180,6 @@ export class VisibleRoom extends RoomInfo {
       | StructureWall
       | StructureRampart
       | typeof Infinity;
-    info(`getLowest ${lowest}`);
     if (lowest === Infinity) {
       return undefined;
     }
