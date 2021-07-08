@@ -31,10 +31,7 @@ export class Position implements Pos {
   }
 
   public intoRoomPosition(): RoomPosition {
-    const roomPosition = Game.rooms[this.roomName].getPositionAt(
-      this.x,
-      this.y,
-    );
+    const roomPosition = new RoomPosition(this.x, this.y, this.roomName);
     if (roomPosition == undefined) {
       throw new ScriptError(`Invalid position ${Position.serialize(this)}`);
     }

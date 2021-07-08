@@ -1,4 +1,5 @@
-import { MemoryError } from "utils/errors";
+import { MemoryError, GetByIdError } from "utils/errors";
+import { Position } from "classes/position";
 
 declare global {
   interface CreepMemory {
@@ -7,13 +8,13 @@ declare global {
     // Undefined if the creep is spawning
     room: string;
     /** A source assigned to this creep by id */
-    assignedSource?: Id<Source> | undefined;
+    assignedSource?: Id<Source>;
     /** A construction site assigned to this creep by id */
-    assignedConstruction?: string | undefined;
+    assignedConstruction?: Id<ConstructionSite>;
     /** A structuring needing repairs that this creep is repairing */
-    assignedRepairs?: Id<Structure> | undefined;
+    assignedRepairs?: Id<Structure>;
     /** A spot assigned to this creep */
-    spot?: RoomPosition | undefined;
+    spot?: string;
     /** Whether to prevent this creep from being renewed */
     noRenew?: boolean | undefined;
     /** The room this claimer creep is targetting */
@@ -30,7 +31,7 @@ declare global {
 }
 
 // The exact task depends also on the role
-declare const enum CreepTask {
+export declare const enum CreepTask {
   /** Role indicating the creep is freshly spawned (i.e. uninit) */
   fresh = "fresh",
   /** Task indicating the creep is waiting for further instructions/state change */
@@ -51,7 +52,7 @@ declare const enum CreepTask {
   scout = "scout",
 }
 
-declare const enum CreepRole {
+export declare const enum CreepRole {
   /** Simple creep that performs the harvest and deposit actions */
   harvester = "harvester",
   /** Creep that mines into a container near to the source */
@@ -152,5 +153,73 @@ export class CreepInfo {
       throw new CreepMemoryError(creepName, "Creep memory undefined");
     }
     this.creepName = creepName;
+  }
+
+  getMemory(): CreepMemory {
+    return Memory.creeps[this.creepName];
+  }
+
+  getSpot(): RoomPosition | undefined {
+    const spotMemory = this.getMemory().spot;
+    if (spotMemory == undefined) {
+      return undefined;
+    }
+    return Position.fromSerialized(spotMemory).intoRoomPosition();
+  }
+
+  getAssignedSource(): Source | undefined {
+    const assignedSourceMemory = this.getMemory().assignedSource;
+    if (assignedSourceMemory == undefined) {
+      return undefined;
+    }
+    const source = Game.getObjectById(assignedSourceMemory);
+    if (source == undefined) {
+      throw new GetByIdError(assignedSourceMemory, "source");
+    }
+    return source;
+  }
+
+  getAssignedConstruction(): ConstructionSite | undefined {
+    const assignedConstructionMemory = this.getMemory().assignedConstruction;
+    if (assignedConstructionMemory == undefined) {
+      return undefined;
+    }
+    const construction = Game.getObjectById(assignedConstructionMemory);
+    if (construction == undefined) {
+      throw new GetByIdError(assignedConstructionMemory, "construction site");
+    }
+    return construction;
+  }
+
+  setAssignedConstruction(id: Id<ConstructionSite>): void {
+    Memory.creeps[this.creepName].assignedConstruction = id;
+  }
+
+  removeAssignedConstruction(): void {
+    delete Memory.creeps[this.creepName].assignedConstruction;
+  }
+
+  getAssignedRepairs(): Structure | undefined {
+    const assignedRepairsMemory = this.getMemory().assignedRepairs;
+    if (assignedRepairsMemory == undefined) {
+      return undefined;
+    }
+    const repairs = Game.getObjectById(assignedRepairsMemory);
+    if (repairs == undefined) {
+      throw new GetByIdError(assignedRepairsMemory);
+    }
+    return repairs;
+  }
+
+  setAssignedRepairs(id: Id<Structure>): void {
+    Memory.creeps[this.creepName].assignedRepairs = id;
+  }
+
+  removeAssignedRepairs(): void {
+    delete Memory.creeps[this.creepName].assignedRepairs;
+  }
+
+  getAssignedRoomName(): string {
+    return this.getMemory().room;
   }
 }

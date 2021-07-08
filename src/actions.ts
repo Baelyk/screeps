@@ -1,5 +1,6 @@
 import { info, warn, errorConstant } from "utils/logger";
 import { ScriptError } from "utils/errors";
+import { VisibleRoom } from "roomMemory";
 
 class CreepActionError extends ScriptError {
   constructor(creep: Creep, action: string, message: string) {
@@ -27,10 +28,10 @@ function actionWarn(
   );
 }
 
-function move(
+export function move(
   creep: Creep,
   target: RoomPosition | { pos: RoomPosition },
-  providedOptions: Partial<MoveActionOptions>,
+  providedOptions?: Partial<MoveActionOptions>,
 ): ScreepsReturnCode {
   const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
     range: 0,
@@ -43,7 +44,7 @@ function move(
   return creep.moveTo(target, options);
 }
 
-function harvest(
+export function harvest(
   creep: Creep,
   target: Source | Mineral | Deposit,
   warn = true,
@@ -57,7 +58,7 @@ function harvest(
   return response;
 }
 
-function getResource(
+export function getResource(
   creep: Creep,
   target: Structure,
   resource: ResourceConstant,
@@ -83,7 +84,7 @@ function getResource(
   return response;
 }
 
-function getFromTombstone(
+export function getFromTombstone(
   creep: Creep,
   target: Tombstone,
   resource: ResourceConstant,
@@ -99,7 +100,7 @@ function getFromTombstone(
   return response;
 }
 
-function putResource(
+export function putResource(
   creep: Creep,
   target: Structure,
   resource: ResourceConstant,
@@ -125,7 +126,7 @@ function putResource(
   return response;
 }
 
-function upgrade(
+export function upgrade(
   creep: Creep,
   target: StructureController,
   warn = true,
@@ -139,7 +140,7 @@ function upgrade(
   return response;
 }
 
-function build(
+export function build(
   creep: Creep,
   target: ConstructionSite,
   warn = true,
@@ -153,7 +154,7 @@ function build(
   return response;
 }
 
-function repair(
+export function repair(
   creep: Creep,
   target: Structure,
   warn = true,
@@ -167,7 +168,7 @@ function repair(
   return response;
 }
 
-function pickupResource(
+export function pickupResource(
   creep: Creep,
   target: Resource,
   warn = true,
@@ -179,4 +180,168 @@ function pickupResource(
     actionWarn(creep, "pickup", response);
   }
   return response;
+}
+
+export function getEnergy(creep: Creep): ScreepsReturnCode {
+  // Get energy from:
+  // 0. Adjacent tombstones or piles
+  // 1. Room storage
+  // 2. Containers
+  // 3. Nearest tombstone or pile
+  // 4. Harvesting from sources
+  const creepCapacity = creep.store.getFreeCapacity();
+
+  const adjacentPiles = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+    filter: { resourceType: RESOURCE_ENERGY },
+  }) as Resource<RESOURCE_ENERGY>[];
+  if (adjacentPiles.length > 0) {
+    return pickupResource(creep, adjacentPiles[0]);
+  }
+
+  const adjacentTombstones = creep.pos.findInRange(FIND_TOMBSTONES, 1, {
+    filter: (tombstone) => {
+      return tombstone.store[RESOURCE_ENERGY] > 0;
+    },
+  });
+  if (adjacentTombstones.length > 0) {
+    const tombstone = adjacentTombstones[0];
+    const amount = Math.min(creepCapacity, tombstone.store[RESOURCE_ENERGY]);
+    return getFromTombstone(creep, tombstone, RESOURCE_ENERGY, amount);
+  }
+
+  const storage = creep.room.storage;
+  if (storage != undefined) {
+    const storageEnergy = storage.store[RESOURCE_ENERGY];
+    if (storageEnergy > 0) {
+      const amount = Math.min(creepCapacity, storageEnergy);
+      return getResource(creep, storage, RESOURCE_ENERGY, amount);
+    }
+  }
+
+  const containers = creep.room.find(FIND_STRUCTURES, {
+    filter: (structure) => {
+      return (
+        structure.structureType === STRUCTURE_CONTAINER &&
+        structure.store[RESOURCE_ENERGY] > 0
+      );
+    },
+  }) as StructureContainer[];
+  if (containers.length > 0) {
+    const container = creep.pos.findClosestByPath(containers);
+    if (container != undefined) {
+      const amount = Math.min(creepCapacity, container.store[RESOURCE_ENERGY]);
+      return getResource(creep, container, RESOURCE_ENERGY, amount);
+    }
+  }
+
+  const nearestPile = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+    filter: { resourceType: RESOURCE_ENERGY },
+  });
+  if (nearestPile != undefined) {
+    return pickupResource(creep, nearestPile);
+  }
+
+  const nearestTombstone = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+    filter: (tombstone) => {
+      return tombstone.store[RESOURCE_ENERGY] > 0;
+    },
+  });
+  if (nearestTombstone != undefined) {
+    const amount = Math.min(
+      creepCapacity,
+      nearestTombstone.store[RESOURCE_ENERGY],
+    );
+    return getFromTombstone(creep, nearestTombstone, RESOURCE_ENERGY, amount);
+  }
+
+  const nearestSource = creep.pos.findClosestByPath(FIND_SOURCES, {
+    filter: (source) => {
+      return source.energy > 0;
+    },
+  });
+  if (nearestSource != undefined) {
+    return harvest(creep, nearestSource);
+  }
+
+  throw new CreepActionError(
+    creep,
+    "getEnergy",
+    "Unable to find suitable target to get energy",
+  );
+}
+
+export function depositEnergy(creep: Creep): ScreepsReturnCode {
+  // Deposit energy into:
+  // 1. Nearest spawn/extension
+  // 2. Tower under half capacity
+  // 3. Spawn link under half capacity
+  const creepEnergy = creep.store[RESOURCE_ENERGY];
+
+  const spawnOrExtension = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
+    filter: (structure) => {
+      return (
+        (structure.structureType === STRUCTURE_SPAWN ||
+          structure.structureType === STRUCTURE_EXTENSION) &&
+        structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+      );
+    },
+  }) as StructureSpawn | StructureExtension | null;
+
+  if (spawnOrExtension != undefined) {
+    const amount = Math.min(
+      creepEnergy,
+      spawnOrExtension.store.getFreeCapacity(RESOURCE_ENERGY),
+    );
+    return putResource(creep, spawnOrExtension, RESOURCE_ENERGY, amount);
+  }
+
+  const tower = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
+    filter: (structure) => {
+      return (
+        structure.structureType === STRUCTURE_TOWER &&
+        structure.store[RESOURCE_ENERGY] < TOWER_CAPACITY / 2
+      );
+    },
+  }) as StructureTower | null;
+  if (tower != undefined) {
+    const amount = Math.min(
+      creepEnergy,
+      tower.store.getFreeCapacity(RESOURCE_ENERGY),
+    );
+    return putResource(creep, tower, RESOURCE_ENERGY, amount);
+  }
+
+  const room = new VisibleRoom(creep.room.name);
+  try {
+    const spawnLink = room.getSpawnLink();
+    const amount = Math.min(
+      creepEnergy,
+      LINK_CAPACITY / 2 - spawnLink.store[RESOURCE_ENERGY],
+    );
+    return putResource(creep, spawnLink, RESOURCE_ENERGY, amount);
+  } catch (error) {
+    // No spawn link
+  }
+
+  throw new CreepActionError(
+    creep,
+    "depositEnergy",
+    "Unable to find suitable target to deposit energy",
+  );
+}
+
+export function idle(creep: Creep): ScreepsReturnCode {
+  info(`Creep ${creep.name} is idle`);
+  const controller = creep.room.controller;
+  if (controller == undefined) {
+    warn(`Creep ${creep.name} has nothing to do`);
+    return OK;
+  } else {
+    return upgrade(creep, controller);
+  }
+}
+
+export function moveToRoom(creep: Creep, roomName: string): ScreepsReturnCode {
+  const dummyPosition = new RoomPosition(24, 24, roomName);
+  return move(creep, dummyPosition, { range: 22 });
 }
