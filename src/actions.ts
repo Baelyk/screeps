@@ -234,24 +234,9 @@ export function getEnergy(creep: Creep): ScreepsReturnCode {
     }
   }
 
-  const nearestPile = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-    filter: { resourceType: RESOURCE_ENERGY },
-  });
-  if (nearestPile != undefined) {
-    return pickupResource(creep, nearestPile);
-  }
-
-  const nearestTombstone = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
-    filter: (tombstone) => {
-      return tombstone.store[RESOURCE_ENERGY] > 0;
-    },
-  });
-  if (nearestTombstone != undefined) {
-    const amount = Math.min(
-      creepCapacity,
-      nearestTombstone.store[RESOURCE_ENERGY],
-    );
-    return getFromTombstone(creep, nearestTombstone, RESOURCE_ENERGY, amount);
+  const recoverResponse = recoverResource(creep, RESOURCE_ENERGY);
+  if (recoverResponse !== ERR_NOT_FOUND) {
+    return recoverResponse;
   }
 
   const nearestSource = creep.pos.findClosestByPath(FIND_SOURCES, {
@@ -344,4 +329,31 @@ export function idle(creep: Creep): ScreepsReturnCode {
 export function moveToRoom(creep: Creep, roomName: string): ScreepsReturnCode {
   const dummyPosition = new RoomPosition(24, 24, roomName);
   return move(creep, dummyPosition, { range: 22 });
+}
+
+export function recoverResource(
+  creep: Creep,
+  resource: ResourceConstant,
+): ScreepsReturnCode {
+  const nearestPile = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+    filter: { resourceType: resource },
+  });
+  if (nearestPile != undefined) {
+    return pickupResource(creep, nearestPile);
+  }
+
+  const nearestTombstone = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+    filter: (tombstone) => {
+      return tombstone.store[resource] > 0;
+    },
+  });
+  if (nearestTombstone != undefined) {
+    const amount = Math.min(
+      creep.store.getFreeCapacity(),
+      nearestTombstone.store[resource],
+    );
+    return getFromTombstone(creep, nearestTombstone, resource, amount);
+  }
+
+  return ERR_NOT_FOUND;
 }

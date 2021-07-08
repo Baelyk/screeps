@@ -1,33 +1,31 @@
 import { MemoryError, GetByIdError } from "utils/errors";
 import { Position } from "classes/position";
 
-declare global {
-  interface CreepMemory {
-    role: CreepRole;
-    task: CreepTask;
-    // Undefined if the creep is spawning
-    room: string;
-    /** A source assigned to this creep by id */
-    assignedSource?: Id<Source>;
-    /** A construction site assigned to this creep by id */
-    assignedConstruction?: Id<ConstructionSite>;
-    /** A structuring needing repairs that this creep is repairing */
-    assignedRepairs?: Id<Structure>;
-    /** A spot assigned to this creep */
-    spot?: string;
-    /** Whether to prevent this creep from being renewed */
-    noRenew?: boolean | undefined;
-    /** The room this claimer creep is targetting */
-    claimTarget?: string | undefined;
-    /** A path for this creep to use, serialized with `Room.serializePath` */
-    path?: string;
-    /** The room the path originated in, to know when to recreate path */
-    pathStartRoom?: string;
-    /** The room this creep is targetting */
-    roomTarget?: string;
-    /** Whether this creep should have attack notifications enabled */
-    attackNotifications?: boolean;
-  }
+interface CreepMemory {
+  role: CreepRole;
+  task: CreepTask;
+  // Undefined if the creep is spawning
+  room: string;
+  /** A source assigned to this creep by id */
+  assignedSource?: Id<Source>;
+  /** A construction site assigned to this creep by id */
+  assignedConstruction?: Id<ConstructionSite>;
+  /** A structuring needing repairs that this creep is repairing */
+  assignedRepairs?: Id<Structure>;
+  /** A spot assigned to this creep */
+  spot?: string;
+  /** Whether to prevent this creep from being renewed */
+  noRenew?: boolean | undefined;
+  /** The room this claimer creep is targetting */
+  claimTarget?: string | undefined;
+  /** A path for this creep to use, serialized with `Room.serializePath` */
+  path?: string;
+  /** The room the path originated in, to know when to recreate path */
+  pathStartRoom?: string;
+  /** The room this creep is targetting */
+  roomTarget?: string;
+  /** Whether this creep should have attack notifications enabled */
+  attackNotifications?: boolean;
 }
 
 // The exact task depends also on the role
@@ -221,5 +219,17 @@ export class CreepInfo {
 
   getAssignedRoomName(): string {
     return this.getMemory().room;
+  }
+
+  setAssignedRoomName(roomName: string): void {
+    Memory.creeps[this.creepName].room = roomName;
+  }
+
+  getTask(): CreepTask {
+    return this.getMemory().task;
+  }
+
+  setTask(task: CreepTask): void {
+    Memory.creeps[this.creepName].task = task;
   }
 }
