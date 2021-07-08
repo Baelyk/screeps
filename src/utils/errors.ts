@@ -55,71 +55,13 @@ export class GetByIdError extends ScriptError {
   }
 }
 
-class MemoryError extends ScriptError {
+export class MemoryError extends ScriptError {
   constructor(message: string) {
     let msg = `Invalid memory entry`;
     // If a message was supplied, add that to the end of the new message
     if (message !== undefined) msg += "\n" + message;
 
     super(msg);
-  }
-}
-
-export class CreepMemoryError extends MemoryError {
-  constructor(creep: Creep, invalidField: keyof CreepMemory, message?: string) {
-    let msg = `Creep ${creep.name} has invalid field ${invalidField}`;
-    // If a message was supplied, add that to the end of the new message
-    if (message !== undefined) msg += "\n" + message;
-
-    super(msg);
-  }
-}
-
-export class CreepRoleMemoryError extends CreepMemoryError {
-  constructor(creep: Creep, invalidField: keyof CreepMemory, message?: string) {
-    let msg = `Field ${invalidField} is required for creep role ${creep.memory.role}`;
-    // If a message was supplied, add that to the end of the new message
-    if (message !== undefined) msg += "\n" + message;
-
-    super(creep, invalidField, msg);
-  }
-}
-
-export class InvalidCreepTaskError extends CreepRoleMemoryError {
-  constructor(creep: Creep, validTasks?: CreepTask[], message?: string) {
-    let msg = `Invalid task for role ${creep.memory.role}: ${creep.memory.task}`;
-    // If valid tasks were supplied, list them after the default message.
-    if (validTasks != undefined && validTasks.length > 0) {
-      msg += `\nShould be one of: `;
-      const last = validTasks.length - 1;
-      validTasks.forEach((task, index) => {
-        // Don't include a comma after the last valid task
-        msg += task + (index !== last ? ", " : "");
-      });
-    }
-    // If a message was supplied, add that to the end of the new message
-    if (message !== undefined) msg += "\n" + message;
-
-    super(creep, "task", msg);
-  }
-}
-
-export class InvalidCreepRoleError extends CreepRoleMemoryError {
-  constructor(creep: Creep, validRoles?: CreepRole[], message?: string) {
-    let msg = `Invalid role for ${creep.name}: ${creep.memory.role}`;
-    // If valid roles were supplied, list them after the default message.
-    if (validRoles != undefined && validRoles.length > 0) {
-      msg += `\nShould be one of: `;
-      const last = validRoles.length - 1;
-      validRoles.forEach((role, index) => {
-        // Don't include a comma after the last valid role
-        msg += role + (index !== last ? ", " : "");
-      });
-    }
-    // If a message was supplied, add that to the end of the new message
-    if (message !== undefined) msg += "\n" + message;
-
-    super(creep, "role", msg);
   }
 }
 
