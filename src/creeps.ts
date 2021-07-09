@@ -798,6 +798,7 @@ function scout(creep: Creep) {
 
 function guard(creep: Creep) {
   const task = getTask(creep, CreepTask.idle);
+  const creepInfo = new CreepInfo(creep.name);
 
   // Tasks for this creep:
   // 1. CreepTask.idle: Sit near room spawn and check for hostiles in room and
@@ -807,9 +808,10 @@ function guard(creep: Creep) {
   // 3. Attack hostiles in room
   switch (task) {
     case CreepTask.idle: {
+      const homeRoomName = creepInfo.getAssignedRoomName();
       // Check for hostiles in current room, home room, then home room's remotes
-      const roomsToGuard = [creep.room.name, creep.memory.room];
-      const homeRoom = new VisibleRoom(creep.memory.room);
+      const roomsToGuard = [creep.room.name, homeRoomName];
+      const homeRoom = new VisibleRoom(homeRoomName);
       roomsToGuard.push(...homeRoom.getRemotes());
       const roomTarget = _.find(roomsToGuard, (roomName) => {
         const room = Game.rooms[roomName];
@@ -826,14 +828,14 @@ function guard(creep: Creep) {
       // If a room was found, target it and move to it
       if (roomTarget != undefined) {
         info(`Creep ${creep.name} detected hostiles in ${roomTarget}`);
-        creep.memory.roomTarget = roomTarget;
+        creepInfo.setTargetRoom(roomTarget);
         switchTaskAndDoRoll(creep, CreepTask.move);
         return;
       }
 
       // No hostiles found, move to spawn
-      if (creep.room.name !== creep.memory.room) {
-        moveToRoom(creep, creep.memory.room);
+      if (creep.room.name !== homeRoomName) {
+        moveToRoom(creep, homeRoomName);
       } else {
         // Move to spawn if exists
         const spawn = homeRoom.getPrimarySpawn();
@@ -845,11 +847,9 @@ function guard(creep: Creep) {
     }
     // The creep is in transit to its roomTarget
     case CreepTask.move: {
-      if (
-        creep.memory.roomTarget != undefined &&
-        creep.room.name != creep.memory.roomTarget
-      ) {
-        moveToRoom(creep, creep.memory.roomTarget);
+      const targetRoom = creepInfo.getTargetRoom();
+      if (targetRoom != undefined && creep.room.name != targetRoom) {
+        moveToRoom(creep, targetRoom);
       } else {
         switchTaskAndDoRoll(creep, CreepTask.attack);
       }
@@ -922,9 +922,12 @@ function guard(creep: Creep) {
  * @param task The new role for the creep
  */
 function switchTaskAndDoRoll(creep: Creep, task: CreepTask) {
-  creep.memory.task = task;
+  const creepInfo = new CreepInfo(creep.name);
+  creepInfo.setTask(task);
   info(
-    `Creep ${creep.name} switching to ${task} and performing ${creep.memory.role}`,
+    `Creep ${
+      creep.name
+    } switching to ${task} and performing ${creepInfo.getRole()}`,
     InfoType.task,
   );
   creepBehavior(creep);
@@ -962,8 +965,9 @@ function renewCreep(creep: Creep): void {
 }
 
 function renewCheck(creep: Creep): void {
+  const creepInfo = new CreepInfo(creep.name);
   // If the creep isn't allowed to renew or it is already renewing, do nothing.
-  if (creep.memory.noRenew || creep.memory.task === CreepTask.renew) {
+  if (creepInfo.noRenew() || creepInfo.getTask() === CreepTask.renew) {
     return;
   }
 
@@ -973,13 +977,14 @@ function renewCheck(creep: Creep): void {
     return;
   }
 
-  const room = new VisibleRoom(creep.memory.room);
+  const room = new VisibleRoom(creepInfo.getAssignedRoomName());
 
   // If the creep's role is above the population limit, let it die.
-  const roleLimit = room.getRoleLimit(creep.memory.role);
+  const role = creepInfo.getRole();
+  const roleLimit = room.getRoleLimit(role);
   const roleCount = _.filter(Memory.creeps, {
-    room: creep.memory.room,
-    role: creep.memory.role,
+    room: room.name,
+    role: role,
   }).length;
   if (roleCount > roleLimit) {
     // An option here would be to set the creep to not renew, but the limit may
@@ -1001,10 +1006,10 @@ function renewCheck(creep: Creep): void {
   }
 
   // If there is a new/better body for the creep, let it die.
-  const newBody = generateBodyByRole(spawn, creep.memory.role);
+  const newBody = generateBodyByRole(spawn, role);
   if (bodyCost(newBody) > bodyCost(creep.body)) {
     // Since there is a better body, don't check is this creep can renew again.
-    creep.memory.noRenew = true;
+    creepInfo.setNoRenew(true);
     return;
   }
 
@@ -1020,20 +1025,25 @@ function renewCheck(creep: Creep): void {
  */
 function creepBehavior(creep: Creep): void {
   if (creep.spawning) return;
-  if (Memory.debug.sayTask) creep.say(creep.memory.task);
 
-  if (creep.memory.attackNotifications != undefined) {
+  const creepInfo = new CreepInfo(creep.name);
+  const task = creepInfo.getTask();
+
+  if (Memory.debug.sayTask) creep.say(task);
+
+  const attackNotifications = creepInfo.getAttackNotifications();
+  if (attackNotifications != undefined) {
     info(
-      `Creep ${creep.name} changing attack notifications to ${creep.memory.attackNotifications}`,
+      `Creep ${creep.name} changing attack notifications to ${attackNotifications}`,
     );
-    creep.notifyWhenAttacked(creep.memory.attackNotifications);
-    delete creep.memory.attackNotifications;
+    creep.notifyWhenAttacked(attackNotifications);
+    creepInfo.deleteAttackNotifications();
   }
 
   try {
     // The renew task is the same regardless of role
     renewCheck(creep);
-    if (creep.memory.task === CreepTask.renew) {
+    if (task === CreepTask.renew) {
       renewCreep(creep);
       // Creep is renewing; don't process normal behavior
       return;
@@ -1043,13 +1053,13 @@ function creepBehavior(creep: Creep): void {
     warn(
       `Due to a failed renew, Creep ${creep.name} no longer eligible for renewal`,
     );
-    creep.memory.noRenew = true;
-    if (creep.memory.task === CreepTask.renew) {
-      creep.memory.task = CreepTask.fresh;
+    creepInfo.setNoRenew(true);
+    if (creepInfo.getTask() === CreepTask.renew) {
+      creepInfo.setTask(CreepTask.fresh);
     }
   }
 
-  switch (creep.memory.role) {
+  switch (creepInfo.getRole()) {
     case CreepRole.harvester:
       harvester(creep);
       break;
@@ -1097,9 +1107,9 @@ export function handleDead(name: string): void {
   info(`Handling death of creep ${name}`, InfoType.general);
   const memory = Memory.creeps[name];
   const creepInfo = new CreepInfo(name);
-  switch (memory.role) {
+  switch (creepInfo.getRole()) {
     case CreepRole.builder:
-      if (memory.assignedConstruction) {
+      if (creepInfo.getAssignedConstruction != undefined) {
         const construction = creepInfo.getAssignedConstruction();
         creepInfo.removeAssignedConstruction();
         if (construction != undefined) {
@@ -1110,15 +1120,14 @@ export function handleDead(name: string): void {
       break;
   }
 
-  if (memory.room != undefined) {
-    try {
-      const room = new VisibleRoom(memory.room);
-      room.updateTombsMemory();
-    } catch (error) {
-      warn(
-        `Unable to update tombs memory for creep ${name} for ${memory.room}`,
-      );
-    }
+  const assignedRoomName = creepInfo.getAssignedRoomName();
+  try {
+    const room = new VisibleRoom(assignedRoomName);
+    room.updateTombsMemory();
+  } catch (error) {
+    warn(
+      `Unable to update tombs memory for creep ${name} for ${assignedRoomName}`,
+    );
   }
 }
 

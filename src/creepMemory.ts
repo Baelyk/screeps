@@ -1,31 +1,33 @@
 import { MemoryError, GetByIdError } from "utils/errors";
 import { Position } from "classes/position";
 
-interface CreepMemory {
-  role: CreepRole;
-  task: CreepTask;
-  // Undefined if the creep is spawning
-  room: string;
-  /** A source assigned to this creep by id */
-  assignedSource?: Id<Source>;
-  /** A construction site assigned to this creep by id */
-  assignedConstruction?: Id<ConstructionSite>;
-  /** A structuring needing repairs that this creep is repairing */
-  assignedRepairs?: Id<Structure>;
-  /** A spot assigned to this creep */
-  spot?: string;
-  /** Whether to prevent this creep from being renewed */
-  noRenew?: boolean | undefined;
-  /** The room this claimer creep is targetting */
-  claimTarget?: string | undefined;
-  /** A path for this creep to use, serialized with `Room.serializePath` */
-  path?: string;
-  /** The room the path originated in, to know when to recreate path */
-  pathStartRoom?: string;
-  /** The room this creep is targetting */
-  roomTarget?: string;
-  /** Whether this creep should have attack notifications enabled */
-  attackNotifications?: boolean;
+declare global {
+  interface CreepMemory {
+    role: CreepRole;
+    task: CreepTask;
+    // Undefined if the creep is spawning
+    room: string;
+    /** A source assigned to this creep by id */
+    assignedSource?: Id<Source>;
+    /** A construction site assigned to this creep by id */
+    assignedConstruction?: Id<ConstructionSite>;
+    /** A structuring needing repairs that this creep is repairing */
+    assignedRepairs?: Id<Structure>;
+    /** A spot assigned to this creep */
+    spot?: string;
+    /** Whether to prevent this creep from being renewed */
+    noRenew?: boolean | undefined;
+    /** The room this claimer creep is targetting */
+    claimTarget?: string | undefined;
+    /** A path for this creep to use, serialized with `Room.serializePath` */
+    path?: string;
+    /** The room the path originated in, to know when to recreate path */
+    pathStartRoom?: string;
+    /** The room this creep is targetting */
+    targetRoom?: string;
+    /** Whether this creep should have attack notifications enabled */
+    attackNotifications?: boolean;
+  }
 }
 
 // The exact task depends also on the role
@@ -231,5 +233,43 @@ export class CreepInfo {
 
   setTask(task: CreepTask): void {
     Memory.creeps[this.creepName].task = task;
+  }
+
+  getTargetRoom(): string | undefined {
+    return this.getMemory().targetRoom;
+  }
+
+  setTargetRoom(room: string): void {
+    Memory.creeps[this.creepName].targetRoom = room;
+  }
+
+  getRole(): CreepRole {
+    return this.getMemory().role;
+  }
+
+  setRole(role: CreepRole): void {
+    Memory.creeps[this.creepName].role = role;
+  }
+
+  noRenew(): boolean {
+    // Undefined value for noRenew means false (renewing enabled)
+    return this.getMemory().noRenew || false;
+  }
+
+  setNoRenew(setting: boolean): void {
+    if (setting) {
+      Memory.creeps[this.creepName].noRenew = true;
+    } else {
+      delete Memory.creeps[this.creepName].noRenew;
+    }
+  }
+
+  getAttackNotifications(): boolean {
+    // Undefined value means false (email attack notifications desired)
+    return this.getMemory().attackNotifications || false;
+  }
+
+  deleteAttackNotifications(): void {
+    delete Memory.creeps[this.creepName].attackNotifications;
   }
 }
