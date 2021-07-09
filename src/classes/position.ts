@@ -24,6 +24,10 @@ export class Position implements Pos {
     return new Position(Position.deserialize(str));
   }
 
+  static serializedToRoomPosition(str: string): RoomPosition {
+    return Position.fromSerialized(str).intoRoomPosition();
+  }
+
   constructor(pos: Pos) {
     this.x = pos.x;
     this.y = pos.y;

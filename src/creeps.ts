@@ -16,8 +16,6 @@ import {
 } from "utils/helpers";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 import {
-  CreepRole,
-  CreepTask,
   CreepInfo,
   InvalidCreepTaskError,
   InvalidCreepRoleError,

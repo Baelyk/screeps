@@ -4,6 +4,7 @@ import { countRole, livenRoomPosition } from "utils/helpers";
 import { getSurroundingTiles } from "construct";
 import { GetByIdError, ScriptError } from "utils/errors";
 import { RoomInfo, VisibleRoom } from "roomMemory";
+import { Position } from "classes/position";
 
 export function updateSpawnQueue(room: VisibleRoom): void {
   // Add these roles to the top of the queue
@@ -241,12 +242,18 @@ function memoryOverridesMiner(room: VisibleRoom): Partial<CreepMemory> {
     });
   }
 
+  if (spot == undefined) {
+    throw new ScriptError(
+      `Unable to assign miner to container spot or nonempty spot in ${room.name} for ${source.pos}`,
+    );
+  }
+
   // Note: a miner will be assigned a source (otherwise it will throw an error)
   // but a miner can be spawned with an undefiend spot
   return {
     room: room.name,
     assignedSource: sourceId,
-    spot: spot,
+    spot: Position.serialize(spot),
     // Miners do not renew
     noRenew: true,
   };
@@ -262,16 +269,20 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
     role: CreepRole.hauler,
     room: room.name,
   });
-  const haulerSpots = haulers.map((creepMem) =>
-    livenRoomPosition(creepMem.spot),
-  );
+  const haulerSpots = haulers.map((creepMemory) => {
+    const spot = creepMemory.spot;
+    if (spot == undefined) {
+      throw new ScriptError(`Hauler creep has undefiend spot`);
+    }
+    return Position.serializedToRoomPosition(spot);
+  });
   _.forEach(room.getSpawnQueue(), (item) => {
     if (
       item.role === CreepRole.hauler &&
       item.overrides != undefined &&
       item.overrides.spot != undefined
     ) {
-      haulerSpots.push(item.overrides.spot);
+      haulerSpots.push(Position.serializedToRoomPosition(item.overrides.spot));
     }
   });
 
@@ -283,14 +294,18 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
 
   // Find a miner with a spot that no hauler has
   const associatedMiner = miners.find((minerMemory) => {
-    const spot = livenRoomPosition(minerMemory.spot);
+    const spot = minerMemory.spot;
+    if (spot == undefined) {
+      throw new ScriptError(`Miner creep has undefined spot`);
+    }
+    const pos = Position.serializedToRoomPosition(spot);
     // TODO: Uhhh, does the below line work since it compares RoomPosition
     // objects
-    if (haulerSpots.indexOf(spot) === -1) {
+    if (haulerSpots.indexOf(pos) === -1) {
       if (room.roomType === RoomType.primary) {
         // In primary rooms, check that there isn't a link adjacent
         return (
-          spot.findInRange(FIND_MY_STRUCTURES, 1, {
+          pos.findInRange(FIND_MY_STRUCTURES, 1, {
             filter: { structureType: STRUCTURE_LINK },
           }).length === 0
         );

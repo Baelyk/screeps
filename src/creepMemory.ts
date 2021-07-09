@@ -28,53 +28,53 @@ declare global {
     /** Whether this creep should have attack notifications enabled */
     attackNotifications?: boolean;
   }
-}
 
-// The exact task depends also on the role
-export declare const enum CreepTask {
-  /** Role indicating the creep is freshly spawned (i.e. uninit) */
-  fresh = "fresh",
-  /** Task indicating the creep is waiting for further instructions/state change */
-  idle = "idle",
-  harvest = "harvest",
-  deposit = "deposit",
-  getEnergy = "get_energy",
-  build = "build",
-  repair = "repair",
-  renew = "renew",
-  claim = "claim",
-  reserve = "reserve",
-  /** Move to target */
-  move = "move",
-  /** Attack hostiles */
-  attack = "attack",
-  /** Scout rooms without necessarily staying and signing */
-  scout = "scout",
-}
+  // The exact task depends also on the role
+  const enum CreepTask {
+    /** Role indicating the creep is freshly spawned (i.e. uninit) */
+    fresh = "fresh",
+    /** Task indicating the creep is waiting for further instructions/state change */
+    idle = "idle",
+    harvest = "harvest",
+    deposit = "deposit",
+    getEnergy = "get_energy",
+    build = "build",
+    repair = "repair",
+    renew = "renew",
+    claim = "claim",
+    reserve = "reserve",
+    /** Move to target */
+    move = "move",
+    /** Attack hostiles */
+    attack = "attack",
+    /** Scout rooms without necessarily staying and signing */
+    scout = "scout",
+  }
 
-export declare const enum CreepRole {
-  /** Simple creep that performs the harvest and deposit actions */
-  harvester = "harvester",
-  /** Creep that mines into a container near to the source */
-  miner = "miner",
-  /** Creep that constructs buildings */
-  builder = "builder",
-  /** Creep that gets energy and deposits energy to spawn then controller */
-  upgrader = "upgrader",
-  /** Creep that hauls energy between sources and deposits energy */
-  hauler = "hauler",
-  /** Creep that moves to other rooms to claim them */
-  claimer = "claimer",
-  /** Creep that keeps energy in spawns, extensions, and towers */
-  tender = "tender",
-  /** Creep that works mineral deposits */
-  extractor = "extractor",
-  /** Creep that hauls between remotes */
-  remoteHauler = "remote_hauler",
-  /** Creep that moves to a room to provide vision */
-  scout = "scout",
-  /** Creep that guards rooms and their remotes */
-  guard = "guard",
+  const enum CreepRole {
+    /** Simple creep that performs the harvest and deposit actions */
+    harvester = "harvester",
+    /** Creep that mines into a container near to the source */
+    miner = "miner",
+    /** Creep that constructs buildings */
+    builder = "builder",
+    /** Creep that gets energy and deposits energy to spawn then controller */
+    upgrader = "upgrader",
+    /** Creep that hauls energy between sources and deposits energy */
+    hauler = "hauler",
+    /** Creep that moves to other rooms to claim them */
+    claimer = "claimer",
+    /** Creep that keeps energy in spawns, extensions, and towers */
+    tender = "tender",
+    /** Creep that works mineral deposits */
+    extractor = "extractor",
+    /** Creep that hauls between remotes */
+    remoteHauler = "remote_hauler",
+    /** Creep that moves to a room to provide vision */
+    scout = "scout",
+    /** Creep that guards rooms and their remotes */
+    guard = "guard",
+  }
 }
 
 export class CreepMemoryError extends MemoryError {
