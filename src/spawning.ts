@@ -1,10 +1,10 @@
 // Manage spawn queues for a room
 import { info, warn } from "utils/logger";
-import { countRole, livenRoomPosition } from "utils/helpers";
-import { getSurroundingTiles } from "construct";
+import { getSurroundingTiles } from "utils/helpers";
 import { GetByIdError, ScriptError } from "utils/errors";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 import { Position } from "classes/position";
+import { countRole, CreepRole, RoleCreepMemory } from "./creeps";
 
 export function updateSpawnQueue(room: VisibleRoom): void {
   // Add these roles to the top of the queue
@@ -190,12 +190,14 @@ function needRole(room: VisibleRoom, role: CreepRole): boolean {
   return false;
 }
 
-function memoryOverridesMiner(room: VisibleRoom): Partial<CreepMemory> {
+function memoryOverridesMiner(
+  room: VisibleRoom,
+): Partial<RoleCreepMemory.Miner> {
   // Find miners for the room
   const miners = _.filter(Memory.creeps, {
     role: CreepRole.miner,
     room: room.name,
-  });
+  }) as RoleCreepMemory.Miner[];
 
   // This miner's target source should be the "first" source in the room not
   // assigned to a miner in the room.
@@ -204,6 +206,7 @@ function memoryOverridesMiner(room: VisibleRoom): Partial<CreepMemory> {
     if (
       item.role === CreepRole.miner &&
       item.overrides != undefined &&
+      "assignedSource" in item.overrides &&
       item.overrides.assignedSource != undefined
     ) {
       minedSources.push(item.overrides.assignedSource);
@@ -259,7 +262,9 @@ function memoryOverridesMiner(room: VisibleRoom): Partial<CreepMemory> {
   };
 }
 
-function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
+function memoryOverridesHauler(
+  room: VisibleRoom,
+): Partial<RoleCreepMemory.Hauler> {
   // okay so now that i think about this code def doesn't work at all for rooms
   // with more than 1 source
 
@@ -268,7 +273,7 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
   const haulers = _.filter(Memory.creeps, {
     role: CreepRole.hauler,
     room: room.name,
-  });
+  }) as RoleCreepMemory.Hauler[];
   const haulerSpots = haulers.map((creepMemory) => {
     const spot = creepMemory.spot;
     if (spot == undefined) {
@@ -280,6 +285,7 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
     if (
       item.role === CreepRole.hauler &&
       item.overrides != undefined &&
+      "spot" in item.overrides &&
       item.overrides.spot != undefined
     ) {
       haulerSpots.push(Position.serializedToRoomPosition(item.overrides.spot));
@@ -290,7 +296,7 @@ function memoryOverridesHauler(room: VisibleRoom): Partial<CreepMemory> {
   const miners = _.filter(Memory.creeps, {
     role: CreepRole.miner,
     room: room.name,
-  });
+  }) as RoleCreepMemory.Miner[];
 
   // Find a miner with a spot that no hauler has
   const associatedMiner = miners.find((minerMemory) => {

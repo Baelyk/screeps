@@ -11,6 +11,10 @@ export class Position implements Pos {
   y: number;
   roomName: string;
 
+  static areEqual(a: Pos, b: Pos): boolean {
+    return a.x === b.x && a.y === b.y && a.roomName === b.roomName;
+  }
+
   static serialize(pos: Pos): string {
     return `${pos.x}:${pos.y}:${pos.roomName}`;
   }

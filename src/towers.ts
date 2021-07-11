@@ -1,6 +1,5 @@
-import { getSurroundingTiles } from "construct";
 import { errorConstant, info, warn } from "utils/logger";
-import { countBodyPart, hasBodyPart } from "utils/helpers";
+import { countBodyPart, getSurroundingTiles, hasBodyPart } from "utils/helpers";
 import { GetByIdError, wrapper } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
 

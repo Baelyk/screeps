@@ -1,6 +1,7 @@
 import { VisibleRoom } from "roomMemory";
 import { info } from "utils/logger";
 import { wrapper } from "utils/errors";
+import { CreepRole, CreepTask } from "./creeps";
 
 // Add ExpansionMemory to the global Memory interface
 declare global {

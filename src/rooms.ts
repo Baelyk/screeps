@@ -7,6 +7,7 @@ import { roomDebugLoop } from "utils/debug";
 import { updateSpawnQueue } from "spawning";
 import { roomVisualManager } from "roomVisuals";
 import { RoomInfo, VisibleRoom } from "roomMemory";
+import { CreepRole, CreepTask } from "./creeps";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
