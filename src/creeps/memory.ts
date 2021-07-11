@@ -86,9 +86,9 @@ export class CreepInfo {
     }
   }
 
-  getAttackNotifications(): boolean {
+  getAttackNotifications(): boolean | undefined {
     // Undefined value means false (email attack notifications desired)
-    return this.getMemory().attackNotifications || false;
+    return this.getMemory().attackNotifications;
   }
 
   deleteAttackNotifications(): void {
@@ -255,7 +255,8 @@ export class HaulerCreepInfo extends CreepInfo {
   constructor(creepName: string) {
     super(creepName);
     const role = Memory.creeps[creepName].role;
-    if (role !== this.role) {
+    // TODO: Merge remote haulers and haulers into just haulers
+    if (role !== this.role && role !== CreepRole.remoteHauler) {
       throw new CreepInfoError(
         creepName,
         `Creep has role ${role} not ${this.role}`,
