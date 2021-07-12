@@ -305,9 +305,8 @@ function memoryOverridesHauler(
       throw new ScriptError(`Miner creep has undefined spot`);
     }
     const pos = Position.serializedToRoomPosition(spot);
-    // TODO: Uhhh, does the below line work since it compares RoomPosition
-    // objects
-    if (haulerSpots.indexOf(pos) === -1) {
+    // If no hauler spot (`spot`) is equal to this miner's assigned spot (`pos`)
+    if (!_.some(haulerSpots, (spot) => Position.areEqual(spot, pos))) {
       if (room.roomType === RoomType.primary) {
         // In primary rooms, check that there isn't a link adjacent
         return (
