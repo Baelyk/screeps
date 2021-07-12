@@ -299,23 +299,12 @@ export function depositEnergy(creep: Creep): ScreepsReturnCode {
   const room = new VisibleRoom(creep.room.name);
   try {
     const spawnLink = room.getSpawnLink();
-    const spawnLinkEnergy = spawnLink.store[RESOURCE_ENERGY];
-    if (spawnLinkEnergy < LINK_CAPACITY / 2) {
-      const amount = Math.min(
-        creepEnergy,
-        LINK_CAPACITY / 2 - spawnLink.store[RESOURCE_ENERGY],
-      );
-      return putResource(creep, spawnLink, RESOURCE_ENERGY, amount);
-    }
+    return tendLink(creep, spawnLink, LINK_CAPACITY / 2, "put");
   } catch (error) {
     // No spawn link
   }
 
-  throw new CreepActionError(
-    creep,
-    "depositEnergy",
-    "Unable to find suitable target to deposit energy",
-  );
+  return ERR_NOT_FOUND;
 }
 
 export function idle(creep: Creep): ScreepsReturnCode {
@@ -359,4 +348,80 @@ export function recoverResource(
   }
 
   return ERR_NOT_FOUND;
+}
+
+export function tendLink(
+  creep: Creep,
+  target: StructureLink,
+  energyTarget: number,
+  action?: "get" | "put" | "decide",
+  warn = true,
+): ScreepsReturnCode {
+  const linkEnergy = target.store[RESOURCE_ENERGY];
+  const extraEnergy = linkEnergy - energyTarget;
+
+  if (extraEnergy === 0) {
+    return ERR_FULL;
+  }
+
+  // `action` is true when trying to get energy, false when trying to put
+  // energy, and undefined/"decide" for either based on `energyTarget` (> 0 is
+  // get, < 0 is put).
+
+  if (action == undefined || action == "decide") {
+    action = extraEnergy > 0 ? "get" : "put";
+  }
+
+  switch (action) {
+    case "get": {
+      if (extraEnergy > 0) {
+        const amount = Math.min(creep.store.getFreeCapacity(), extraEnergy);
+        return getResource(creep, target, RESOURCE_ENERGY, amount, warn);
+      } else {
+        return ERR_NOT_ENOUGH_RESOURCES;
+      }
+    }
+    case "put": {
+      if (extraEnergy < 0) {
+        const amount = Math.min(creep.store[RESOURCE_ENERGY], -extraEnergy);
+        return putResource(creep, target, RESOURCE_ENERGY, amount, warn);
+      } else {
+        return ERR_FULL;
+      }
+    }
+  }
+}
+
+export function storeEnergy(
+  creep: Creep,
+  backupRoomName?: string,
+  shouldWarn = true,
+): ScreepsReturnCode {
+  // Store energy into:
+  // 0. Current room's storage
+  // 1. Back up room's storage
+
+  let storage = creep.room.storage;
+  if (storage == undefined && backupRoomName != undefined) {
+    const backupRoom = Game.rooms[backupRoomName];
+    if (backupRoom != undefined) {
+      storage = backupRoom.storage;
+    }
+  }
+  if (storage == undefined) {
+    if (shouldWarn) {
+      const room =
+        backupRoomName != undefined
+          ? `${creep.room.name} or ${backupRoomName}`
+          : creep.room.name;
+      warn(`Creep ${creep.name} unable to find storage in ${room}`);
+    }
+    return ERR_NOT_FOUND;
+  }
+
+  const amount = Math.min(
+    creep.store[RESOURCE_ENERGY],
+    storage.store.getFreeCapacity(),
+  );
+  return putResource(creep, storage, RESOURCE_ENERGY, amount, shouldWarn);
 }

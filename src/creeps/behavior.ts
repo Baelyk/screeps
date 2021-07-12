@@ -415,33 +415,21 @@ function hauler(creep: Creep) {
     }
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        let storage = creep.room.storage;
-        // If Creep is not home, try and use the storage in the home room instead
+        // If creep assigned to a remote room, use the remote's owner as the
+        // backup room instead of its assigned owner. Additionally warn based on
+        // the owner room's level and not the current room's level.
         const room = new VisibleRoom(creep.room.name);
-        if (room.roomType === RoomType.remote) {
-          const owner = room.getRemoteOwner();
-          if (owner != undefined && owner !== creep.room.name) {
-            const homeRoom = Game.rooms[owner];
-            if (homeRoom != undefined) {
-              storage = homeRoom.storage || storage;
-            }
-          }
+        let roomLevel = room.roomLevel();
+        let backupName = creepInfo.getAssignedRoomName();
+        const backupRoom = new RoomInfo(backupName);
+        if (backupRoom.roomType === RoomType.remote) {
+          backupName = backupRoom.getRemoteOwner();
+          roomLevel = new RoomInfo(backupName).roomLevel();
         }
-        if (storage == undefined) {
-          if (room.roomLevel() >= 4) {
-            // Only warn about no storage when RCL is enough for a storage to
-            // exist
-            warn(
-              `Creep ${creep.name} noticed there is no primary storage for room ${creep.room.name}`,
-            );
-          }
+        const response = actions.storeEnergy(creep, backupName, roomLevel >= 4);
+        if (response === ERR_NOT_FOUND) {
+          warn(`Creep ${creep.name} unable to store energy so depositing`);
           actions.depositEnergy(creep);
-        } else {
-          const amount = Math.min(
-            creep.store[RESOURCE_ENERGY],
-            storage.store.getFreeCapacity(RESOURCE_ENERGY),
-          );
-          actions.putResource(creep, storage, RESOURCE_ENERGY, amount);
         }
       } else {
         // If the creep has no energy, begin getting energy
@@ -475,7 +463,23 @@ function tender(creep: Creep) {
     // Creep is getting energy
     case CreepTask.getEnergy: {
       if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-        actions.getEnergy(creep);
+        let response = null;
+        try {
+          const room = new VisibleRoom(creep.room.name);
+          const spawnLink = room.getSpawnLink();
+          response = actions.tendLink(
+            creep,
+            spawnLink,
+            LINK_CAPACITY / 2,
+            "get",
+          );
+        } catch (error) {
+          // Error getting energy from the spawn link first
+          warn(`Creep ${creep.name} failed to get from spawn link ${error}`);
+        }
+        if (response !== OK) {
+          actions.getEnergy(creep);
+        }
       } else {
         // If the creep has full energy, begin building
         switchTaskAndDoRoll(creep, CreepTask.deposit);
@@ -487,10 +491,27 @@ function tender(creep: Creep) {
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has energy, keep depositing
-        try {
-          actions.depositEnergy(creep);
-        } catch (error) {
-          warn(`Creep ${creep.name} unable to deposit energy because ${error}`);
+        let response = actions.depositEnergy(creep);
+        // If not depositing, tend to the spawn link
+        if (response !== OK) {
+          try {
+            info(`Creep ${creep.name} trying to put into link`);
+            const room = new VisibleRoom(creep.room.name);
+            const spawnLink = room.getSpawnLink();
+            response = actions.tendLink(
+              creep,
+              spawnLink,
+              LINK_CAPACITY / 2,
+              "decide",
+              false,
+            );
+            if (response === ERR_FULL && creep.store.getFreeCapacity() === 0) {
+              actions.storeEnergy(creep);
+            }
+          } catch (error) {
+            // Error getting energy from the spawn link first
+            warn(`Creep ${creep.name} failed to put into spawn link ${error}`);
+          }
         }
       } else {
         // If the creep has no energy, begin getting energy
