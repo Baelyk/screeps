@@ -495,7 +495,6 @@ function tender(creep: Creep) {
         // If not depositing, tend to the spawn link
         if (response !== OK) {
           try {
-            info(`Creep ${creep.name} trying to put into link`);
             const room = new VisibleRoom(creep.room.name);
             const spawnLink = room.getSpawnLink();
             response = actions.tendLink(
