@@ -52,7 +52,7 @@ export function harvest(
   const response = creep.harvest(target);
   if (response === ERR_NOT_IN_RANGE) {
     return move(creep, target, { range: 3 });
-  } else if (response !== OK && warn) {
+  } else if (response !== OK && response !== ERR_NOT_ENOUGH_RESOURCES && warn) {
     actionWarn(creep, "harvest", response);
   }
   return response;
@@ -299,11 +299,14 @@ export function depositEnergy(creep: Creep): ScreepsReturnCode {
   const room = new VisibleRoom(creep.room.name);
   try {
     const spawnLink = room.getSpawnLink();
-    const amount = Math.min(
-      creepEnergy,
-      LINK_CAPACITY / 2 - spawnLink.store[RESOURCE_ENERGY],
-    );
-    return putResource(creep, spawnLink, RESOURCE_ENERGY, amount);
+    const spawnLinkEnergy = spawnLink.store[RESOURCE_ENERGY];
+    if (spawnLinkEnergy < LINK_CAPACITY / 2) {
+      const amount = Math.min(
+        creepEnergy,
+        LINK_CAPACITY / 2 - spawnLink.store[RESOURCE_ENERGY],
+      );
+      return putResource(creep, spawnLink, RESOURCE_ENERGY, amount);
+    }
   } catch (error) {
     // No spawn link
   }

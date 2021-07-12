@@ -118,7 +118,7 @@ function miner(creep: Creep) {
     }
     if (creep.store[RESOURCE_ENERGY] > 0) {
       actions.repair(creep, container);
-    } else {
+    } else if (container.store[RESOURCE_ENERGY] > 0) {
       const amount = Math.min(
         creep.store.getFreeCapacity(),
         container.store[RESOURCE_ENERGY],
@@ -392,15 +392,19 @@ function hauler(creep: Creep) {
           );
           actions.getResource(creep, container, RESOURCE_ENERGY, amount);
         } else {
-          error(`Creep ${creep.name} unable to get container`);
-          warn(`Creep ${creep.name} attempting to recover at spot`);
-          if (
-            creep.room.name === creepInfo.getAssignedRoomName() &&
-            creep.pos.inRangeTo(spot, 1)
-          ) {
-            actions.recoverResource(creep, RESOURCE_ENERGY);
-          } else {
-            creep.moveTo(spot);
+          if (container == undefined) {
+            error(`Creep ${creep.name} unable to get container`);
+            warn(`Creep ${creep.name} attempting to recover at spot`);
+            if (
+              creep.room.name === creepInfo.getAssignedRoomName() &&
+              creep.pos.inRangeTo(spot, 1)
+            ) {
+              actions.recoverResource(creep, RESOURCE_ENERGY);
+            } else {
+              actions.move(creep, spot, { range: 1 });
+            }
+          } else if (!creep.pos.inRangeTo(spot, 1)) {
+            actions.move(creep, spot, { range: 1 });
           }
         }
       } else {
@@ -483,7 +487,11 @@ function tender(creep: Creep) {
     case CreepTask.deposit: {
       if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // If the creep has energy, keep depositing
-        actions.depositEnergy(creep);
+        try {
+          actions.depositEnergy(creep);
+        } catch (error) {
+          warn(`Creep ${creep.name} unable to deposit energy because ${error}`);
+        }
       } else {
         // If the creep has no energy, begin getting energy
         switchTaskAndDoRoll(creep, CreepTask.getEnergy);
