@@ -11,6 +11,10 @@ export class Position implements Pos {
   y: number;
   roomName: string;
 
+  static areEqual(a: Pos, b: Pos): boolean {
+    return a.x === b.x && a.y === b.y && a.roomName === b.roomName;
+  }
+
   static serialize(pos: Pos): string {
     return `${pos.x}:${pos.y}:${pos.roomName}`;
   }
@@ -24,6 +28,10 @@ export class Position implements Pos {
     return new Position(Position.deserialize(str));
   }
 
+  static serializedToRoomPosition(str: string): RoomPosition {
+    return Position.fromSerialized(str).intoRoomPosition();
+  }
+
   constructor(pos: Pos) {
     this.x = pos.x;
     this.y = pos.y;
@@ -31,10 +39,7 @@ export class Position implements Pos {
   }
 
   public intoRoomPosition(): RoomPosition {
-    const roomPosition = Game.rooms[this.roomName].getPositionAt(
-      this.x,
-      this.y,
-    );
+    const roomPosition = new RoomPosition(this.x, this.y, this.roomName);
     if (roomPosition == undefined) {
       throw new ScriptError(`Invalid position ${Position.serialize(this)}`);
     }

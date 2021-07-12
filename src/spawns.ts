@@ -2,6 +2,7 @@ import { nameCreep } from "utils/helpers";
 import { errorConstant, stringifyBody, info } from "utils/logger";
 import { ScriptError, wrapper } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
+import { CreepRole, CreepTask } from "./creeps";
 
 /**
  * Process spawn behavior

@@ -9,6 +9,7 @@ import { census } from "population";
 import { createLinkMemory } from "links";
 import { Pos, Position } from "classes/position";
 import { TerminalInfo, TerminalMemory } from "terminalMemory";
+import { CreepRole, CreepTask, AnyCreepMemory } from "./creeps";
 
 export function testFunction(): void {
   info(`Testfunction`);
@@ -98,7 +99,7 @@ declare global {
 
   interface SpawnQueueItem {
     role: CreepRole;
-    overrides?: Partial<CreepMemory>;
+    overrides?: Partial<AnyCreepMemory>;
     name?: string;
   }
 

@@ -1,5 +1,4 @@
 import { ScriptError } from "utils/errors";
-import { info } from "utils/logger";
 
 export function hasBodyPart(creep: Creep, partType: BodyPartConstant): boolean {
   const body = creep.body;
@@ -41,31 +40,6 @@ export function bodyCost(
     cost += count * BODYPART_COST[partType];
   });
   return cost;
-}
-
-/**
- * Count the number of creeps of a certain role
- *
- * @param role The role to count
- * @returns The number of creeps
- */
-export function countRole(
-  room: Room,
-  role: CreepRole,
-  filter?: (creep: Creep) => boolean,
-): number {
-  if (filter == undefined) {
-    filter = () => {
-      return true;
-    };
-  }
-  let count = 0;
-  for (const name in Game.creeps) {
-    const creep = Game.creeps[name];
-    if (creep.memory.role === role && creep.room === room && filter(creep))
-      count++;
-  }
-  return count;
 }
 
 /**
@@ -125,4 +99,66 @@ export function awayFromExitDirection(
 
 export function onExit(pos: RoomPosition): boolean {
   return pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49;
+}
+
+/**
+ * Get a ring of the surrounding coords of radius
+ *
+ * @param x The x coord of the center
+ * @param y The y coord of the center
+ * @param radius=0 The radius of the ring, where radius 0 is just the point
+ * @returns An array of coordinate pairs forming the ring
+ */
+function getSurroundingCoords(
+  x: number,
+  y: number,
+  radius = 1,
+): { x: number; y: number }[] {
+  if (radius === 0) return [{ x, y }];
+
+  const maxX = x + radius;
+  const maxY = y + radius;
+  const minX = x - radius;
+  const minY = y - radius;
+  const coords = [];
+
+  for (let xCoord = minX; xCoord <= maxX; xCoord++) {
+    coords.push({
+      x: xCoord,
+      y: maxY,
+    });
+    coords.push({
+      x: xCoord,
+      y: minY,
+    });
+  }
+
+  // Don't include the coordinates at the corners, because they were included in the first for loop
+  for (let yCoord = minY + 1; yCoord < maxY; yCoord++) {
+    coords.push({
+      x: maxX,
+      y: yCoord,
+    });
+    coords.push({
+      x: minX,
+      y: yCoord,
+    });
+  }
+
+  return coords;
+}
+
+export function getSurroundingTiles(
+  position: RoomPosition,
+  radius = 0,
+): RoomPosition[] {
+  const coords = getSurroundingCoords(position.x, position.y, radius);
+  // RoomPosition or null/undefined array
+  const positions = coords.map((coord) => {
+    return Game.rooms[position.roomName].getPositionAt(coord.x, coord.y);
+  });
+  // RoomPosition[] after removing undefinedish elements
+  return positions.filter(
+    (position) => position != undefined,
+  ) as RoomPosition[];
 }

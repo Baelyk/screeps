@@ -1,7 +1,7 @@
 import { errorConstant, warn } from "utils/logger";
-import { getSurroundingTiles } from "construct";
 import { GetByIdError, ScriptError, wrapper } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
+import { getSurroundingTiles } from "utils/helpers";
 
 declare global {
   interface RoomLinksMemory {

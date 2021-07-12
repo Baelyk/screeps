@@ -1,9 +1,9 @@
-import { getSurroundingTiles } from "construct";
 import { info } from "utils/logger";
 import { generateBodyByRole } from "spawns";
-import { bodyCost, countBodyPart } from "utils/helpers";
+import { bodyCost, countBodyPart, getSurroundingTiles } from "utils/helpers";
 import { GetByIdError, ScriptError } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
+import { CreepRole } from "./creeps";
 
 /**
  * Reasses population limits
