@@ -1,202 +1,3 @@
-export class OldGraph {
-  walls: number[];
-  exits: number[];
-
-  public static coordToIndex(coord: { x: number; y: number }): number {
-    return coord.x + coord.y * 50;
-  }
-
-  constructor(walls: number[], exits: number[]) {
-    this.walls = walls;
-    this.exits = exits;
-  }
-
-  getNode(node: number): number | undefined {
-    // Walls are not part of the graph
-    if (_.includes(this.walls, node)) {
-      return undefined;
-    }
-    // The first node in this.exits is that symbolic exit
-    if (_.includes(this.exits, node)) {
-      return this.exits[0];
-    }
-    // If the node isn't a wall or exit, it's in the graph
-    return node;
-  }
-
-  getSurroundingNodes(node: number, radius = 1): number[] {
-    const nodeX = node % 50;
-    const nodeY = Math.floor(node / 50);
-
-    // Adjust by the radius or the max possible adjustment staying within 0-49
-    const xMinus = Math.min(radius, nodeX);
-    const xPlus = Math.min(radius, 49 - nodeX);
-    const yMinus = Math.min(radius, nodeY);
-    const yPlus = Math.min(radius, 49 - nodeY);
-
-    const surrounding: number[] = [];
-    for (let y = nodeY - yMinus; y <= nodeY + yPlus; y++) {
-      for (let x = nodeX - xMinus; x <= nodeX + xPlus; x++) {
-        if (x + y * 50 === node) {
-          continue;
-        }
-        surrounding.push(x + y * 50);
-      }
-    }
-
-    return surrounding;
-  }
-
-  public getNeighbors(
-    node: number,
-    radius = 1,
-    getWallNeighbors = false,
-  ): number[] {
-    // Get neighbors treats exit nodes as normal nodes, i.e. it does not use
-    // the symbolic exit (the first exit) to get neighbors, but the actual
-    // provided index.
-
-    // Nodes not in the graph have no neighbors
-    if (!getWallNeighbors && _.includes(this.walls, node)) {
-      return [];
-    }
-
-    // Get the surrounding nodes, get them in the graph, and remove any possible
-    // undefined neighbors (e.g. walls).
-    const surrounding = this.getSurroundingNodes(node, radius);
-    const neighbors = _.map(surrounding, (tile) => this.getNode(tile));
-    _.remove(neighbors, _.isUndefined);
-
-    return neighbors as number[];
-  }
-
-  getBoundaryNodes(): number[] {
-    // Boundary nodes are nodes that exist in the graph (not walls) with less
-    // than 8 neighbors (e.g. at least one of its neighbors is a wall).
-    const boundaries: number[] = [];
-    for (let i = 0; i < 50 * 50; i++) {
-      const node = this.getNode(i);
-      if (node != undefined && this.getNeighbors(i).length < 8) {
-        boundaries.push(i);
-      }
-    }
-
-    return boundaries;
-  }
-
-  public distanceTransform(): number[] {
-    const boundaries = this.getBoundaryNodes();
-    // FIFO queue initialized to boundary nodes
-    const queue = boundaries.slice();
-    // Set of discovered nodes initialized to boundary nodes
-    const discovered = boundaries.slice();
-
-    // Initialize all distances to -1
-    const distances = new Array<number>(50 * 50);
-    for (let i = 0; i < 50 * 50; i++) {
-      distances[i] = -1;
-    }
-
-    // A node with distance 0 is adjacent to a wall
-    let distance = 0;
-    // Number of nodes with the current distance
-    let currentClassSize = 0;
-    // Number of nodes with the previous distance
-    let previousClassSize = queue.length;
-
-    while (queue.length > 0) {
-      if (currentClassSize === previousClassSize) {
-        currentClassSize = 0;
-        previousClassSize = queue.length;
-        distance++;
-      }
-
-      const node = queue.shift();
-      if (node == undefined) {
-        throw new Error("Queue unexpectedly has undefined element");
-      }
-      if (distances[node] === -1) {
-        distances[node] = distance;
-        currentClassSize++;
-      }
-
-      // Traverse through the graph through neighbors
-      const neighbors = this.getNeighbors(node);
-      _.forEach(neighbors, (neighbor) => {
-        if (!_.includes(discovered, neighbor)) {
-          queue.push(neighbor);
-          discovered.push(neighbor);
-        }
-      });
-    }
-
-    return distances;
-  }
-
-  /**
-   * Find the closest tile from a provided tile (included) with a distance
-   * transform value higher than a provided distance. Uses a breadth-first
-   * search (I believe, lol). Can accept a list of nodes to ignore as solutions
-   * but to still traverse through.
-   */
-  public findClosestTileWithDistance(
-    startTile: number,
-    distance: number,
-    distanceTransform: number[],
-    ignore?: number[],
-    ignoreRadius = 0,
-  ): number | undefined {
-    if (ignore == undefined) {
-      ignore = [];
-    }
-
-    // FIFO queue
-    const queue = [startTile];
-    const discovered = [startTile];
-
-    while (queue.length > 0) {
-      const node = queue.shift();
-      if (node == undefined) {
-        throw new Error("Queue unexpectedly has undefined element");
-      }
-
-      // First check that the tile isn't ignored
-      if (!_.includes(ignore, node)) {
-        // Then check that tiles within the ignore radius aren't ignored
-        if (ignoreRadius > 0) {
-          const radiusNeighbors = this.getNeighbors(node, ignoreRadius);
-          // Make sure there are no walls within the radius
-          if ((2 * ignoreRadius + 1) ** 2 === radiusNeighbors.length + 1) {
-            // Try and find a node in both the radius and ignore arrays
-            const overlap = _.find(radiusNeighbors, (neighbor) => {
-              // TODO: Why is `|| []` necessary here?
-              return _.includes(ignore || [], neighbor);
-            });
-            if (overlap == undefined) {
-              return node;
-            }
-          }
-        } else {
-          // Ignore radius is 0, so since the tile isn't ignored, success
-          return node;
-        }
-      }
-
-      // Traverse through the graph through neighbors
-      const neighbors = this.getNeighbors(node);
-      _.forEach(neighbors, (neighbor) => {
-        if (!_.includes(discovered, neighbor)) {
-          queue.push(neighbor);
-          discovered.push(neighbor);
-        }
-      });
-    }
-
-    // No such node found in the graph
-    return undefined;
-  }
-}
-
 class Edge {
   from: number;
   to: number;
@@ -229,6 +30,10 @@ export class Graph {
   source: number;
   sink: number;
 
+  public static coordToIndex(coord: { x: number; y: number }): number {
+    return coord.x + coord.y * 50;
+  }
+
   static getSurrounding(node: number, radius = 1): number[] {
     const nodeX = node % 50;
     const nodeY = Math.floor(node / 50);
@@ -252,43 +57,13 @@ export class Graph {
     return surrounding;
   }
 
-  private static generateEdges(
-    sources: number[],
-    sinks: number[],
-    walls: number[],
-  ): EdgeList {
-    const source = sources[0];
-    const sink = sinks[0];
-
-    const edges: EdgeList = {};
-
-    for (let i = 0; i < this.order; i++) {
-      const surrounding = _.difference(this.getSurrounding(i), walls);
-      const removedSources = _.remove(surrounding, (node) =>
-        _.includes(sources, node),
-      );
-      const removedSinks = _.remove(surrounding, (node) =>
-        _.includes(sinks, node),
-      );
-      if (removedSources.length > 0) {
-        surrounding.push(source);
-      }
-      if (removedSinks.length > 0) {
-        surrounding.push(sink);
-      }
-      edges[i] = _.map(surrounding, (node) => new Edge(i, node, 1));
-    }
-
-    return edges;
-  }
-
   static createScreepsGraph(
     sources: number[],
     sinks: number[],
     walls: number[],
   ): Graph {
     const graph = new Graph(sources[0], sinks[0]);
-    graph.edges = Graph.generateEdges(sources, sinks, walls);
+    graph.generateEdges(sources, sinks, walls);
     return graph;
   }
 
@@ -296,6 +71,84 @@ export class Graph {
     this.source = source;
     this.sink = sink;
     this.edges = {};
+  }
+
+  toString(): string {
+    let output = `[Source: ${this.source} | Sink: ${this.sink}]`;
+    _.forEach(this.edges, (edgeList) => {
+      _.forEach(edgeList, (edge) => {
+        output += `\n\t${edge.toString()}`;
+      });
+    });
+    return output;
+  }
+
+  printEdges(node: number): void {
+    let output = `Edges of node ${node}:`;
+    _.forEach(this.edges[node], (edge) => {
+      output += `\n\t${edge.toString()}`;
+    });
+    console.log(output);
+  }
+
+  showFlow(): void {
+    const visual = new RoomVisual("sim");
+    _.forEach(this.edges, (edgeList) => {
+      _.forEach(edgeList, (edge) => {
+        let color = "white";
+        let opacity = 0.5;
+        if (edge.flow > 0) {
+          color = "black";
+          opacity = 1;
+        }
+        if (
+          edge.flow > 0 ||
+          (edge.flow === 0 &&
+            edge.from % 50 < 12 &&
+            Math.floor(edge.from / 50) > 31)
+        ) {
+          visual.line(
+            edge.from % 50,
+            Math.floor(edge.from / 50),
+            edge.to % 50,
+            Math.floor(edge.to / 50),
+            { opacity, color },
+          );
+        }
+      });
+    });
+  }
+
+  generateEdges(sources: number[], sinks: number[], walls: number[]): void {
+    for (let i = 0; i < 50 * 50; i++) {
+      let capacity = 1;
+      // Wall's aren't part of the graph, unless they're part of the source
+      if (!_.includes(sources, i) && _.includes(walls, i)) {
+        continue;
+      }
+
+      let surrounding = _.difference(Graph.getSurrounding(i), walls);
+
+      // Nodes connect to the representative source, not individual "sources"
+      surrounding = _.map(surrounding, (node) =>
+        _.includes(sources, node) ? this.source : node,
+      );
+
+      // Sinks can connect to other sinks, but non-sinks only connect to the
+      // representative sink (`this.sink`)
+      if (_.includes(sinks, i)) {
+        // However, these edges do not have any capacity
+        capacity = 0;
+      } else {
+        surrounding = _.map(surrounding, (node) =>
+          _.includes(sinks, node) ? this.sink : node,
+        );
+      }
+
+      // If `i` is in the source, mark edges as from `this.source`.
+      const from = _.includes(sources, i) ? this.source : i;
+      _.forEach(surrounding, (node) => this.addEdge(from, node, capacity));
+    }
   }
 
   addEdge(from: number, to: number, capacity: number, reverse = false): void {
@@ -312,7 +165,7 @@ export class Graph {
     }
 
     if (!reverse) {
-      this.addEdge(to, from, capacity, true);
+      this.addEdge(to, from, 0, true);
     }
   }
 
@@ -324,43 +177,29 @@ export class Graph {
     return reverse;
   }
 
+  addToSource(node: number): void {
+    const edges = this.edges[node];
+    _.forEach(edges, (edge) => {
+      // Remove capacity on this and the reverse edge
+      edge.capacity = 0;
+      this.getReverseEdge(edge).capacity = 0;
+      // Add edge from the source to this neighbor (and reverse edge)
+      this.addEdge(this.source, edge.to, edge.capacity);
+    });
+  }
+
+  addManyToSource(nodes: number[]): void {
+    _.forEach(nodes, (node) => this.addToSource(node));
+  }
+
+  getNeighbors(node: number, range = 1): number[] {
+    const surrounding = Graph.getSurrounding(node, range);
+    return _.filter(surrounding, (tile) => this.edges[tile] != undefined);
+  }
+
   augmentFlow(edge: Edge, flow: number): void {
     edge.flow += flow;
     this.getReverseEdge(edge).flow -= flow;
-  }
-
-  getResNeighbors(node: number): number[] {
-    const edges = this.edges[node];
-
-    // Node isn't in graph or isn't connected
-    if (edges == undefined || edges.length === 0) {
-      return [];
-    }
-
-    // Must have positive residual capacity
-    return _.pluck(
-      _.filter(edges, (edge) => edge.resCap() > 0),
-      "to",
-    );
-  }
-
-  getLevelNeighbors(levels: Levels, node: number): number[] {
-    const edges = this.edges[node];
-
-    // Node isn't in graph or isn't connected
-    if (edges == undefined || edges.length === 0) {
-      return [];
-    }
-
-    // Must have positive residual capacity and increase level by exactly 1
-    return _.pluck(
-      _.filter(
-        edges,
-        (edge) =>
-          edge.resCap() > 0 && levels[edge.to] === levels[edge.from] + 1,
-      ),
-      "to",
-    );
   }
 
   levelGraph(): Levels | null {
@@ -369,14 +208,7 @@ export class Graph {
     // BFS starting at the source
     // FIFO queue
     const queue: number[] = [this.source];
-    // Set
-    const discovered: number[] = [this.source];
-
-    let level = 0;
-    // Number of nodes with the current level
-    let currentClassSize = 0;
-    // Number of nodes with the previous level
-    let previousClassSize = queue.length;
+    levels[this.source] = 0;
 
     let sinkReached = false;
 
@@ -386,25 +218,16 @@ export class Graph {
         throw new Error("Unexpected undefined in queue");
       }
 
-      if (currentClassSize === previousClassSize) {
-        currentClassSize = 0;
-        previousClassSize = queue.length;
-        level++;
-      }
-      if (levels[node] == undefined) {
-        levels[node] = level;
-        currentClassSize++;
-      }
-
-      const neighbors = this.getResNeighbors(node);
-      _.forEach(neighbors, (neighbor) => {
-        if (!_.includes(discovered, neighbor)) {
-          if (neighbor === this.sink) {
+      const edges = this.edges[node];
+      _.forEach(edges, (edge) => {
+        // Only edges with positive residual capacity are traversable
+        if (edge.resCap() > 0 && levels[edge.to] == undefined) {
+          if (edge.to === this.sink) {
             sinkReached = true;
           }
 
-          queue.push(neighbor);
-          discovered.push(neighbor);
+          levels[edge.to] = levels[node] + 1;
+          queue.push(edge.to);
         }
       });
     }
@@ -485,8 +308,257 @@ export class Graph {
 
     return maxFlow;
   }
+
+  nodesConnectedToSource(): number[] {
+    // BFS from source
+    // FIFO queue
+    const queue: number[] = [this.source];
+    const connected: number[] = [this.source];
+
+    while (queue.length > 0) {
+      const node = queue.shift();
+      if (node == undefined) {
+        throw new Error("Node unexpectedly undefined");
+      }
+
+      const edges = this.edges[node];
+      _.forEach(edges, (edge) => {
+        if (edge.resCap() > 0 && !_.includes(connected, edge.to)) {
+          queue.push(edge.to);
+          connected.push(edge.to);
+        }
+      });
+    }
+
+    const sourceAdjacent = _.pluck(this.edges[this.source], "to");
+    return _.union(connected, sourceAdjacent);
+  }
+
+  minCutNodes(): number[] {
+    const connected = this.nodesConnectedToSource();
+    const cut: number[] = [];
+    _.forEach(connected, (node) => {
+      const neighbors = _.pluck(this.edges[node], "to");
+      if (_.some(neighbors, (neighbor) => !_.includes(connected, neighbor))) {
+        cut.push(node);
+      }
+    });
+    return cut;
+  }
+
+  getConnectedComponents(subgraph: number[]): number[][] {
+    const remaining = [...subgraph];
+    const components: number[][] = [];
+
+    while (subgraph.length > 0) {
+      const start = remaining.shift();
+      if (start == undefined) {
+        break;
+      }
+
+      const queue = [start];
+      const component = [start];
+
+      while (queue.length > 0) {
+        const node = queue.shift();
+        if (node == undefined) {
+          throw new Error("Node unexpectedly undefined");
+        }
+        console.log(`n ${node}`);
+
+        const edges = this.edges[node];
+        _.forEach(edges, (edge) => {
+          if (_.includes(remaining, edge.to)) {
+            queue.push(edge.to);
+            component.push(edge.to);
+            _.pull(remaining, edge.to);
+          }
+        });
+      }
+
+      components.push(component);
+    }
+
+    return components;
+  }
+
+  wallPositions(): [number[], number[]] {
+    const cuts = this.minCutNodes();
+    const ramparts: number[] = [];
+    const walls: number[] = [];
+
+    const connectedComponents = this.getConnectedComponents(cuts);
+    _.forEach(connectedComponents, (component) => {
+      if (component.length <= 3) {
+        ramparts.push(...component);
+      } else {
+        const middleIndex = Math.floor(component.length / 2);
+        const rampart = _.slice(component, middleIndex - 1, middleIndex + 2);
+        const wall = _.difference(component, rampart);
+        ramparts.push(...rampart);
+        walls.push(...wall);
+      }
+    });
+
+    return [ramparts, walls];
+  }
+
+  isOpen(node: number, distance: number, blocked: number[]): boolean {
+    const surrounding = Graph.getSurrounding(node, distance);
+    // Node is open if `surrounding` and `blocked` have no intersection
+    return _.intersection(surrounding, blocked).length === 0;
+  }
+
+  findOpenTile(
+    start: number,
+    distance: number,
+    blocked: number[],
+  ): number | undefined {
+    const queue = [start];
+    const discovered = [start];
+
+    while (queue.length > 0) {
+      const node = queue.shift();
+      if (node == undefined) {
+        throw new Error("Queue unexpectedly has undefined");
+      }
+
+      if (this.isOpen(node, distance, blocked)) {
+        return node;
+      }
+
+      const edges = this.edges[node];
+      _.forEach(edges, (edge) => {
+        if (!_.includes(discovered, edge.to)) {
+          queue.push(edge.to);
+          discovered.push(edge.to);
+        }
+      });
+    }
+
+    // No such tile found
+    return undefined;
+  }
 }
 
 export function testing(): void {
   console.log("Hello, testing time!");
+  /*
+  const graph = new Graph(-1, 9);
+
+  graph.addEdge(-1, 0, 5);
+  graph.addEdge(-1, 1, 10);
+  graph.addEdge(-1, 2, 15);
+  graph.addEdge(0, 3, 10);
+  graph.addEdge(1, 0, 15);
+  graph.addEdge(1, 4, 20);
+  graph.addEdge(2, 5, 25);
+  graph.addEdge(3, 4, 25);
+  graph.addEdge(3, 6, 10);
+  graph.addEdge(4, 2, 5);
+  graph.addEdge(4, 7, 30);
+  graph.addEdge(5, 7, 20);
+  graph.addEdge(5, 8, 10);
+  graph.addEdge(6, 9, 5);
+  graph.addEdge(7, 3, 15);
+  graph.addEdge(7, 8, 15);
+  graph.addEdge(7, 9, 15);
+  graph.addEdge(8, 9, 10);
+
+  // Should be 30
+  const maxFlow = graph.dinicMaxFlow();
+  console.log(`Max flow: ${maxFlow}`);
+  console.log(graph.toString());
+  */
+
+  const sources: number[] = [];
+  let sinks: number[] = [];
+  const walls: number[] = [];
+
+  const room = Game.rooms["sim"];
+  const terrain = new Room.Terrain("sim");
+  for (let i = 0; i < 50 * 50; i++) {
+    if (terrain.get(i % 50, Math.floor(i / 50)) === TERRAIN_MASK_WALL) {
+      walls.push(i);
+    }
+  }
+  _.forEach(
+    room.find(FIND_STRUCTURES, { filter: { structureType: STRUCTURE_WALL } }),
+    (wall) => walls.push(wall.pos.x + wall.pos.y * 50),
+  );
+  _.forEach(room.find(FIND_EXIT), (exit) => {
+    sinks.push(exit.x + exit.y * 50);
+    const unbuildable = _.difference(
+      Graph.getSurrounding(exit.x + exit.y * 50),
+      walls,
+    );
+    _.forEach(unbuildable, (node) => {
+      sinks.push(node);
+      // sinks.push(...Graph.getSurrounding(node));
+    });
+  });
+  sinks = _.difference(_.uniq(sinks), walls);
+  _.forEach(room.find(FIND_MY_STRUCTURES), (structure) =>
+    sources.push(structure.pos.x + structure.pos.y * 50),
+  );
+
+  console.log(JSON.stringify(sources));
+  console.log(JSON.stringify(sinks));
+  console.log(JSON.stringify(walls));
+
+  const graph = Graph.createScreepsGraph(sources, sinks, walls);
+  const maxFlow = graph.dinicMaxFlow();
+  console.log(`Max flow: ${maxFlow}`);
+  const connected = graph.nodesConnectedToSource();
+  const cut = graph.minCutNodes();
+  const [minCutWalls, ramparts] = graph.wallPositions();
+  const visual = new RoomVisual("sim");
+  graph.printEdges(2 + 36 * 50);
+  graph.printEdges(3 + 36 * 50);
+  graph.printEdges(4 + 36 * 50);
+  graph.printEdges(2 + 37 * 50);
+  graph.printEdges(3 + 37 * 50);
+  graph.printEdges(4 + 37 * 50);
+  graph.printEdges(2 + 38 * 50);
+  graph.printEdges(3 + 38 * 50);
+  graph.printEdges(4 + 38 * 50);
+  _.forEach(sinks, (node) => {
+    visual.circle(node % 50, Math.floor(node / 50), {
+      radius: 0.5,
+      fill: "red",
+    });
+  });
+  _.forEach(connected, (node) => {
+    visual.circle(node % 50, Math.floor(node / 50), {
+      radius: 0.5,
+      fill: "green",
+    });
+  });
+  _.forEach(cut, (node) => {
+    visual.circle(node % 50, Math.floor(node / 50), {
+      radius: 0.5,
+      fill: "yellow",
+    });
+  });
+  _.forEach(sources, (node) => {
+    visual.circle(node % 50, Math.floor(node / 50), {
+      radius: 0.5,
+      fill: "blue",
+    });
+  });
+  _.forEach(ramparts, (node) => {
+    visual.circle(node % 50, Math.floor(node / 50), {
+      radius: 0.3,
+      fill: "white",
+      opacity: 1,
+    });
+  });
+  _.forEach(minCutWalls, (node) => {
+    visual.circle(node % 50, Math.floor(node / 50), {
+      radius: 0.3,
+      fill: "black",
+      opacity: 1,
+    });
+  });
+  graph.showFlow();
 }
