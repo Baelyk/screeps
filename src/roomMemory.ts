@@ -110,11 +110,13 @@ declare global {
   }
 
   interface RoomDebugFlagsMemory {
-    [key: string]: boolean | undefined;
     removeConstructionSites?: boolean;
     resetConstructionSites?: boolean;
     resetPopLimits?: boolean;
     executePlan?: boolean;
+    resetPlan?: boolean;
+    resetRoomMemory?: boolean;
+    showPlan?: boolean;
   }
 
   interface RoomDebugEnergyFlow {
@@ -272,6 +274,17 @@ export class RoomInfo implements RoomMemory {
       return false;
     }
     return debugMemory.flags[flag] || false;
+  }
+
+  setDebugFlag(flag: keyof RoomDebugFlagsMemory): void {
+    const debugMemory = this.getDebugMemory();
+    let flags = debugMemory.flags;
+    if (flags == undefined) {
+      flags = {};
+    }
+    flags[flag] = true;
+    debugMemory.flags = flags;
+    Memory.rooms[this.name].debug = debugMemory;
   }
 
   removeDebugFlag(flag: keyof RoomDebugFlagsMemory): void {
@@ -627,6 +640,13 @@ export class RoomInfo implements RoomMemory {
       // Unable to account for blocked exits :(
     }
     return _.values(exits);
+  }
+
+  showPlan(): void {
+    const plannerMemory = this.getPlannerMemory();
+    if (plannerMemory != undefined) {
+      RoomPlanner.visualizePlan(plannerMemory);
+    }
   }
 }
 
