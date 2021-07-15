@@ -91,8 +91,8 @@ export class Graph {
     console.log(output);
   }
 
-  showFlow(): void {
-    const visual = new RoomVisual("sim");
+  showFlow(roomName?: string): void {
+    const visual = new RoomVisual(roomName);
     _.forEach(this.edges, (edgeList) => {
       _.forEach(edgeList, (edge) => {
         let color = "white";
@@ -101,12 +101,7 @@ export class Graph {
           color = "black";
           opacity = 1;
         }
-        if (
-          edge.flow > 0 ||
-          (edge.flow === 0 &&
-            edge.from % 50 < 12 &&
-            Math.floor(edge.from / 50) > 31)
-        ) {
+        if (edge.flow > 0) {
           visual.line(
             edge.from % 50,
             Math.floor(edge.from / 50),
@@ -180,11 +175,11 @@ export class Graph {
   addToSource(node: number): void {
     const edges = this.edges[node];
     _.forEach(edges, (edge) => {
+      // Add edge from the source to this neighbor (and reverse edge)
+      this.addEdge(this.source, edge.to, edge.capacity);
       // Remove capacity on this and the reverse edge
       edge.capacity = 0;
       this.getReverseEdge(edge).capacity = 0;
-      // Add edge from the source to this neighbor (and reverse edge)
-      this.addEdge(this.source, edge.to, edge.capacity);
     });
   }
 
@@ -335,6 +330,7 @@ export class Graph {
   }
 
   minCutNodes(): number[] {
+    const maxFlow = this.dinicMaxFlow();
     const connected = this.nodesConnectedToSource();
     const cut: number[] = [];
     _.forEach(connected, (node) => {
@@ -364,7 +360,6 @@ export class Graph {
         if (node == undefined) {
           throw new Error("Node unexpectedly undefined");
         }
-        console.log(`n ${node}`);
 
         const edges = this.edges[node];
         _.forEach(edges, (edge) => {
@@ -404,9 +399,14 @@ export class Graph {
   }
 
   isOpen(node: number, distance: number, blocked: number[]): boolean {
-    const surrounding = Graph.getSurrounding(node, distance);
-    // Node is open if `surrounding` and `blocked` have no intersection
-    return _.intersection(surrounding, blocked).length === 0;
+    const surrounding = this.getNeighbors(node, distance);
+    // Node is open if `surrounding` and `blocked` have no intersection and it
+    // has all the surrounding tiles it should have
+    const area = (2 * distance + 1) ** 2 - 1;
+    return (
+      surrounding.length === area &&
+      _.intersection(surrounding, blocked).length === 0
+    );
   }
 
   findOpenTile(

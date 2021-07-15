@@ -27,6 +27,7 @@ interface DebugMemory {
   expandAllowed?: boolean;
   distTran?: string;
   plan?: any;
+  visual?: any;
 }
 
 interface DebugEnergyHarvested {

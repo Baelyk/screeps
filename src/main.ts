@@ -1,7 +1,7 @@
 import { ErrorMapper } from "utils/ErrorMapper";
 import { watcher } from "utils/watch-client";
 import { tick } from "utils/logger";
-import { debugPostLoop, debugLoop } from "utils/debug";
+import { debugPostLoop, debugLoop} from "utils/debug";
 import { wrapper } from "utils/errors";
 import { creepManager } from "./creeps";
 import { spawnManager } from "spawns";

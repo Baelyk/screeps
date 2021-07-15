@@ -104,7 +104,6 @@ export class RoomPlanner extends RoomPlannerBase {
   roomType: RoomType;
   costMatrix: CostMatrix;
   graph: Graph;
-  distanceTransform: number[];
 
   static visualizePlan(plan: RoomPlannerMemory): string {
     const visual = new RoomVisual(plan.roomName);
@@ -187,12 +186,8 @@ export class RoomPlanner extends RoomPlannerBase {
     // Remove overlap between sinks and walls from adding surrounding tiles
     // without checking that they aren't walls
     sinks = _.difference(_.uniq(sinks), walls);
-    // Protect structures
-    _.forEach(room.find(FIND_MY_STRUCTURES), (structure) =>
-      sources.push(structure.pos.x + structure.pos.y * 50),
-    );
 
-    return Graph.createScreepsGraph(sources, sinks, walls);
+    return Graph.createScreepsGraph([-1], sinks, walls);
   }
 
   constructor(roomName: string, roomType: RoomType) {
@@ -201,7 +196,6 @@ export class RoomPlanner extends RoomPlannerBase {
     this.roomType = roomType;
     this.costMatrix = new PathFinder.CostMatrix();
     this.graph = RoomPlanner.createGraph(roomName);
-    this.distanceTransform = [0]; // this.graph.distanceTransform();
 
     // Mark constructed walls as obstructions
     _.forEach(
@@ -243,6 +237,7 @@ export class RoomPlanner extends RoomPlannerBase {
     );
 
     if (path.incomplete) {
+      console.log(JSON.stringify(path));
       throw new RoomPlannerError(
         this.roomName,
         `Unable to find path from (${start.x}, ${start.y}) to (${finish.x}, ${finish.y})`,
@@ -285,19 +280,24 @@ export class RoomPlanner extends RoomPlannerBase {
     // Mark the spawn location and it's ring of roads as occupied.
     occupied.push(spawnLocation, ...this.graph.getNeighbors(spawnLocation));
     this.addObstruction(spawnLocation);
+    console.log(JSON.stringify(this.indexToRoomPosition(spawnLocation)));
 
     const storageLocation = this.findStorageLocation(spawnLocation, occupied);
-    occupied.push(storageLocation, ...this.graph.getNeighbors(spawnLocation));
+    occupied.push(storageLocation, ...this.graph.getNeighbors(storageLocation));
     this.addObstruction(storageLocation);
+    console.log(JSON.stringify(this.indexToRoomPosition(storageLocation)));
 
     const sourceContainers = this.findSourceContainerLocations(occupied);
     occupied.push(...sourceContainers);
+    console.log(JSON.stringify(this.indexToRoomPosition(sourceContainers[0])));
+    console.log(JSON.stringify(this.indexToRoomPosition(sourceContainers[1])));
 
     const [towerSetupLocation, towerLocations] = this.findTowerLocation(
       storageLocation,
       occupied,
     );
     occupied.push(towerSetupLocation, ...towerLocations);
+    console.log(JSON.stringify(this.indexToRoomPosition(towerSetupLocation)));
 
     const linkLocations = this.findLinkLocations(
       spawnLocation,
@@ -338,7 +338,11 @@ export class RoomPlanner extends RoomPlannerBase {
     // Add extension roads to roads list
     roads.push(extensionRoadLocations);
 
+    // Remove duplicated after adding extensions
+    occupied = _.uniq(occupied);
+
     const { walls, ramparts } = this.findWallRampartLocations(occupied);
+    occupied.push(...walls, ...ramparts);
 
     const roadMemory: RoomPlannerRoadMemory = {
       spawnRing: roads[0],
@@ -456,9 +460,9 @@ export class RoomPlanner extends RoomPlannerBase {
     return spawnLocationIndex;
   }
 
-  /** Find a location near to the spawn with 2 space around it. */
+  /** Find a location near to the spawn with 1 space around it. */
   findStorageLocation(spawn: number, occupied: number[]): number {
-    const storageLocation = this.graph.findOpenTile(spawn, 2, occupied);
+    const storageLocation = this.graph.findOpenTile(spawn, 1, occupied);
     if (storageLocation == undefined) {
       throw new RoomPlannerError(
         this.roomName,
@@ -473,7 +477,6 @@ export class RoomPlanner extends RoomPlannerBase {
     const room = this.getRoom();
     const sources = room.find(FIND_SOURCES);
     const containers: number[] = [];
-    console.log(JSON.stringify(occupied));
     _.forEach(sources, (source) => {
       const index = Graph.coordToIndex(source.pos);
       // Get the first neighbor not occupied in the plan
@@ -537,27 +540,8 @@ export class RoomPlanner extends RoomPlannerBase {
     sourceContainers: number[],
     occupied: number[],
   ): [number, number, number[]] {
-    // The storage link should be on one of the diagonals of the storage, which
-    // is already marked occupied. However, it should not be placed within the
-    // spawn's ring of roads, in the case that the storage and spawn are close.
-    const storageDiagonals: number[] = [];
-    for (let yOff = -1; yOff <= 1; yOff += 2) {
-      for (let xOff = -1; xOff <= 1; xOff += 2) {
-        storageDiagonals.push(
-          (storage % 50) + xOff + (Math.floor(storage / 50) + yOff) * 50,
-        );
-      }
-    }
-    const storageLink = _.find(
-      storageDiagonals,
-      (diagonal) => !_.includes(occupied, diagonal),
-    );
-    if (storageLink == undefined) {
-      throw new RoomPlannerError(
-        this.roomName,
-        `Unable to find storage link position`,
-      );
-    }
+    // Top left corner of storage
+    const storageLink = storage - 51;
 
     // The controller link should be in an adjacent, non-occupied tile
     const controller = this.getRoom().controller;
@@ -764,7 +748,7 @@ export class RoomPlanner extends RoomPlannerBase {
     protect: number[],
   ): { walls: number[]; ramparts: number[] } {
     this.graph.addManyToSource(protect);
-    const [walls, ramparts] = this.graph.wallPositions();
+    const [ramparts, walls] = this.graph.wallPositions();
     return { walls, ramparts };
   }
 }
@@ -887,6 +871,8 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - Walls/ramparts
         this.buildMany(plan.extensions.slice(0, 5), STRUCTURE_EXTENSION);
         this.buildMany(plan.roads.extensions, STRUCTURE_ROAD);
+        this.buildMany(plan.walls, STRUCTURE_WALL);
+        this.buildMany(plan.ramparts, STRUCTURE_RAMPART);
       }
       // falls through
       case 1: {
