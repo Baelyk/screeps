@@ -844,12 +844,12 @@ function guard(creep: Creep) {
 
       // No hostiles found, move to spawn
       if (creep.room.name !== homeRoomName) {
-        actions.moveToRoom(creep, homeRoomName);
+        actions.moveToRoom(creep, homeRoomName, { avoidHostiles: false });
       } else {
         // Move to spawn if exists
         const spawn = homeRoom.getPrimarySpawn();
         if (!creep.pos.isNearTo(spawn.pos)) {
-          creep.moveTo(spawn.pos);
+          actions.move(creep, spawn.pos, { range: 1 });
         }
       }
       break;
@@ -858,7 +858,7 @@ function guard(creep: Creep) {
     case CreepTask.move: {
       const targetRoom = creepInfo.getTargetRoom();
       if (targetRoom != undefined && creep.room.name != targetRoom) {
-        actions.moveToRoom(creep, targetRoom);
+        actions.moveToRoom(creep, targetRoom, { avoidHostiles: false });
       } else {
         switchTaskAndDoRoll(creep, CreepTask.attack);
       }
@@ -883,7 +883,9 @@ function guard(creep: Creep) {
 
       // Hostiles present:
       // Move to AND do all attacks possible
-      const moveResponse = creep.moveTo(target);
+      const moveResponse = actions.move(creep, target.pos, {
+        avoidHostiles: false,
+      });
       info(
         `Creep ${creep.name} approaching target ${
           target.id

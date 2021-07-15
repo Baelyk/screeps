@@ -1,6 +1,7 @@
 import { info, warn, errorConstant } from "utils/logger";
 import { ScriptError } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
+import { Position } from "classes/position";
 
 class CreepActionError extends ScriptError {
   constructor(creep: Creep, action: string, message: string) {
@@ -14,6 +15,8 @@ class CreepActionError extends ScriptError {
 
 interface MoveActionOptions {
   range: number;
+  avoidHostiles: boolean;
+  costCallback: (roomName: string, costMatrix: CostMatrix) => CostMatrix | void;
 }
 
 function actionWarn(
@@ -33,8 +36,40 @@ export function move(
   target: RoomPosition | { pos: RoomPosition },
   providedOptions?: Partial<MoveActionOptions>,
 ): ScreepsReturnCode {
+  function costCallback(
+    roomName: string,
+    costMatrix: CostMatrix,
+  ): CostMatrix | void {
+    if (
+      providedOptions == undefined ||
+      providedOptions.costCallback != undefined
+    ) {
+      return;
+    }
+
+    let changed = false;
+    // Block off tiles within range 3 of hostile creeps
+    if (providedOptions.avoidHostiles) {
+      const room = Game.rooms[roomName];
+      if (room != undefined) {
+        changed = true;
+        const hostiles = room.find(FIND_HOSTILE_CREEPS);
+        _.forEach(hostiles, (hostile) => {
+          const surrounding = Position.getSurrounding(hostile.pos, 3);
+          _.forEach(surrounding, (pos) => costMatrix.set(pos.x, pos.y, 255));
+        });
+      }
+    }
+
+    if (changed) {
+      return costMatrix;
+    }
+  }
+
   const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
     range: 0,
+    avoidHostiles: true,
+    costCallback,
   };
   const options: MoveActionOptions = _.assign(
     MOVE_ACTION_DEFAULTS,
@@ -318,9 +353,17 @@ export function idle(creep: Creep): ScreepsReturnCode {
   }
 }
 
-export function moveToRoom(creep: Creep, roomName: string): ScreepsReturnCode {
+export function moveToRoom(
+  creep: Creep,
+  roomName: string,
+  options?: Partial<MoveActionOptions>,
+): ScreepsReturnCode {
   const dummyPosition = new RoomPosition(24, 24, roomName);
-  return move(creep, dummyPosition, { range: 22 });
+  if (options == undefined) {
+    options = {};
+  }
+  options.range = 22;
+  return move(creep, dummyPosition, options);
 }
 
 export function recoverResource(
