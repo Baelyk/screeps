@@ -1,3 +1,5 @@
+export type IndexSet = { [key: number]: boolean };
+
 class Edge {
   from: number;
   to: number;
@@ -55,6 +57,12 @@ export class Graph {
     }
 
     return surrounding;
+  }
+
+  static nodeAtBoundary(node: number): boolean {
+    const x = node % 50;
+    const y = Math.floor(node / 50);
+    return x <= 1 || x >= 48 || y <= 1 || y >= 48;
   }
 
   static createScreepsGraph(
@@ -115,33 +123,51 @@ export class Graph {
   }
 
   generateEdges(sources: number[], sinks: number[], walls: number[]): void {
+    const enum TileType {
+      normal,
+      source,
+      sink,
+      wall,
+    }
+    const tiles: TileType[] = new Array(50 * 50);
+    for (let i = 0; i < 50 * 50; i++) {
+      tiles[i] = TileType.normal;
+    }
+    _.forEach(sources, (tile) => (tiles[tile] = TileType.source));
+    _.forEach(sinks, (tile) => (tiles[tile] = TileType.sink));
+    _.forEach(walls, (tile) => (tiles[tile] = TileType.wall));
+
     for (let i = 0; i < 50 * 50; i++) {
       let capacity = 1;
-      // Wall's aren't part of the graph, unless they're part of the source
-      if (!_.includes(sources, i) && _.includes(walls, i)) {
+      // Wall's aren't part of the graph
+      if (tiles[i] === TileType.wall) {
         continue;
       }
 
-      let surrounding = _.difference(Graph.getSurrounding(i), walls);
+      const preSurrounding = Graph.getSurrounding(i);
+      let surrounding = _.filter(
+        preSurrounding,
+        (tile) => tiles[tile] !== TileType.wall,
+      );
 
       // Nodes connect to the representative source, not individual "sources"
       surrounding = _.map(surrounding, (node) =>
-        _.includes(sources, node) ? this.source : node,
+        tiles[node] === TileType.source ? this.source : node,
       );
 
       // Sinks can connect to other sinks, but non-sinks only connect to the
       // representative sink (`this.sink`)
-      if (_.includes(sinks, i)) {
+      if (tiles[i] === TileType.sink) {
         // However, these edges do not have any capacity
         capacity = 0;
       } else {
         surrounding = _.map(surrounding, (node) =>
-          _.includes(sinks, node) ? this.sink : node,
+          tiles[node] === TileType.sink ? this.sink : node,
         );
       }
 
       // If `i` is in the source, mark edges as from `this.source`.
-      const from = _.includes(sources, i) ? this.source : i;
+      const from = tiles[i] === TileType.source ? this.source : i;
       _.forEach(surrounding, (node) => this.addEdge(from, node, capacity));
     }
   }
@@ -151,12 +177,7 @@ export class Graph {
     if (this.edges[from] == undefined) {
       this.edges[from] = [edge];
     } else {
-      const existingEdge = _.find(this.edges[from], { to: to });
-      if (existingEdge != undefined) {
-        existingEdge.capacity += capacity;
-      } else {
-        this.edges[from].push(edge);
-      }
+      this.edges[from].push(edge);
     }
 
     if (!reverse) {
@@ -165,7 +186,10 @@ export class Graph {
   }
 
   getReverseEdge(edge: Edge): Edge {
-    const reverse = _.find(this.edges[edge.to], { to: edge.from });
+    const reverse = _.find(
+      this.edges[edge.to],
+      (edgeFrom) => edgeFrom.to === edge.from,
+    );
     if (reverse == undefined) {
       throw new Error(`Reverse edge does not exist for ${edge.toString()}`);
     }
@@ -304,11 +328,12 @@ export class Graph {
     return maxFlow;
   }
 
-  nodesConnectedToSource(): number[] {
+  nodesConnectedToSource(): IndexSet {
     // BFS from source
     // FIFO queue
     const queue: number[] = [this.source];
-    const connected: number[] = [this.source];
+    const connected: IndexSet = {};
+    connected[this.source] = true;
 
     while (queue.length > 0) {
       const node = queue.shift();
@@ -318,24 +343,26 @@ export class Graph {
 
       const edges = this.edges[node];
       _.forEach(edges, (edge) => {
-        if (edge.resCap() > 0 && !_.includes(connected, edge.to)) {
+        if (edge.resCap() > 0 && !connected[edge.to]) {
           queue.push(edge.to);
-          connected.push(edge.to);
+          connected[edge.to] = true;
         }
       });
     }
 
     const sourceAdjacent = _.pluck(this.edges[this.source], "to");
-    return _.union(connected, sourceAdjacent);
+    _.forEach(sourceAdjacent, (tile) => (connected[tile] = true));
+    return connected;
   }
 
   minCutNodes(): number[] {
     const maxFlow = this.dinicMaxFlow();
     const connected = this.nodesConnectedToSource();
+    const connectedNodes = _.map(_.keys(connected), (key) => parseInt(key));
     const cut: number[] = [];
-    _.forEach(connected, (node) => {
+    _.forEach(connectedNodes, (node) => {
       const neighbors = _.pluck(this.edges[node], "to");
-      if (_.some(neighbors, (neighbor) => !_.includes(connected, neighbor))) {
+      if (_.some(neighbors, (neighbor) => !connected[neighbor])) {
         cut.push(node);
       }
     });
@@ -398,29 +425,34 @@ export class Graph {
     return [ramparts, walls];
   }
 
-  isOpen(node: number, distance: number, blocked: number[]): boolean {
+  isOpen(node: number, distance: number, blocked: IndexSet): boolean {
     const surrounding = this.getNeighbors(node, distance);
     // Node is open if `surrounding` and `blocked` have no intersection and it
     // has all the surrounding tiles it should have
     const area = (2 * distance + 1) ** 2 - 1;
     return (
       surrounding.length === area &&
-      _.intersection(surrounding, blocked).length === 0
+      !_.some(surrounding, (tile) => blocked[tile])
     );
   }
 
   findOpenTile(
     start: number,
     distance: number,
-    blocked: number[],
+    blocked: IndexSet,
   ): number | undefined {
     const queue = [start];
-    const discovered = [start];
+    const discovered: IndexSet = {};
+    discovered[start] = true;
 
     while (queue.length > 0) {
       const node = queue.shift();
       if (node == undefined) {
         throw new Error("Queue unexpectedly has undefined");
+      }
+      // Do not travel through boundary nodes
+      if (Graph.nodeAtBoundary(node)) {
+        continue;
       }
 
       if (this.isOpen(node, distance, blocked)) {
@@ -429,9 +461,9 @@ export class Graph {
 
       const edges = this.edges[node];
       _.forEach(edges, (edge) => {
-        if (!_.includes(discovered, edge.to)) {
+        if (!discovered[edge.to]) {
           queue.push(edge.to);
-          discovered.push(edge.to);
+          discovered[edge.to] = true;
         }
       });
     }
@@ -528,12 +560,14 @@ export function testing(): void {
       fill: "red",
     });
   });
+  /*
   _.forEach(connected, (node) => {
     visual.circle(node % 50, Math.floor(node / 50), {
       radius: 0.5,
       fill: "green",
     });
   });
+  */
   _.forEach(cut, (node) => {
     visual.circle(node % 50, Math.floor(node / 50), {
       radius: 0.5,
