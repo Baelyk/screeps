@@ -1,5 +1,6 @@
 import { MemoryError } from "utils/errors";
 import * as CreepInfoHelpers from "./helpers";
+import { warn } from "utils/logger";
 
 // Keep the generic CreepMemory in global
 declare global {
@@ -188,9 +189,18 @@ export class BuilderCreepInfo extends CreepInfo {
   }
 
   getAssignedConstruction(): ConstructionSite | undefined {
-    return CreepInfoHelpers.getAssignedById(
-      this.getMemory().assignedConstruction,
-    );
+    try {
+      return CreepInfoHelpers.getAssignedById(
+        this.getMemory().assignedConstruction,
+      );
+    } catch (error) {
+      warn(
+        `Removing assigned construction from Creep ${this.creepName} due to error:`,
+      );
+      warn(error.toString());
+      this.removeAssignedConstruction();
+    }
+    return undefined;
   }
 
   setAssignedConstruction(id: Id<ConstructionSite>): void {
