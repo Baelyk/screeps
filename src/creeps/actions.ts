@@ -283,11 +283,7 @@ export function getEnergy(creep: Creep): ScreepsReturnCode {
     return harvest(creep, nearestSource);
   }
 
-  throw new CreepActionError(
-    creep,
-    "getEnergy",
-    "Unable to find suitable target to get energy",
-  );
+  return ERR_NOT_FOUND;
 }
 
 export function depositEnergy(creep: Creep): ScreepsReturnCode {
