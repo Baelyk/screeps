@@ -76,7 +76,11 @@ export function move(
     providedOptions,
   );
 
-  return creep.moveTo(target, options);
+  const response = creep.moveTo(target, options);
+  if (response !== OK && response !== ERR_TIRED && warn) {
+    actionWarn(creep, "harvest", response);
+  }
+  return response;
 }
 
 export function harvest(
@@ -86,7 +90,7 @@ export function harvest(
 ): ScreepsReturnCode {
   const response = creep.harvest(target);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 3 });
+    return move(creep, target, { range: 1 });
   } else if (response !== OK && response !== ERR_NOT_ENOUGH_RESOURCES && warn) {
     actionWarn(creep, "harvest", response);
   }
