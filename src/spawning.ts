@@ -359,11 +359,9 @@ function memoryOverridesScout(
 function memoryOverridesExtractor(
   room: VisibleRoom,
 ): Partial<RoleCreepMemory.Extractor> {
-  const extractor = room
-    .getRoom()
-    .find(FIND_MY_STRUCTURES, {
-      filter: { structureType: STRUCTURE_EXTRACTOR },
-    })[0];
+  const extractor = room.getRoom().find(FIND_MY_STRUCTURES, {
+    filter: { structureType: STRUCTURE_EXTRACTOR },
+  })[0];
   if (extractor == undefined) {
     throw new ScriptError(`Unable to find extractor in room ${room.name}`);
   }
@@ -424,7 +422,8 @@ function catastropheSpawning(room: VisibleRoom): void {
         // If there is a harvester, let's now prioritize the spawn queue
         // If there are no miners alive, spawn a miner first. Then, spawn a
         // tender, then spawn haulers. Then carry on.
-        if (countRole(room.getRoom(), CreepRole.miner) === 0) {
+        const miners = countRole(room.getRoom(), CreepRole.miner);
+        if (miners === 0) {
           const hauler = _.remove(room.getSpawnQueue(), {
             role: CreepRole.hauler,
             overrides: { room: room.name },
@@ -458,6 +457,15 @@ function catastropheSpawning(room: VisibleRoom): void {
           if (miner != undefined) {
             room.addToSpawnQueue(miner, true);
           }
+        }
+      } else if (countRole(room.getRoom(), CreepRole.tender) === 0) {
+        warn(`No tender detected in room ${room.name}, prioritizing`);
+        const tender = _.remove(room.getSpawnQueue(), {
+          role: CreepRole.tender,
+          overrides: { room: room.name },
+        })[0];
+        if (tender != undefined) {
+          room.addToSpawnQueue(tender, true);
         }
       }
 

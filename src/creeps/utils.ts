@@ -19,7 +19,11 @@ export function countRole(
   let count = 0;
   for (const name in Game.creeps) {
     const creep = Game.creeps[name];
-    if (creep.memory.role === role && creep.room === room && filter(creep))
+    if (
+      creep.memory.role === role &&
+      creep.room.name === room.name &&
+      filter(creep)
+    )
       count++;
   }
   return count;
