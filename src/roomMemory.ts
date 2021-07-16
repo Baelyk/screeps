@@ -56,8 +56,40 @@ declare global {
     reservedTicks: number | undefined;
     /** Exits that are blocked with walls/ramparts or otherwise */
     blockedExits: ExitConstant[];
-    /** RoomPositions that have an obstacle (unwalkable structure */
+    /** RoomPositions that have an obstacle (unwalkable structure) */
     obstacles: string[];
+    hostiles: RoomScoutingHostilesMemory;
+  }
+
+  interface RoomScoutingHostilesMemory {
+    creeps: RoomScoutingHostilesCreepsMemory;
+    structures: RoomScoutingHostilesStructuresMemory;
+    invaderCore?: Id<StructureInvaderCore>;
+  }
+
+  interface RoomScoutingHostilesCreepsMemory {
+    [key: string]: RoomScoutingHostilesCreepMemory;
+  }
+
+  interface RoomScoutingHostilesCreepMemory {
+    name: string;
+    owner: string;
+    pos: string;
+    hits: number;
+    id: Id<Creep>;
+    body: BodyPartDefinition[];
+  }
+
+  interface RoomScoutingHostilesStructuresMemory {
+    [key: string]: RoomScoutingHostilesStructureMemory;
+  }
+
+  interface RoomScoutingHostilesStructureMemory {
+    owner: string;
+    pos: string;
+    structureType: StructureConstant;
+    hits: number;
+    id: Id<Structure>;
   }
 
   interface RoomGeographyMemory {
@@ -182,6 +214,11 @@ export class RoomInfo implements RoomMemory {
       throw new ScriptError(`Room ${this.name} lacks scouting memory`);
     }
     return memory.scouting;
+  }
+
+  public getHostilesMemory(): RoomScoutingHostilesMemory {
+    const scoutingMemory = this.getScoutingMemory();
+    return scoutingMemory.hostiles;
   }
 
   getGeographyMemory(): RoomGeographyMemory {
@@ -822,6 +859,32 @@ export class VisibleRoom extends RoomInfo {
       }
     });
 
+    const creeps: RoomScoutingHostilesCreepsMemory = {};
+    const structures: RoomScoutingHostilesStructuresMemory = {};
+    const hostiles: RoomScoutingHostilesMemory = { creeps, structures };
+    _.forEach(room.find(FIND_HOSTILE_CREEPS), (creep) => {
+      creeps[creep.id] = {
+        name: creep.name,
+        owner: creep.owner.username,
+        pos: Position.serialize(creep.pos),
+        hits: creep.hits,
+        id: creep.id,
+        body: creep.body,
+      };
+    });
+    _.forEach(room.find(FIND_HOSTILE_STRUCTURES), (structure) => {
+      structures[structure.id] = {
+        owner: (structure.owner || { username: "" }).username,
+        pos: Position.serialize(structure.pos),
+        structureType: structure.structureType,
+        hits: structure.hits,
+        id: structure.id,
+      };
+      if (structure.structureType === STRUCTURE_INVADER_CORE) {
+        hostiles.invaderCore = structure.id;
+      }
+    });
+
     Memory.rooms[this.name].scouting = {
       time: Game.time,
       owner,
@@ -830,6 +893,7 @@ export class VisibleRoom extends RoomInfo {
       reservedTicks,
       blockedExits,
       obstacles,
+      hostiles,
     };
   }
 
