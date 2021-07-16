@@ -820,7 +820,7 @@ function guard(creep: Creep) {
       const homeRoomName = creepInfo.getAssignedRoomName();
       // Check for hostiles in current room, home room, then home room's remotes
       const roomsToGuard = [creep.room.name, homeRoomName];
-      const homeRoom = new RoomInfo(homeRoomName);
+      const homeRoom = new VisibleRoom(homeRoomName);
       roomsToGuard.push(...homeRoom.getRemotes());
       const roomTarget = _.find(roomsToGuard, (roomName) => {
         const room = Game.rooms[roomName];
@@ -844,12 +844,12 @@ function guard(creep: Creep) {
 
       // No hostiles found, move to spawn
       if (creep.room.name !== homeRoomName) {
-        actions.moveToRoom(creep, homeRoomName, { avoidHostiles: false });
+        actions.moveToRoom(creep, homeRoomName);
       } else {
         // Move to spawn if exists
-        const spawn = new VisibleRoom(homeRoomName).getPrimarySpawn();
+        const spawn = homeRoom.getPrimarySpawn();
         if (!creep.pos.isNearTo(spawn.pos)) {
-          actions.move(creep, spawn.pos, { range: 1 });
+          creep.moveTo(spawn.pos);
         }
       }
       break;
@@ -858,7 +858,7 @@ function guard(creep: Creep) {
     case CreepTask.move: {
       const targetRoom = creepInfo.getTargetRoom();
       if (targetRoom != undefined && creep.room.name != targetRoom) {
-        actions.moveToRoom(creep, targetRoom, { avoidHostiles: false });
+        actions.moveToRoom(creep, targetRoom);
       } else {
         switchTaskAndDoRoll(creep, CreepTask.attack);
       }
@@ -883,9 +883,7 @@ function guard(creep: Creep) {
 
       // Hostiles present:
       // Move to AND do all attacks possible
-      const moveResponse = actions.move(creep, target.pos, {
-        avoidHostiles: false,
-      });
+      const moveResponse = creep.moveTo(target);
       info(
         `Creep ${creep.name} approaching target ${
           target.id

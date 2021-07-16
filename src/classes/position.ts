@@ -11,30 +11,6 @@ export class Position implements Pos {
   y: number;
   roomName: string;
 
-  static getSurrounding(pos: Pos, radius = 1): Pos[] {
-    const node = pos.x + pos.y * 50;
-    const nodeX = node % 50;
-    const nodeY = Math.floor(node / 50);
-
-    // Adjust by the radius or the max possible adjustment staying within 0-49
-    const xMinus = Math.min(radius, nodeX);
-    const xPlus = Math.min(radius, 49 - nodeX);
-    const yMinus = Math.min(radius, nodeY);
-    const yPlus = Math.min(radius, 49 - nodeY);
-
-    const surrounding: Pos[] = [];
-    for (let y = nodeY - yMinus; y <= nodeY + yPlus; y++) {
-      for (let x = nodeX - xMinus; x <= nodeX + xPlus; x++) {
-        if (x + y * 50 === node) {
-          continue;
-        }
-        surrounding.push({ x, y, roomName: pos.roomName });
-      }
-    }
-
-    return surrounding;
-  }
-
   static areEqual(a: Pos, b: Pos): boolean {
     return a.x === b.x && a.y === b.y && a.roomName === b.roomName;
   }
@@ -54,10 +30,6 @@ export class Position implements Pos {
 
   static serializedToRoomPosition(str: string): RoomPosition {
     return Position.fromSerialized(str).intoRoomPosition();
-  }
-
-  static fromIndex(index: number, roomName: string): Position {
-    return new Position({ x: index % 50, y: Math.floor(index / 50), roomName });
   }
 
   constructor(pos: Pos) {
