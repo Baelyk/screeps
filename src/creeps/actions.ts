@@ -104,21 +104,11 @@ export function harvest(
 
 export function getResource(
   creep: Creep,
-  target: Structure,
+  target: AnyStoreStructure,
   resource: ResourceConstant,
   amount: number,
   warn = true,
 ): ScreepsReturnCode {
-  // @ts-expect-error The next line is to detect whether the target has a store,
-  // so let it.
-  if (target.store == undefined) {
-    throw new CreepActionError(
-      creep,
-      "getResource",
-      `Target ${target.structureType} ${target.pos} lacks a store`,
-    );
-  }
-
   const response = creep.withdraw(target, resource, amount);
   if (response === ERR_NOT_IN_RANGE) {
     return move(creep, target, { range: 1 });
@@ -139,28 +129,18 @@ export function getFromTombstone(
   if (response === ERR_NOT_IN_RANGE) {
     return move(creep, target, { range: 1 });
   } else if (response !== OK && warn) {
-    actionWarn(creep, "getResource", response);
+    actionWarn(creep, "getFromTombstone", response);
   }
   return response;
 }
 
 export function putResource(
   creep: Creep,
-  target: Structure,
+  target: AnyStoreStructure,
   resource: ResourceConstant,
   amount: number,
   warn = true,
 ): ScreepsReturnCode {
-  // @ts-expect-error The next line is to detect whether the target has a store,
-  // so let it.
-  if (target.store == undefined) {
-    throw new CreepActionError(
-      creep,
-      "putResource",
-      `Target ${target.structureType} ${target.pos} lacks a store`,
-    );
-  }
-
   const response = creep.transfer(target, resource, amount);
   if (response === ERR_NOT_IN_RANGE) {
     return move(creep, target, { range: 1 });
@@ -472,4 +452,63 @@ export function storeEnergy(
     storage.store.getFreeCapacity(),
   );
   return putResource(creep, storage, RESOURCE_ENERGY, amount, shouldWarn);
+}
+
+export function plunderTombstone(
+  creep: Creep,
+  target: Tombstone | undefined,
+  store: AnyStoreStructure,
+): ScreepsReturnCode {
+  if (
+    target != undefined &&
+    creep.store.getFreeCapacity() > 0 &&
+    target.store.getUsedCapacity() > 0
+  ) {
+    info(`Creep ${creep.name} plundering tombstone ${target.pos}`);
+    // If the creep has space and the tombstone has resources
+    if (!creep.pos.isNearTo(target.pos)) {
+      return move(creep, target.pos);
+    }
+
+    const resource = _.find(
+      _.keys(target.store),
+      (resource) => target.store[resource as ResourceConstant] > 0,
+    ) as ResourceConstant | undefined;
+    if (resource == undefined) {
+      throw new CreepActionError(
+        creep,
+        "plunderTombstone",
+        "Tombstone has positive used capacity but no resource constant found",
+      );
+    }
+    const amount = Math.min(
+      creep.store.getFreeCapacity(),
+      target.store[resource],
+    );
+    return getFromTombstone(creep, target, resource, amount);
+  } else if (creep.store.getUsedCapacity() > 0) {
+    // Creep is full or tombstone is empty, either way deposit
+    info(`Creep ${creep.name} plundering tombstone (storing plunder)`);
+    if (!creep.pos.isNearTo(store.pos)) {
+      return move(creep, store.pos);
+    }
+    const resource = _.find(
+      _.keys(creep.store),
+      (resource) => creep.store[resource as ResourceConstant] > 0,
+    ) as ResourceConstant | undefined;
+    if (resource == undefined) {
+      throw new CreepActionError(
+        creep,
+        "plunderTombstone",
+        "Creep has positive used capacity but no resource constant found",
+      );
+    }
+    const amount = Math.min(
+      creep.store.getFreeCapacity(),
+      store.store[resource],
+    );
+    return putResource(creep, store, resource, amount);
+  }
+
+  return ERR_NOT_FOUND;
 }

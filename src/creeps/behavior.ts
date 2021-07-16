@@ -176,10 +176,7 @@ function builder(creep: Creep) {
               structure.structureType === STRUCTURE_RAMPART) &&
             structure.hits < minHits,
         );
-        if (
-          lowWallRampart != undefined &&
-          lowWallRampart.hits < minHits
-        ) {
+        if (lowWallRampart != undefined && lowWallRampart.hits < minHits) {
           creepInfo.setAssignedRepairs(lowWallRampart.id);
           switchTaskAndDoRoll(creep, CreepTask.repair);
           return;
@@ -529,11 +526,31 @@ function tender(creep: Creep) {
               false,
             );
             if (response === ERR_FULL && creep.store.getFreeCapacity() === 0) {
-              actions.storeEnergy(creep);
+              response = actions.storeEnergy(creep);
             }
           } catch (error) {
             // Error getting energy from the spawn link first
             warn(`Creep ${creep.name} failed to put into spawn link ${error}`);
+          }
+        }
+        // If not depositing or link tending, plunder tombs
+        if (response !== OK) {
+          // Only plunder if there is a room storage, though
+          const storage = creep.room.storage;
+          if (storage != undefined) {
+            const tombstone = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+              filter: (tomb) => tomb.store.getUsedCapacity() > 0,
+            });
+            if (
+              tombstone != undefined ||
+              creep.store.getUsedCapacity() - creep.store[RESOURCE_ENERGY] > 0
+            ) {
+              response = actions.plunderTombstone(
+                creep,
+                tombstone || undefined,
+                storage,
+              );
+            }
           }
         }
       } else {
