@@ -14,7 +14,7 @@ function resetRoomMemory(): void {
   warn("Resetting room memory");
   for (const roomName in Game.rooms) {
     const room = new VisibleRoom(roomName);
-    room.updateMemory();
+    room.setDebugFlag("resetRoomMemory");
   }
 }
 
@@ -72,13 +72,20 @@ export function roomDebugLoop(room: VisibleRoom): void {
     room.updatePopulationLimitMemory();
     room.removeDebugFlag("resetPopLimits");
   }
-  if (room.getDebugFlag("recreatePlan")) {
+  if (room.getDebugFlag("resetPlan")) {
     room.updatePlannerMemory();
-    room.removeDebugFlag("recreatePlan");
+    room.removeDebugFlag("resetPlan");
   }
   if (room.getDebugFlag("executePlan")) {
     room.executePlan();
     room.removeDebugFlag("executePlan");
+  }
+  if (room.getDebugFlag("resetRoomMemory")) {
+    room.updateMemory();
+    room.removeDebugFlag("resetRoomMemory");
+  }
+  if (room.getDebugFlag("showPlan")) {
+    room.showPlan();
   }
 }
 

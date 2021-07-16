@@ -11,7 +11,7 @@ import { CreepRole } from "./creeps";
  * @param room The room
  */
 export function census(room: VisibleRoom): void {
-  info(`Updating population limits`, InfoType.spawn);
+  info(`Room ${room.name} updating population limits`);
   // Recalculate miners
   const miners = minerLimit(room);
 
@@ -230,9 +230,9 @@ function scoutLimit(room: VisibleRoom): number {
 }
 
 function haulerLimit(room: VisibleRoom): number {
-  // Need RCL 7 to have miner links
+  // Need RCL 6 to have miner links
   const sources = room.getSources();
-  if (room.roomLevel() < 7) {
+  if (room.roomLevel() < 6) {
     return sources.length;
   }
   let minerLinks = 0;

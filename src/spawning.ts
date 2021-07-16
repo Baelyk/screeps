@@ -43,6 +43,9 @@ export function updateSpawnQueue(room: VisibleRoom): void {
         case CreepRole.scout:
           overrides = memoryOverridesScout(room);
           break;
+        case CreepRole.extractor:
+          overrides = memoryOverridesExtractor(room);
+          break;
       }
 
       if (room.roomType === RoomType.remote && role === CreepRole.hauler) {
@@ -333,11 +336,15 @@ function memoryOverridesHauler(
   return { room: room.name, spot };
 }
 
-function memoryOverridesClaimer(room: VisibleRoom): Partial<CreepMemory> {
+function memoryOverridesClaimer(
+  room: VisibleRoom,
+): Partial<RoleCreepMemory.Claimer> {
   return { room: room.name, noRenew: true };
 }
 
-function memoryOverridesScout(room: VisibleRoom): Partial<CreepMemory> {
+function memoryOverridesScout(
+  room: VisibleRoom,
+): Partial<RoleCreepMemory.Scout> {
   const targetRoom = room.getRemotes().find((remoteName) => {
     return Game.rooms[remoteName] == undefined;
   });
@@ -347,6 +354,21 @@ function memoryOverridesScout(room: VisibleRoom): Partial<CreepMemory> {
     );
   }
   return { room: targetRoom, noRenew: true };
+}
+
+function memoryOverridesExtractor(
+  room: VisibleRoom,
+): Partial<RoleCreepMemory.Extractor> {
+  const extractor = room
+    .getRoom()
+    .find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_EXTRACTOR },
+    })[0];
+  if (extractor == undefined) {
+    throw new ScriptError(`Unable to find extractor in room ${room.name}`);
+  }
+  const spot = Position.serialize(extractor.pos);
+  return { room: room.name, spot };
 }
 
 /** Adds to the spawn queue based on a dead creep's memory */
