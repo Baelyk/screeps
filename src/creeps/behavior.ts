@@ -84,6 +84,13 @@ function miner(creep: Creep) {
   const spot = creepInfo.getSpot();
   if (!Position.areEqual(creep.pos, spot)) {
     actions.move(creep, spot);
+    if (creep.pos.isNearTo(spot)) {
+      const interloper = spot.lookFor(LOOK_CREEPS)[0];
+      if (interloper != undefined) {
+        // Trade places with miner
+        actions.move(interloper, creep.pos);
+      }
+    }
     return;
   }
 
