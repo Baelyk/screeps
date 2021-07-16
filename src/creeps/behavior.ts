@@ -166,6 +166,23 @@ function builder(creep: Creep) {
           return;
         }
 
+        // If there is no assigned construction, check if within 3 of a 1-hit
+        // wall or rampart to repair before getting a new construction site.
+        const lowWallRampart = _.find(
+          creep.pos.findInRange(FIND_STRUCTURES, 3),
+          (structure) =>
+            structure.structureType === STRUCTURE_WALL ||
+            structure.structureType === STRUCTURE_RAMPART,
+        );
+        if (
+          lowWallRampart != undefined &&
+          lowWallRampart.hits < RAMPART_DECAY_AMOUNT * 10
+        ) {
+          creepInfo.setAssignedRepairs(lowWallRampart.id);
+          switchTaskAndDoRoll(creep, CreepTask.repair);
+          return;
+        }
+
         // If the creep is assigned a construction site that no longer exists or
         // doesn't have an assigned construction site, get one from the queue.
         let room;
@@ -216,7 +233,12 @@ function builder(creep: Creep) {
         // Otherwise, remove the assigned repair target and try and find a new
         // target.
         if (assignedRepairs != undefined) {
-          if (assignedRepairs.hits < assignedRepairs.hitsMax) {
+          if (
+            assignedRepairs.hits < assignedRepairs.hitsMax ||
+            ((assignedRepairs.structureType === STRUCTURE_WALL ||
+              assignedRepairs.structureType === STRUCTURE_RAMPART) &&
+              assignedRepairs.hits < RAMPART_DECAY_AMOUNT * 10)
+          ) {
             actions.repair(creep, assignedRepairs);
             return;
           } else {
