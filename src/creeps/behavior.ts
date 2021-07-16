@@ -168,15 +168,17 @@ function builder(creep: Creep) {
 
         // If there is no assigned construction, check if within 3 of a 1-hit
         // wall or rampart to repair before getting a new construction site.
+        const minHits = RAMPART_DECAY_AMOUNT * 10;
         const lowWallRampart = _.find(
           creep.pos.findInRange(FIND_STRUCTURES, 3),
           (structure) =>
-            structure.structureType === STRUCTURE_WALL ||
-            structure.structureType === STRUCTURE_RAMPART,
+            (structure.structureType === STRUCTURE_WALL ||
+              structure.structureType === STRUCTURE_RAMPART) &&
+            structure.hits < minHits,
         );
         if (
           lowWallRampart != undefined &&
-          lowWallRampart.hits < RAMPART_DECAY_AMOUNT * 10
+          lowWallRampart.hits < minHits
         ) {
           creepInfo.setAssignedRepairs(lowWallRampart.id);
           switchTaskAndDoRoll(creep, CreepTask.repair);
