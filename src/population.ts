@@ -242,7 +242,7 @@ function haulerLimit(room: VisibleRoom): number {
       if (
         source.pos.findInRange(FIND_MY_STRUCTURES, 2, {
           filter: { structureType: STRUCTURE_LINK },
-        })
+        }).length > 0
       ) {
         minerLinks++;
       }
