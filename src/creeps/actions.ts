@@ -36,20 +36,32 @@ export function move(
   target: RoomPosition | { pos: RoomPosition },
   providedOptions?: Partial<MoveActionOptions>,
 ): ScreepsReturnCode {
+  const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
+    range: 0,
+    avoidHostiles: true,
+    costCallback: () => {
+      return;
+    },
+  };
+  const options: MoveActionOptions = _.assign(
+    MOVE_ACTION_DEFAULTS,
+    providedOptions,
+  );
+
+  if (
+    providedOptions == undefined ||
+    providedOptions.costCallback == undefined
+  ) {
+    options.costCallback = costCallback;
+  }
+
   function costCallback(
     roomName: string,
     costMatrix: CostMatrix,
   ): CostMatrix | void {
-    if (
-      providedOptions == undefined ||
-      providedOptions.costCallback != undefined
-    ) {
-      return;
-    }
-
     let changed = false;
     // Block off tiles within range 3 of hostile creeps
-    if (providedOptions.avoidHostiles) {
+    if (options.avoidHostiles) {
       const room = Game.rooms[roomName];
       if (room != undefined) {
         changed = true;
@@ -65,16 +77,6 @@ export function move(
       return costMatrix;
     }
   }
-
-  const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
-    range: 0,
-    avoidHostiles: true,
-    costCallback,
-  };
-  const options: MoveActionOptions = _.assign(
-    MOVE_ACTION_DEFAULTS,
-    providedOptions,
-  );
 
   const response = creep.moveTo(target, options);
   if (response !== OK && response !== ERR_TIRED && warn) {
