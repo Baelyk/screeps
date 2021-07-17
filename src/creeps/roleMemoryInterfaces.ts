@@ -12,4 +12,6 @@ export {
   RemoteHaulerCreepMemory as RemoteHauler,
   ScoutCreepMemory as Scout,
   GuardCreepMemory as Guard,
+  EscortCreepMemory as Escort,
+  RangedHarvesterCreepMemory as RangedHarvester,
 } from "./memory";

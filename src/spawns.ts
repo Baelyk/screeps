@@ -1,5 +1,5 @@
 import { nameCreep } from "utils/helpers";
-import { errorConstant, stringifyBody, info } from "utils/logger";
+import { errorConstant, stringifyBody, info, warn } from "utils/logger";
 import { ScriptError, wrapper } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
 import { CreepRole, CreepTask } from "./creeps";
@@ -93,6 +93,7 @@ export function generateBodyByRole(
       }
     }
     // General body
+    case CreepRole.rangedHarvester:
     case CreepRole.extractor:
     case CreepRole.builder:
     case CreepRole.upgrader: {
@@ -190,6 +191,23 @@ export function generateBodyByRole(
       }
       // Keep a MOVE at the end of the body to so the creep can always move
       body.push(MOVE);
+      return body;
+    }
+    case CreepRole.escort: {
+      // Escort body is 10 MOVE/HEALS and then as many [MOVE, RANGED_ATTACK]
+      // segments as possible. Order: [MOVE, RANGED_ATTACK, HEAL].
+      let energy =
+        spawn.room.energyCapacityAvailable -
+        10 * (BODYPART_COST[MOVE] + BODYPART_COST[HEAL]);
+      // If the energy is too little for the minimum size body, log a warning
+      // and set the energy to the minimum to generate a too-large-to-spawn body
+      if (energy < BODYPART_COST[MOVE] + BODYPART_COST[RANGED_ATTACK]) {
+        warn(`Spawn ${spawn.name} unable to spawn minimum-size ${role} creep`);
+        energy = BODYPART_COST[MOVE] + BODYPART_COST[RANGED_ATTACK];
+      }
+      const body: BodyPartConstant[] = _.fill(Array(10), MOVE);
+      body.push(...bodyFromSegments([MOVE, RANGED_ATTACK], energy));
+      body.push(..._.fill(Array(10), HEAL));
       return body;
     }
     default:

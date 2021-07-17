@@ -491,26 +491,83 @@ export function plunderTombstone(
   } else if (creep.store.getUsedCapacity() > 0) {
     // Creep is full or tombstone is empty, either way deposit
     info(`Creep ${creep.name} plundering tombstone (storing plunder)`);
-    if (!creep.pos.isNearTo(store.pos)) {
-      return move(creep, store.pos);
-    }
-    const resource = _.find(
-      _.keys(creep.store),
-      (resource) => creep.store[resource as ResourceConstant] > 0,
-    ) as ResourceConstant | undefined;
-    if (resource == undefined) {
-      throw new CreepActionError(
-        creep,
-        "plunderTombstone",
-        "Creep has positive used capacity but no resource constant found",
-      );
-    }
-    const amount = Math.min(
-      creep.store.getFreeCapacity(),
-      store.store[resource],
-    );
-    return putResource(creep, store, resource, amount);
+    storeCarriedResources(creep, store);
   }
 
   return ERR_NOT_FOUND;
+}
+
+export function storeCarriedResources(
+  creep: Creep,
+  store: AnyStoreStructure,
+): ScreepsReturnCode {
+  if (!creep.pos.isNearTo(store.pos)) {
+    return move(creep, store.pos);
+  }
+  const resource = _.find(
+    _.keys(creep.store),
+    (resource) => creep.store[resource as ResourceConstant] > 0,
+  ) as ResourceConstant | undefined;
+  if (resource == undefined) {
+    throw new CreepActionError(
+      creep,
+      "storeCarriedResources",
+      "Unable to find resource to store",
+    );
+  }
+  const amount = Math.min(creep.store.getFreeCapacity(), store.store[resource]);
+  return putResource(creep, store, resource, amount);
+}
+
+export function attack(
+  creep: Creep,
+  target: Creep | Structure,
+  moveOptions: Partial<MoveActionOptions>,
+): ScreepsReturnCode {
+  if (moveOptions == undefined) {
+    moveOptions = {};
+  }
+  if (moveOptions.avoidHostiles == undefined) {
+    moveOptions.avoidHostiles = false;
+  }
+  const moveResponse = move(creep, target.pos, moveOptions);
+  let attackResponse: ScreepsReturnCode = OK;
+  if (moveOptions.range == undefined || moveOptions.range <= 1) {
+    attackResponse = creep.attack(target);
+  }
+  const rangedResponse = creep.rangedAttack(target);
+  info(
+    `Creep ${creep.name} attacking ${target.pos}: move ${errorConstant(
+      moveResponse,
+    )}, melee ${errorConstant(attackResponse)}, ranged ${errorConstant(
+      rangedResponse,
+    )}`,
+  );
+  return attackResponse || rangedResponse || moveResponse;
+}
+
+export function heal(
+  creep: Creep,
+  target: Creep,
+  healType?: "both" | "ranged" | "melee",
+  warn = true,
+): ScreepsReturnCode {
+  if (healType == undefined) {
+    healType = "both";
+  }
+
+  let response: ScreepsReturnCode = OK;
+
+  if (healType != "ranged") {
+    response = creep.heal(target);
+  }
+  if (healType != "melee") {
+    response = creep.rangedHeal(target);
+  }
+
+  if (response !== OK && warn) {
+    actionWarn(creep, "heal", response);
+  }
+
+  return response;
 }

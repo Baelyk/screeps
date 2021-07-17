@@ -27,7 +27,8 @@ type AnyCreepMemory =
   | ExtractorCreepMemory
   | RemoteHaulerCreepMemory
   | ScoutCreepMemory
-  | GuardCreepMemory;
+  | GuardCreepMemory
+  | EscortCreepMemory;
 
 export class CreepInfo {
   creepName: string;
@@ -463,6 +464,98 @@ export class GuardCreepInfo extends CreepInfo {
   }
 }
 
+interface EscortCreepMemory extends CreepMemory {
+  role: CreepRole.escort;
+  task: CreepTask.fresh | CreepTask.move | CreepTask.attack | CreepTask.idle;
+  /** The creep this escort is following */
+  protectee?: string;
+  /** The range within to attack hostiles */
+  range: number;
+}
+
+export class EscortCreepInfo extends CreepInfo {
+  role = CreepRole.escort;
+
+  constructor(creepName: string) {
+    super(creepName);
+    const role = Memory.creeps[creepName].role;
+    if (role !== this.role) {
+      throw new CreepInfoError(
+        creepName,
+        `Creep has role ${role} not ${this.role}`,
+      );
+    }
+  }
+
+  getMemory(): EscortCreepMemory {
+    return Memory.creeps[this.creepName] as EscortCreepMemory;
+  }
+
+  getProtectee(): Creep | undefined {
+    const name = this.getMemory().protectee;
+    if (name == undefined) {
+      return undefined;
+    }
+    const creep = Game.creeps[name];
+    if (creep == undefined) {
+      throw new CreepInfoError(this.creepName, `Protectee ${name} undefined`);
+    }
+    return creep;
+  }
+
+  setProtectee(protectee: string): void {
+    (Memory.creeps[this.creepName] as EscortCreepMemory).protectee = protectee;
+  }
+
+  getRange(): number {
+    return this.getMemory().range;
+  }
+
+  setRange(range: number): void {
+    (Memory.creeps[this.creepName] as EscortCreepMemory).range = range;
+  }
+}
+
+interface RangedHarvesterCreepMemory extends CreepMemory {
+  role: CreepRole.miner;
+  task: CreepTask.fresh | CreepTask.harvest;
+  /** A source assigned to this creep by id */
+  assignedSource: Id<Source>;
+  /** A spot assigned to this creep */
+  spot: string;
+}
+
+export class RangedHarvesterCreepInfo extends CreepInfo {
+  role = CreepRole.rangedHarvester;
+
+  constructor(creepName: string) {
+    super(creepName);
+    const role = Memory.creeps[creepName].role;
+    if (role !== this.role) {
+      throw new CreepInfoError(
+        creepName,
+        `Creep has role ${role} not ${this.role}`,
+      );
+    }
+  }
+
+  getMemory(): RangedHarvesterCreepMemory {
+    return Memory.creeps[this.creepName] as RangedHarvesterCreepMemory;
+  }
+
+  getSpot(): RoomPosition {
+    const spot = CreepInfoHelpers.getSpot(this.getMemory().spot);
+    if (spot == undefined) {
+      throw new CreepRoleMemoryError(this.getCreep(), "spot");
+    }
+    return spot;
+  }
+
+  getAssignedSource(): Source | undefined {
+    return CreepInfoHelpers.getAssignedById(this.getMemory().assignedSource);
+  }
+}
+
 // The exact task depends also on the role
 export const enum CreepTask {
   /** Role indicating the creep is freshly spawned (i.e. uninit) */
@@ -508,6 +601,10 @@ export const enum CreepRole {
   scout = "scout",
   /** Creep that guards rooms and their remotes */
   guard = "guard",
+  /** Creep that follows another creep and attacks hostiles within range */
+  escort = "escort",
+  /** Creep that harvests a source/mineral and brings the resource back */
+  rangedHarvester = "rangedHarvester",
 }
 
 export class CreepMemoryError extends MemoryError {
@@ -600,6 +697,8 @@ export const RoleCreepInfo = {
   [CreepRole.remoteHauler]: RemoteHaulerCreepInfo,
   [CreepRole.scout]: ScoutCreepInfo,
   [CreepRole.guard]: GuardCreepInfo,
+  [CreepRole.escort]: EscortCreepInfo,
+  [CreepRole.rangedHarvester]: RangedHarvesterCreepInfo,
 };
 
 export {
@@ -615,4 +714,6 @@ export {
   RemoteHaulerCreepMemory,
   ScoutCreepMemory,
   GuardCreepMemory,
+  EscortCreepMemory,
+  RangedHarvesterCreepMemory,
 };

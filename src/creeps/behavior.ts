@@ -15,6 +15,7 @@ import {
 } from "./memory";
 import * as actions from "./actions";
 import { Position } from "classes/position";
+import * as RoleCreepMemory from "./roleMemoryInterfaces";
 
 function getTask(creep: Creep, defaultTask: CreepTask): CreepTask {
   const creepInfo = new CreepInfo(creep.name);
@@ -974,6 +975,133 @@ function guard(creep: Creep) {
   }
 }
 
+function escort(creep: Creep): void {
+  const creepInfo = new RoleCreepInfo[CreepRole.escort](creep.name);
+
+  let protectee = creepInfo.getProtectee();
+  if (protectee == undefined) {
+    const roomsToSearch = [creep.room];
+    const assignedRoom = Game.rooms[creepInfo.getAssignedRoomName()];
+    if (assignedRoom != undefined) {
+      roomsToSearch.push(assignedRoom);
+    }
+    const newProtectee = _.find(
+      _.flatten(_.map(roomsToSearch, (room) => room.find(FIND_MY_CREEPS))),
+      (otherCreep) => {
+        if (otherCreep.memory.role === CreepRole.rangedHarvester) {
+          return !_.some(
+            Memory.creeps,
+            (creepMemory) =>
+              creepMemory.role === CreepRole.escort &&
+              (creepMemory as RoleCreepMemory.Escort).protectee ===
+                otherCreep.name,
+          );
+        }
+        return false;
+      },
+    );
+
+    if (newProtectee == undefined) {
+      // Nothing to do without a protectee
+      warn(`Creep ${creep.name} unable to find new creep to escort`);
+      return;
+    } else {
+      protectee = newProtectee;
+      creepInfo.setProtectee(protectee.name);
+      info(`Creep ${creep.name} has no protectee ${protectee.name}`);
+    }
+  }
+  const range = creepInfo.getRange();
+
+  // Attack closest hostile within range
+  const hostiles = creep.pos.findInRange(FIND_HOSTILE_CREEPS, range);
+  let target = undefined;
+  if (hostiles.length > 0) {
+    target = _.min(hostiles, (hostile) => creep.pos.getRangeTo(hostile));
+    if (target) {
+      // Move within ranged attack range, but not melee
+      actions.attack(creep, target, { range: 3 });
+    }
+  }
+  // Move to protectee if no hostiles or protectee out of range
+  if (hostiles.length === 0 || creep.pos.getRangeTo(protectee) >= range) {
+    actions.move(creep, protectee, { range: 1, avoidHostiles: false });
+  }
+  // Heal protectee then heal self if below max
+  const healTargets = [protectee, creep];
+  const healTarget = _.find(
+    healTargets,
+    (target) => target.hits < target.hitsMax,
+  );
+  if (healTarget != undefined) {
+    const targetRange = target != undefined ? creep.pos.getRangeTo(target) : -1;
+    if (target == undefined || targetRange > 3) {
+      actions.heal(creep, healTarget);
+    } else if (targetRange > 1) {
+      actions.heal(creep, healTarget, "melee");
+    }
+  }
+}
+
+function rangedHarvester(creep: Creep): void {
+  const task = getTask(creep, CreepTask.getEnergy);
+  const creepInfo = new RoleCreepInfo[CreepRole.rangedHarvester](creep.name);
+
+  // Tasks for this creep:
+  // 1. getEnergy: Move to assigned source/mineral to harvest, avoiding hostiles
+  // 2. deposit: Move to store in assigned room and store resources
+
+  switch (task) {
+    case CreepTask.getEnergy: {
+      const target = creepInfo.getAssignedSource();
+      if (target == undefined) {
+        const spot = creepInfo.getSpot();
+        actions.move(creep, spot, { range: 1, avoidHostiles: true });
+        return;
+      }
+      if (creep.store.getFreeCapacity() > 0) {
+        actions.harvest(creep, target);
+      } else {
+        switchTaskAndDoRoll(creep, CreepTask.deposit);
+        return;
+      }
+      break;
+    }
+    case CreepTask.deposit: {
+      if (creep.store.getUsedCapacity() > 0) {
+        const roomName = creepInfo.getAssignedRoomName();
+        const room = Game.rooms[roomName];
+        if (room == undefined) {
+          throw new CreepRoleMemoryError(
+            creep,
+            "room",
+            `Room ${roomName} should be visible (should have storage)`,
+          );
+        }
+        const storage = room.storage;
+        if (storage == undefined) {
+          throw new CreepRoleMemoryError(
+            creep,
+            "room",
+            `Room ${roomName} should have storage`,
+          );
+        }
+        actions.storeCarriedResources(creep, storage);
+      } else {
+        switchTaskAndDoRoll(creep, CreepTask.getEnergy);
+        return;
+      }
+      break;
+    }
+    default: {
+      throw new InvalidCreepTaskError(creep, [
+        CreepTask.getEnergy,
+        CreepTask.deposit,
+      ]);
+    }
+  }
+}
+
 /**
  * Switches the creeps task and then calls doRoll on the creep
  *
@@ -1149,6 +1277,12 @@ function creepBehavior(creep: Creep): void {
       break;
     case CreepRole.guard:
       guard(creep);
+      break;
+    case CreepRole.escort:
+      escort(creep);
+      break;
+    case CreepRole.rangedHarvester:
+      rangedHarvester(creep);
       break;
     default:
       throw new InvalidCreepRoleError(creep);
