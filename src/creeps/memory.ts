@@ -604,7 +604,7 @@ export const enum CreepRole {
   /** Creep that follows another creep and attacks hostiles within range */
   escort = "escort",
   /** Creep that harvests a source/mineral and brings the resource back */
-  rangedHarvester = "rangedHarvester",
+  rangedHarvester = "ranged_harvester",
 }
 
 export class CreepMemoryError extends MemoryError {
