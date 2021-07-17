@@ -206,7 +206,7 @@ export function generateBodyByRole(
         energy = BODYPART_COST[MOVE] + BODYPART_COST[RANGED_ATTACK];
       }
       const body: BodyPartConstant[] = _.fill(Array(10), MOVE);
-      body.push(...bodyFromSegments([MOVE, RANGED_ATTACK], energy));
+      body.push(...bodyFromSegments([MOVE, RANGED_ATTACK], energy, 15));
       body.push(..._.fill(Array(10), HEAL));
       return body;
     }
