@@ -1022,7 +1022,7 @@ function escort(creep: Creep): void {
     if (target) {
       targetRange = creep.pos.getRangeTo(target);
       // Move within ranged attack range, but not melee
-      if (targetRange > 3) {
+      if (targetRange >= 3) {
         actions.attack(creep, target, { range: 3 });
       } else if (targetRange < 3) {
         actions.attack(creep, target, { flee: true, range: 3 });
