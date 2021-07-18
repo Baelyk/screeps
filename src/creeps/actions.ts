@@ -69,8 +69,14 @@ export function move(
         changed = true;
         const hostiles = room.find(FIND_HOSTILE_CREEPS);
         _.forEach(hostiles, (hostile) => {
-          const surrounding = Position.getSurrounding(hostile.pos, 3);
-          _.forEach(surrounding, (pos) => costMatrix.set(pos.x, pos.y, 255));
+          // Only consider hostiles with attack parts
+          if (
+            hostile.getActiveBodyparts(ATTACK) > 0 ||
+            hostile.getActiveBodyparts(RANGED_ATTACK) > 0
+          ) {
+            const surrounding = Position.getSurrounding(hostile.pos, 3);
+            _.forEach(surrounding, (pos) => costMatrix.set(pos.x, pos.y, 255));
+          }
         });
       }
     }

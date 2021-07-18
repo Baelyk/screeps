@@ -1036,7 +1036,7 @@ function escort(creep: Creep): void {
   // Heal protectee or self, whichever is lower
   const healTargets = [protectee, creep];
   const healTarget = _.min(healTargets, "hits");
-  if (healTarget != undefined) {
+  if (healTarget != undefined && healTarget.hits < healTarget.hitsMax) {
     if (target == undefined || targetRange > 3) {
       actions.heal(creep, healTarget);
     } else if (targetRange > 1) {
