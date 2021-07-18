@@ -17,6 +17,7 @@ interface MoveActionOptions {
   range: number;
   avoidHostiles: boolean;
   costCallback: (roomName: string, costMatrix: CostMatrix) => CostMatrix | void;
+  flee: boolean;
 }
 
 function actionWarn(
@@ -33,7 +34,7 @@ function actionWarn(
 
 export function move(
   creep: Creep,
-  target: RoomPosition | { pos: RoomPosition },
+  target: RoomPosition,
   providedOptions?: Partial<MoveActionOptions>,
 ): ScreepsReturnCode {
   const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
@@ -42,6 +43,7 @@ export function move(
     costCallback: () => {
       return;
     },
+    flee: false,
   };
   const options: MoveActionOptions = _.assign(
     MOVE_ACTION_DEFAULTS,
@@ -78,7 +80,22 @@ export function move(
     }
   }
 
-  const response = creep.moveTo(target, options);
+  if (options.flee && options.range <= 1) {
+    warn(`Creep ${creep.name} fleeing without range, canceling flee`);
+  }
+
+  let response: ScreepsReturnCode;
+  if (options.flee) {
+    const path = PathFinder.search(
+      creep.pos,
+      { pos: target, range: options.range },
+      { flee: options.flee },
+    ).path;
+    response = creep.moveByPath(path);
+  } else {
+    response = creep.moveTo(target, options);
+  }
+
   if (response !== OK && response !== ERR_TIRED && warn) {
     actionWarn(creep, "harvest", response);
   }
@@ -92,7 +109,7 @@ export function harvest(
 ): ScreepsReturnCode {
   const response = creep.harvest(target);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 1 });
+    return move(creep, target.pos, { range: 1 });
   } else if (
     response !== OK &&
     response !== ERR_NOT_ENOUGH_RESOURCES &&
@@ -113,7 +130,7 @@ export function getResource(
 ): ScreepsReturnCode {
   const response = creep.withdraw(target, resource, amount);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 1 });
+    return move(creep, target.pos, { range: 1 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "getResource", response);
   }
@@ -129,7 +146,7 @@ export function getFromTombstone(
 ): ScreepsReturnCode {
   const response = creep.withdraw(target, resource, amount);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 1 });
+    return move(creep, target.pos, { range: 1 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "getFromTombstone", response);
   }
@@ -145,7 +162,7 @@ export function putResource(
 ): ScreepsReturnCode {
   const response = creep.transfer(target, resource, amount);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 1 });
+    return move(creep, target.pos, { range: 1 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "putResource", response);
   }
@@ -159,7 +176,7 @@ export function upgrade(
 ): ScreepsReturnCode {
   const response = creep.upgradeController(target);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 3 });
+    return move(creep, target.pos, { range: 3 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "upgrade", response);
   }
@@ -173,7 +190,7 @@ export function build(
 ): ScreepsReturnCode {
   const response = creep.build(target);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 3 });
+    return move(creep, target.pos, { range: 3 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "build", response);
   }
@@ -187,7 +204,7 @@ export function repair(
 ): ScreepsReturnCode {
   const response = creep.repair(target);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 3 });
+    return move(creep, target.pos, { range: 3 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "repair", response);
   }
@@ -201,7 +218,7 @@ export function pickupResource(
 ): ScreepsReturnCode {
   const response = creep.pickup(target);
   if (response === ERR_NOT_IN_RANGE) {
-    return move(creep, target, { range: 1 });
+    return move(creep, target.pos, { range: 1 });
   } else if (response !== OK && warn) {
     actionWarn(creep, "pickup", response);
   }

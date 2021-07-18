@@ -1011,30 +1011,32 @@ function escort(creep: Creep): void {
       info(`Creep ${creep.name} has no protectee ${protectee.name}`);
     }
   }
-  const range = creepInfo.getRange();
 
   // Attack closest hostile within range
+  const range = creepInfo.getRange();
   const hostiles = creep.pos.findInRange(FIND_HOSTILE_CREEPS, range);
   let target = undefined;
+  let targetRange = -1;
   if (hostiles.length > 0) {
     target = _.min(hostiles, (hostile) => creep.pos.getRangeTo(hostile));
     if (target) {
+      targetRange = creep.pos.getRangeTo(target);
       // Move within ranged attack range, but not melee
-      actions.attack(creep, target, { range: 3 });
+      if (targetRange > 3) {
+        actions.attack(creep, target, { range: 3 });
+      } else if (targetRange < 3) {
+        actions.attack(creep, target, { flee: true, range: 3 });
+      }
     }
   }
   // Move to protectee if no hostiles or protectee out of range
   if (hostiles.length === 0 || creep.pos.getRangeTo(protectee) >= range) {
-    actions.move(creep, protectee, { range: 1, avoidHostiles: false });
+    actions.move(creep, protectee.pos, { range: 1, avoidHostiles: false });
   }
-  // Heal protectee then heal self if below max
+  // Heal protectee or self, whichever is lower
   const healTargets = [protectee, creep];
-  const healTarget = _.find(
-    healTargets,
-    (target) => target.hits < target.hitsMax,
-  );
+  const healTarget = _.min(healTargets, "hits");
   if (healTarget != undefined) {
-    const targetRange = target != undefined ? creep.pos.getRangeTo(target) : -1;
     if (target == undefined || targetRange > 3) {
       actions.heal(creep, healTarget);
     } else if (targetRange > 1) {
@@ -1053,6 +1055,13 @@ function rangedHarvester(creep: Creep): void {
 
   switch (task) {
     case CreepTask.getEnergy: {
+      const hostilesInRange = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 3);
+      if (hostilesInRange.length > 0) {
+        warn(`Creep ${creep.name} fleeing hostiles`);
+        actions.move(creep, hostilesInRange[0].pos, { flee: true, range: 3 });
+        return;
+      }
+
       const target = creepInfo.getAssignedSource();
       if (target == undefined) {
         const spot = creepInfo.getSpot();
