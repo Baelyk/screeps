@@ -552,7 +552,11 @@ export class RangedHarvesterCreepInfo extends CreepInfo {
   }
 
   getAssignedSource(): Source | undefined {
-    return CreepInfoHelpers.getAssignedById(this.getMemory().assignedSource);
+    try {
+      return CreepInfoHelpers.getAssignedById(this.getMemory().assignedSource);
+    } catch (error) {
+      return undefined;
+    }
   }
 }
 
