@@ -553,6 +553,7 @@ export function attack(
   if (moveOptions.avoidHostiles == undefined) {
     moveOptions.avoidHostiles = false;
   }
+  console.log(JSON.stringify(moveOptions));
   const moveResponse = move(creep, target.pos, moveOptions);
   let attackResponse: ScreepsReturnCode = OK;
   if (moveOptions.range == undefined || moveOptions.range <= 1) {

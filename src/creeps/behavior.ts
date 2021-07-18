@@ -1014,7 +1014,7 @@ function escort(creep: Creep): void {
 
   // Attack closest hostile within range
   const range = creepInfo.getRange();
-  const hostiles = creep.pos.findInRange(FIND_HOSTILE_CREEPS, range);
+  const hostiles = protectee.pos.findInRange(FIND_HOSTILE_CREEPS, range);
   let target = undefined;
   let targetRange = -1;
   if (hostiles.length > 0) {
@@ -1058,7 +1058,7 @@ function rangedHarvester(creep: Creep): void {
       const hostilesInRange = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 3);
       if (hostilesInRange.length > 0) {
         warn(`Creep ${creep.name} fleeing hostiles`);
-        actions.move(creep, hostilesInRange[0].pos, { flee: true, range: 3 });
+        actions.move(creep, hostilesInRange[0].pos, { flee: true, range: 4 });
         return;
       }
 
