@@ -1,5 +1,5 @@
 // Manage spawn queues for a room
-import { info, warn } from "utils/logger";
+import { info, warn, error } from "utils/logger";
 import { getSurroundingTiles } from "utils/helpers";
 import { GetByIdError, ScriptError } from "utils/errors";
 import { RoomInfo, VisibleRoom } from "roomMemory";
@@ -28,32 +28,40 @@ export function updateSpawnQueue(room: VisibleRoom): void {
 
   limitedRoles.concat(prioritySpawns).forEach((role) => {
     if (needRole(room, role)) {
-      let overrides: Partial<CreepMemory> = { room: room.name };
-      // Role-based memory overrides
-      switch (role) {
-        case CreepRole.miner:
-          overrides = memoryOverridesMiner(room);
-          break;
-        case CreepRole.hauler:
-          overrides = memoryOverridesHauler(room);
-          break;
-        case CreepRole.claimer:
-          overrides = memoryOverridesClaimer(room);
-          break;
-        case CreepRole.scout:
-          overrides = memoryOverridesScout(room);
-          break;
-        case CreepRole.extractor:
-          overrides = memoryOverridesExtractor(room);
-          break;
-      }
+      try {
+        let overrides: Partial<CreepMemory> = { room: room.name };
+        // Role-based memory overrides
+        switch (role) {
+          case CreepRole.miner:
+            overrides = memoryOverridesMiner(room);
+            break;
+          case CreepRole.hauler:
+            overrides = memoryOverridesHauler(room);
+            break;
+          case CreepRole.claimer:
+            overrides = memoryOverridesClaimer(room);
+            break;
+          case CreepRole.scout:
+            overrides = memoryOverridesScout(room);
+            break;
+          case CreepRole.extractor:
+            overrides = memoryOverridesExtractor(room);
+            break;
+        }
 
-      if (room.roomType === RoomType.remote && role === CreepRole.hauler) {
-        role = CreepRole.remoteHauler;
-      }
+        if (room.roomType === RoomType.remote && role === CreepRole.hauler) {
+          role = CreepRole.remoteHauler;
+        }
 
-      const queueEntry = { role, overrides };
-      room.addToSpawnQueue(queueEntry, isPriority(room, role, overrides));
+        const queueEntry = { role, overrides };
+        room.addToSpawnQueue(queueEntry, isPriority(room, role, overrides));
+      } catch (e) {
+        error(
+          `Unable to add needed role ${role} to the spawn queue in ${
+            room.name
+          }:\n${e.toString()}`,
+        );
+      }
     }
   });
 
