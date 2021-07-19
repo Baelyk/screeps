@@ -10,6 +10,7 @@ import { createLinkMemory } from "links";
 import { Pos, Position } from "classes/position";
 import { TerminalInfo, TerminalMemory } from "terminalMemory";
 import { CreepRole, CreepTask, AnyCreepMemory } from "./creeps";
+import { profile } from "./utils/profiler";
 
 export function testFunction(): void {
   info(`Testfunction`);
@@ -169,6 +170,7 @@ declare global {
   }
 }
 
+@profile
 export class RoomInfo implements RoomMemory {
   name: string;
   roomType: RoomType;
