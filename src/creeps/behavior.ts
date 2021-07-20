@@ -495,13 +495,15 @@ function tender(creep: Creep) {
         let response = null;
         try {
           const room = new VisibleRoom(creep.room.name);
-          const spawnLink = room.getSpawnLink();
-          response = actions.tendLink(
-            creep,
-            spawnLink,
-            LINK_CAPACITY / 2,
-            "get",
-          );
+          if (room.roomLevel() >= 5) {
+            const spawnLink = room.getSpawnLink();
+            response = actions.tendLink(
+              creep,
+              spawnLink,
+              LINK_CAPACITY / 2,
+              "get",
+            );
+          }
         } catch (error) {
           // Error getting energy from the spawn link first
           warn(`Creep ${creep.name} failed to get from spawn link ${error}`);
