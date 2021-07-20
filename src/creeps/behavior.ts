@@ -527,16 +527,21 @@ function tender(creep: Creep) {
         if (response !== OK) {
           try {
             const room = new VisibleRoom(creep.room.name);
-            const spawnLink = room.getSpawnLink();
-            response = actions.tendLink(
-              creep,
-              spawnLink,
-              LINK_CAPACITY / 2,
-              "decide",
-              false,
-            );
-            if (response === ERR_FULL && creep.store.getFreeCapacity() === 0) {
-              response = actions.storeEnergy(creep);
+            if (room.roomLevel() >= 5) {
+              const spawnLink = room.getSpawnLink();
+              response = actions.tendLink(
+                creep,
+                spawnLink,
+                LINK_CAPACITY / 2,
+                "decide",
+                false,
+              );
+              if (
+                response === ERR_FULL &&
+                creep.store.getFreeCapacity() === 0
+              ) {
+                response = actions.storeEnergy(creep);
+              }
             }
           } catch (error) {
             // Error getting energy from the spawn link first
