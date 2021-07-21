@@ -8,9 +8,9 @@ import { spawnManager } from "spawns";
 import { roomManager } from "rooms";
 import { expansionManager } from "expansion";
 import { mapVisualManager } from "mapVisuals";
+import { initProfiler } from "./utils/profiler";
 
 console.log("- - - - RESTARTING - - - -");
-
 export const loop = ErrorMapper.wrapLoop(() => {
   tick();
 
