@@ -32,9 +32,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // Process map visuals
   wrapper(() => mapVisualManager(), `Error managing map visuals`);
 
-  // Debug post-loop actions
-  wrapper(() => debugPostLoop(), `Error in debug post loop`);
-
   // screeps-multimeter watcher
   watcher();
+
+  // Debug post-loop actions
+  wrapper(() => debugPostLoop(), `Error in debug post loop`);
 });

@@ -42,21 +42,9 @@ export function debugEnergyHarvested(): void {
 }
 
 export function debugPostLoop(): void {
-  // Debug testing for energy harvested
-  debugEnergyHarvested();
-
-  // Graph testing
-  // debugGraphTesting();
-
-  // Planner testing
-  // debugPlannerTesting();
-
-  // Warn if more than 5 CPU used during this tick
+  const pop = _.keys(Game.creeps).length;
   const cpuUsed = Game.cpu.getUsed();
-  if (cpuUsed >= 5) {
-    const pop = _.keys(Game.creeps).length;
-    warn(`Used ${Math.round(cpuUsed * 100) / 100} cpu with ${pop} creeps`);
-  }
+  warn(`Used ${Math.round(cpuUsed * 100) / 100} cpu with ${pop} creeps`);
 }
 
 export function roomDebugLoop(room: VisibleRoom): void {

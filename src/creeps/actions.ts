@@ -18,6 +18,7 @@ interface MoveActionOptions {
   avoidHostiles: boolean;
   costCallback: (roomName: string, costMatrix: CostMatrix) => CostMatrix | void;
   flee: boolean;
+  reusePath: number;
 }
 
 function actionWarn(
@@ -37,6 +38,7 @@ export function move(
   target: RoomPosition,
   providedOptions?: Partial<MoveActionOptions>,
 ): ScreepsReturnCode {
+  const startCpu = Game.cpu.getUsed();
   const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
     range: 0,
     avoidHostiles: true,
@@ -44,6 +46,7 @@ export function move(
       return;
     },
     flee: false,
+    reusePath: 5,
   };
   const options: MoveActionOptions = _.assign(
     MOVE_ACTION_DEFAULTS,
@@ -55,6 +58,11 @@ export function move(
     providedOptions.costCallback == undefined
   ) {
     options.costCallback = costCallback;
+  }
+  if (providedOptions == undefined || providedOptions.reusePath == undefined) {
+    if (creep.room.name !== target.roomName) {
+      options.reusePath = 50;
+    }
   }
 
   function costCallback(
@@ -103,7 +111,17 @@ export function move(
   }
 
   if (response !== OK && response !== ERR_TIRED && warn) {
-    actionWarn(creep, "harvest", response);
+    actionWarn(creep, "move", response);
+  }
+
+  const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
+  if (used >= 0.3) {
+    info(
+      `Action ${_.padLeft("move", 11)} used ${_.padRight(
+        String(used),
+        5,
+      )} cpu: ${creep.pos} to ${target} ${response === OK ? "+intent" : "-no"}`,
+    );
   }
   return response;
 }
@@ -232,6 +250,7 @@ export function pickupResource(
 }
 
 export function getEnergy(creep: Creep): ScreepsReturnCode {
+  const startCpu = Game.cpu.getUsed();
   // Get energy from:
   // 0. Adjacent tombstones or piles
   // 1. Room storage
@@ -263,6 +282,7 @@ export function getEnergy(creep: Creep): ScreepsReturnCode {
     const storageEnergy = storage.store[RESOURCE_ENERGY];
     if (storageEnergy > 0) {
       const amount = Math.min(creepCapacity, storageEnergy);
+      info(`Stored, used ${Game.cpu.getUsed() - startCpu}`);
       return getResource(creep, storage, RESOURCE_ENERGY, amount);
     }
   }
@@ -279,6 +299,7 @@ export function getEnergy(creep: Creep): ScreepsReturnCode {
     const container = creep.pos.findClosestByPath(containers);
     if (container != undefined) {
       const amount = Math.min(creepCapacity, container.store[RESOURCE_ENERGY]);
+      info(`Container, used ${Game.cpu.getUsed() - startCpu}`);
       return getResource(creep, container, RESOURCE_ENERGY, amount);
     }
   }
@@ -294,13 +315,25 @@ export function getEnergy(creep: Creep): ScreepsReturnCode {
     },
   });
   if (nearestSource != undefined) {
+    info(`Harvesting, used ${Game.cpu.getUsed() - startCpu}`);
     return harvest(creep, nearestSource);
+  }
+
+  const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
+  if (used >= 0.1) {
+    info(
+      `Action ${_.padLeft("getEnergy", 11)} used ${_.padRight(
+        String(used),
+        5,
+      )} cpu`,
+    );
   }
 
   return ERR_NOT_FOUND;
 }
 
 export function depositEnergy(creep: Creep): ScreepsReturnCode {
+  const startCpu = Game.cpu.getUsed();
   // Deposit energy into:
   // 1. Nearest spawn/extension
   // 2. Tower under half capacity
@@ -317,6 +350,7 @@ export function depositEnergy(creep: Creep): ScreepsReturnCode {
     },
   }) as StructureSpawn | StructureExtension | null;
 
+  info(`spawnOrExtension, used ${Game.cpu.getUsed() - startCpu}`);
   if (spawnOrExtension != undefined) {
     const amount = Math.min(
       creepEnergy,
@@ -333,6 +367,7 @@ export function depositEnergy(creep: Creep): ScreepsReturnCode {
       );
     },
   }) as StructureTower | null;
+  info(`tower, used ${Game.cpu.getUsed() - startCpu}`);
   if (tower != undefined) {
     const amount = Math.min(
       creepEnergy,
@@ -344,9 +379,20 @@ export function depositEnergy(creep: Creep): ScreepsReturnCode {
   const room = new VisibleRoom(creep.room.name);
   try {
     const spawnLink = room.getSpawnLink();
+    info(`Creep ${creep.name} depositing into link`);
     return tendLink(creep, spawnLink, LINK_CAPACITY / 2, "put");
   } catch (error) {
     // No spawn link
+  }
+
+  const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
+  if (used >= 0.1) {
+    info(
+      `Action ${_.padLeft("depEnergy", 11)} used ${_.padRight(
+        String(used),
+        5,
+      )} cpu`,
+    );
   }
 
   return ERR_NOT_FOUND;
@@ -410,8 +456,14 @@ export function tendLink(
   action?: "get" | "put" | "decide",
   warn = true,
 ): ScreepsReturnCode {
+  const startCpu = Game.cpu.getUsed();
+
+  function usedCpu(msg: string): void {
+    info(`Creep ${creep.name} used ${Game.cpu.getUsed() - startCpu} ${msg}`);
+  }
   const linkEnergy = target.store[RESOURCE_ENERGY];
   const extraEnergy = linkEnergy - energyTarget;
+  usedCpu("counting energy");
 
   if (extraEnergy === 0) {
     return ERR_FULL;
@@ -424,21 +476,24 @@ export function tendLink(
   if (action == undefined || action == "decide") {
     action = extraEnergy > 0 ? "get" : "put";
   }
-
   switch (action) {
     case "get": {
       if (extraEnergy > 0) {
         const amount = Math.min(creep.store.getFreeCapacity(), extraEnergy);
+        usedCpu("get");
         return getResource(creep, target, RESOURCE_ENERGY, amount, warn);
       } else {
+        usedCpu("get err");
         return ERR_NOT_ENOUGH_RESOURCES;
       }
     }
     case "put": {
       if (extraEnergy < 0) {
         const amount = Math.min(creep.store[RESOURCE_ENERGY], -extraEnergy);
+        usedCpu("put");
         return putResource(creep, target, RESOURCE_ENERGY, amount, warn);
       } else {
+        usedCpu("put err");
         return ERR_FULL;
       }
     }

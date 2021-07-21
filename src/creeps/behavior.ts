@@ -493,6 +493,7 @@ function tender(creep: Creep) {
     case CreepTask.getEnergy: {
       if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
         let response = null;
+        const preLink = Game.cpu.getUsed();
         try {
           const room = new VisibleRoom(creep.room.name);
           if (room.roomLevel() >= 5) {
@@ -511,6 +512,8 @@ function tender(creep: Creep) {
         if (response !== OK) {
           actions.getEnergy(creep);
         }
+        const postLink = Game.cpu.getUsed() - preLink;
+        info(`Creep ${creep.name} used ${postLink} cpu getting link`);
       } else {
         // If the creep has full energy, begin building
         switchTaskAndDoRoll(creep, CreepTask.deposit);
@@ -524,6 +527,7 @@ function tender(creep: Creep) {
         // If the creep has energy, keep depositing
         let response = actions.depositEnergy(creep);
         // If not depositing, tend to the spawn link
+        const preLink = Game.cpu.getUsed();
         if (response !== OK) {
           try {
             const room = new VisibleRoom(creep.room.name);
@@ -547,6 +551,8 @@ function tender(creep: Creep) {
             // Error getting energy from the spawn link first
             warn(`Creep ${creep.name} failed to put into spawn link ${error}`);
           }
+          const postLink = Game.cpu.getUsed() - preLink;
+          info(`Creep ${creep.name} used ${postLink} cpu depositing link`);
         }
         // If not depositing or link tending, plunder tombs
         if (response !== OK) {
@@ -733,6 +739,7 @@ function scout(creep: Creep) {
 
   const creepInfo = new RoleCreepInfo[CreepRole.scout](creep.name);
   const assignedRoom = creepInfo.getAssignedRoomName();
+  const targetRoom = creepInfo.getTargetRoom() || assignedRoom;
 
   switch (task) {
     case CreepTask.scout: {
@@ -742,11 +749,11 @@ function scout(creep: Creep) {
         creep.move(awayFromExitDirection(creep.pos));
         break;
       } else {
-        if (creep.room.name === assignedRoom) {
+        if (creep.room.name === targetRoom) {
           // Creep is not on an exit, so find where to go from here
           const newTarget = RoomInfo.findNearestUnscoutedRoom(
-            creep.room.name,
-            50,
+            assignedRoom,
+            10,
             true,
             (roomName) => {
               // Avoid hostile rooms
@@ -794,7 +801,7 @@ function scout(creep: Creep) {
         } else {
           // Move to the room
           try {
-            actions.moveToRoom(creep, assignedRoom);
+            actions.moveToRoom(creep, targetRoom);
           } catch (error) {
             warn(
               `Creep ${creep.name} unable to move to room. Abandoning room target`,
@@ -1225,6 +1232,7 @@ function renewCheck(creep: Creep): void {
  * @param creep The creep
  */
 function creepBehavior(creep: Creep): void {
+  const startCpu = Game.cpu.getUsed();
   if (creep.spawning) return;
 
   const creepInfo = new CreepInfo(creep.name);
@@ -1302,6 +1310,15 @@ function creepBehavior(creep: Creep): void {
       break;
     default:
       throw new InvalidCreepRoleError(creep);
+  }
+  const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
+  if (used >= 0.4) {
+    info(
+      `Creep ${_.padLeft(creep.name, 12)} used ${_.padRight(
+        String(used),
+        5,
+      )} cpu`,
+    );
   }
 }
 

@@ -409,6 +409,7 @@ export class ExtractorCreepInfo extends CreepInfo {
 interface ScoutCreepMemory extends CreepMemory {
   role: CreepRole.scout;
   task: CreepTask.fresh | CreepTask.scout | CreepTask.claim;
+  targetRoom?: string;
 }
 
 export class ScoutCreepInfo extends CreepInfo {
@@ -427,6 +428,14 @@ export class ScoutCreepInfo extends CreepInfo {
 
   getMemory(): ScoutCreepMemory {
     return Memory.creeps[this.creepName] as ScoutCreepMemory;
+  }
+
+  getTargetRoom(): string | undefined {
+    return this.getMemory().targetRoom;
+  }
+
+  setTargetRoom(targetRoom: string): void {
+    (Memory.creeps[this.creepName] as ScoutCreepMemory).targetRoom = targetRoom;
   }
 }
 

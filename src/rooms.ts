@@ -31,6 +31,7 @@ export function roomManager(): void {
 }
 
 function roomBehavior(roomName: string): void {
+  const startCpu = Game.cpu.getUsed();
   const room = VisibleRoom.getOrNew(roomName);
 
   wrapper(() => roomDebugLoop(room), `Error debugging for room ${room.name}`);
@@ -88,6 +89,10 @@ function roomBehavior(roomName: string): void {
   wrapper(
     () => infrequentRoomActions(room),
     `Error during infrequent room actions for room ${room.name}`,
+  );
+  const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
+  info(
+    `Room ${_.padLeft(room.name, 6)} used ${_.padRight(String(used), 5)} cpu`,
   );
 }
 
@@ -202,7 +207,8 @@ function spawnScoutCreep(room: VisibleRoom): void {
     role: CreepRole.scout,
     overrides: {
       task: CreepTask.scout,
-      room: targetRoom,
+      room: room.name,
+      targetRoom,
       noRenew: true,
       attackNotifications: false,
     },

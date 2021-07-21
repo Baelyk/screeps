@@ -420,6 +420,22 @@ function catastropheSpawning(room: VisibleRoom): void {
         room.getRoom().energyAvailable +
         room.storedResourceAmount(RESOURCE_ENERGY);
       if (energy <= 300 || countRole(room.getRoom(), CreepRole.miner) === 0) {
+        // If a miner is currently being spawned, this is not a catastrophe
+        const spawns = room.getRoom().find(FIND_MY_STRUCTURES, {
+          filter: { structureType: STRUCTURE_SPAWN },
+        }) as StructureSpawn[];
+        let spawningMiner = false;
+        _.forEach(spawns, (spawn) => {
+          spawningMiner =
+            spawningMiner ||
+            (spawn.spawning &&
+              Memory.creeps[spawn.spawning.name].role === CreepRole.miner) ||
+            false;
+        });
+        if (spawningMiner) {
+          return;
+        }
+
         // Catastrophe detected!
         warn(`Catastrophe detected in ${room.roomType} room ${room.name}`);
 
