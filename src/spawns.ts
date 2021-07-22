@@ -41,7 +41,6 @@ function spawnCreep(
   info(
     `${spawn.name} spawning creep ${name} (${stringifyBody(body)}): ` +
       `${errorConstant(response)}`,
-    InfoType.spawn,
   );
   // If spawn unsuccessful, readd to queue
   if (response !== OK) {

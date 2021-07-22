@@ -65,10 +65,8 @@ function withColor(color: string, msg?: any): string {
  *
  * @param msg The message
  */
-export function info(msg?: any, type = InfoType.general) {
-  if (Memory.debug.log.infoSettings[type]) {
-    console.log(withColor(INFO_COLOR, ` ${msg}`));
-  }
+export function info(msg?: any) {
+  console.log(withColor(INFO_COLOR, ` ${msg}`));
 }
 
 /**

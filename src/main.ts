@@ -9,14 +9,12 @@ import { roomManager } from "rooms";
 import { expansionManager } from "expansion";
 import { mapVisualManager } from "mapVisuals";
 import { initProfiler } from "./utils/profiler";
+import { ensureMemoryPaths } from "utils/helpers";
 
 console.log("- - - - RESTARTING - - - -");
+ensureMemoryPaths();
 export const loop = ErrorMapper.wrapLoop(() => {
   tick();
-
-  if (Memory.uninitialized) {
-    console.log(`!! Uninitialized !!`);
-  }
 
   // Debug
   wrapper(() => debugLoop(), `Error in debug loop`);

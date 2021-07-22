@@ -162,3 +162,12 @@ export function getSurroundingTiles(
     (position) => position != undefined,
   ) as RoomPosition[];
 }
+
+export function ensureMemoryPaths(): void {
+  if (Memory.debug == undefined) {
+    Memory.debug = {};
+  }
+  if (Memory.expansion == undefined) {
+    Memory.expansion = {};
+  }
+}

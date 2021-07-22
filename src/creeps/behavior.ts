@@ -209,10 +209,7 @@ function builder(creep: Creep) {
 
         // If the creep was unable to obtain a construction site, switch tasks
         // to repairing.
-        info(
-          `No items in the construction queue in ${room.name}`,
-          InfoType.general,
-        );
+        info(`No items in the construction queue in ${room.name}`);
         switchTaskAndDoRoll(creep, CreepTask.repair);
         return;
       } else {
@@ -227,7 +224,7 @@ function builder(creep: Creep) {
         return;
       } else {
         // Remain idle
-        info(`Creep ${creep.name} is idle`, InfoType.idleCreep);
+        info(`Creep ${creep.name} is idle`);
         actions.idle(creep);
       }
       break;
@@ -1138,7 +1135,6 @@ function switchTaskAndDoRoll(creep: Creep, task: CreepTask) {
     `Creep ${
       creep.name
     } switching to ${task} and performing ${creepInfo.getRole()}`,
-    InfoType.task,
   );
   creepBehavior(creep);
 }
@@ -1328,7 +1324,7 @@ function creepBehavior(creep: Creep): void {
  * @param name The name of the dead creep
  */
 export function handleDead(name: string): void {
-  info(`Handling death of creep ${name}`, InfoType.general);
+  info(`Handling death of creep ${name}`);
   const creepInfo = new CreepInfo(name);
   switch (creepInfo.getRole()) {
     case CreepRole.builder: {
