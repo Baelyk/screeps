@@ -12,10 +12,6 @@ import { TerminalInfo, TerminalMemory } from "terminalMemory";
 import { CreepRole, CreepTask, AnyCreepMemory } from "./creeps";
 import { profile } from "./utils/profiler";
 
-export function testFunction(): void {
-  info(`Testfunction`);
-}
-
 declare global {
   interface RoomMemory {
     /** The type of room, e.g. remote */
@@ -116,6 +112,7 @@ declare global {
     links: RoomLinksMemory;
     remotes?: string[];
     terminal?: TerminalMemory;
+    extensions: Id<StructureExtension>[];
   }
 
   interface RoomQueueMemory {
@@ -689,6 +686,7 @@ export class RoomInfo implements RoomMemory {
   }
 }
 
+@profile
 export class VisibleRoom extends RoomInfo {
   /**
    * Creates a new or completely resets room.
@@ -968,6 +966,7 @@ export class VisibleRoom extends RoomInfo {
       towers,
       links,
       terminal,
+      extensions,
     } = this.createSpecialStructuresMemory();
 
     if (ownedMemory == undefined) {
@@ -996,6 +995,7 @@ export class VisibleRoom extends RoomInfo {
       links,
       terminal,
       remotes,
+      extensions,
     };
   }
 
@@ -1004,6 +1004,7 @@ export class VisibleRoom extends RoomInfo {
     towers: Id<StructureTower>[];
     links: RoomLinksMemory;
     terminal?: TerminalMemory;
+    extensions: Id<StructureExtension>[];
   } {
     let spawns = [];
     let towers = [];
@@ -1044,7 +1045,29 @@ export class VisibleRoom extends RoomInfo {
       terminal = TerminalInfo.createMemory(terminalStructure);
     }
 
-    return { spawns, towers, links, terminal };
+    // Get extension ids in planned order
+    const planner = this.getPlannerMemory();
+    if (planner == undefined) {
+      throw new ScriptError(
+        `Attempted to update extension order in room ${this.name} lacking a plan`,
+      );
+    }
+    const roomPlanExecuter = new RoomPlanExecuter(planner);
+    const spots = roomPlanExecuter.getExtensionSpots();
+    const extensions: Id<StructureExtension>[] = [];
+    spots.forEach((spot) => {
+      const extension = _.remove(
+        structures,
+        ({ structureType, pos }) =>
+          structureType === STRUCTURE_EXTENSION &&
+          Position.areEqual(pos, Position.fromIndex(spot, this.name)),
+      ).shift() as StructureExtension | undefined;
+      if (extension != undefined) {
+        extensions.push(extension.id);
+      }
+    });
+
+    return { spawns, towers, links, terminal, extensions };
   }
 
   updatePlannerMemory(): void {
@@ -1380,6 +1403,23 @@ export class VisibleRoom extends RoomInfo {
       throw new ScriptError(`Room ${this.name} lacks a terminal`);
     }
     return new TerminalInfo(this.name);
+  }
+
+  public getNextExtension(): StructureExtension | undefined {
+    const extensions = this.getOwnedMemory().extensions || [];
+    let nextExtension: StructureExtension | undefined = undefined;
+    extensions.find((id) => {
+      const extension = Game.getObjectById(id);
+      if (extension == undefined) {
+        throw new GetByIdError(id, STRUCTURE_EXTENSION);
+      }
+      if (extension.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        nextExtension = extension;
+        return true;
+      }
+      return false;
+    });
+    return nextExtension;
   }
 }
 

@@ -88,13 +88,9 @@ function wrapFunction(
   };
 }
 
-export function initProfiler(): void {
-  Memory.profiler = { data: {}, start: Game.time };
-}
-
 function addToProfiler(name: string): void {
   if (Memory.profiler == undefined || Memory.profiler.data == undefined) {
-    initProfiler();
+    Profiler.init();
   }
   if (Memory.profiler.data[name] != undefined) {
     console.log(`Duplicated profiler entry ${name}`);
@@ -115,46 +111,6 @@ function updateProfilerData(name: string, cpu: number): void {
   }
 }
 
-function printProfileData(): void {
-  const ticks = Game.time - Memory.profiler.start || 1;
-  const data = Memory.profiler.data;
-  const longest = _.max(data, (entry) => entry.name.length).name.length;
-  const width = Math.floor((80 - longest) / 5);
-
-  let output = `Profiled ${_.keys(data).length} functions for ${ticks} ticks\n`;
-  output += truncPadLeft("name", longest);
-  output += truncPadLeft("calls", width);
-  output += truncPadLeft("c/t", width);
-  output += truncPadLeft("cpu", width);
-  output += truncPadLeft("cpu/c", width);
-  output += truncPadLeft("cpu/t", width);
-  output += "\n";
-
-  const profiled = _.sortBy(data, (entry) => -entry.cpu / entry.calls);
-
-  let totalCpu = 0;
-  _.forEach(profiled, (entry) => {
-    const { name, calls, cpu } = entry;
-    output += truncPadLeft(name, longest);
-    output += truncPadLeft(calls, width);
-    output += truncPadLeft(calls / ticks, width);
-    output += truncPadLeft(cpu, width);
-    output += truncPadLeft(cpu / calls || 0, width);
-    output += truncPadLeft(cpu / ticks, width);
-    output += "\n";
-    totalCpu += cpu;
-  });
-
-  const printTotal = Math.round(totalCpu * 100) / 100;
-  const printAvg = Math.round((totalCpu / ticks) * 100) / 100;
-  output += _.padLeft(
-    `${printTotal} cpu total | ${printAvg} avg cpu`,
-    longest + width * 5,
-  );
-
-  console.log(output);
-}
-
 function truncPadLeft(str: string | number, length: number): string {
   // Truncate to length - 1 and pad to length (always at least 1 space)
   return _.padLeft(
@@ -163,12 +119,78 @@ function truncPadLeft(str: string | number, length: number): string {
   );
 }
 
+// CLI
+class Profiler {
+  static init(): void {
+    Memory.profiler = { data: {}, start: Game.time };
+  }
+
+  static reset(): void {
+    if (Memory.profiler == undefined || Memory.profiler.data == undefined) {
+      Profiler.init();
+    }
+
+    Memory.profiler.start = Game.time;
+
+    for (const name in Memory.profiler.data) {
+      Memory.profiler.data[name] = {
+        name,
+        calls: 0,
+        cpu: 0,
+      };
+    }
+  }
+
+  static print(): void {
+    const ticks = Game.time - Memory.profiler.start || 1;
+    const data = Memory.profiler.data;
+    const longest = _.max(data, (entry) => entry.name.length).name.length;
+    const width = Math.floor((80 - longest) / 5);
+
+    let output = `Profiled ${
+      _.keys(data).length
+    } functions for ${ticks} ticks\n`;
+    output += truncPadLeft("name", longest);
+    output += truncPadLeft("calls", width);
+    output += truncPadLeft("c/t", width);
+    output += truncPadLeft("cpu", width);
+    output += truncPadLeft("cpu/c", width);
+    output += truncPadLeft("cpu/t", width);
+    output += "\n";
+
+    const profiled = _.sortBy(data, (entry) => -entry.cpu / entry.calls);
+
+    let totalCpu = 0;
+    _.forEach(profiled, (entry) => {
+      const { name, calls, cpu } = entry;
+      output += truncPadLeft(name, longest);
+      output += truncPadLeft(calls, width);
+      output += truncPadLeft(calls / ticks, width);
+      output += truncPadLeft(cpu, width);
+      output += truncPadLeft(cpu / calls || 0, width);
+      output += truncPadLeft(cpu / ticks, width);
+      output += "\n";
+      totalCpu += cpu;
+    });
+
+    const printTotal = Math.round(totalCpu * 100) / 100;
+    const printAvg = Math.round((totalCpu / ticks) * 100) / 100;
+    output += _.padLeft(
+      `${printTotal} cpu total | ${printAvg} avg cpu`,
+      longest + width * 5,
+    );
+
+    console.log(output);
+  }
+}
+
+global.Profiler = Profiler;
+
 /* eslint-disable */
 declare global {
   module NodeJS {
     interface Global {
-      printProfileData: () => void;
+      Profiler: Profiler;
     }
   }
 }
-global.printProfileData = printProfileData;

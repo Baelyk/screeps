@@ -1,6 +1,7 @@
 import { ScriptError } from "utils/errors";
 import { Graph, IndexSet } from "classes/graph";
 import { info, warn, errorConstant } from "utils/logger";
+import { profile } from "utils/profiler";
 
 class RoomPlannerError extends ScriptError {
   constructor(roomName: string, message: string) {
@@ -100,6 +101,7 @@ class RoomPlannerBase {
   }
 }
 
+@profile
 export class RoomPlanner extends RoomPlannerBase {
   roomType: RoomType;
   costMatrix: CostMatrix;
@@ -771,6 +773,7 @@ export class RoomPlanner extends RoomPlannerBase {
   }
 }
 
+@profile
 export class RoomPlanExecuter extends RoomPlannerBase {
   plan: RoomPlannerMemory;
   sitePositions: RoomPosition[];
@@ -937,5 +940,17 @@ export class RoomPlanExecuter extends RoomPlannerBase {
     structureType: BuildableStructureConstant,
   ): void {
     _.forEach(indices, (index) => this.build(index, structureType));
+  }
+
+  getExtensionSpots(): number[] {
+    const room = Game.rooms[this.roomName];
+    if (room == undefined) {
+      throw new RoomPlannerError(this.roomName, "Room must be visible");
+    }
+    if (this.plan.roomType !== RoomType.primary) {
+      return [];
+    }
+
+    return (this.plan.plan as OwnedRoomPlannerPlanMemory).extensions;
   }
 }
