@@ -101,7 +101,6 @@ class RoomPlannerBase {
   }
 }
 
-@profile
 export class RoomPlanner extends RoomPlannerBase {
   roomType: RoomType;
   costMatrix: CostMatrix;
@@ -773,7 +772,6 @@ export class RoomPlanner extends RoomPlannerBase {
   }
 }
 
-@profile
 export class RoomPlanExecuter extends RoomPlannerBase {
   plan: RoomPlannerMemory;
   sitePositions: RoomPosition[];

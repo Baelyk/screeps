@@ -104,7 +104,6 @@ interface HarvesterCreepMemory extends CreepMemory {
   task: CreepTask.fresh | CreepTask.harvest | CreepTask.deposit;
 }
 
-@profile
 export class HarvesterCreepInfo extends CreepInfo {
   role = CreepRole.harvester;
 
@@ -133,7 +132,6 @@ interface MinerCreepMemory extends CreepMemory {
   spot: string;
 }
 
-@profile
 export class MinerCreepInfo extends CreepInfo {
   role = CreepRole.miner;
 
@@ -174,7 +172,6 @@ interface BuilderCreepMemory extends CreepMemory {
   assignedRepairs?: Id<Structure>;
 }
 
-@profile
 export class BuilderCreepInfo extends CreepInfo {
   role = CreepRole.builder;
 
@@ -238,7 +235,6 @@ interface UpgraderCreepMemory extends CreepMemory {
   task: CreepTask.fresh | CreepTask.getEnergy | CreepTask.deposit;
 }
 
-@profile
 export class UpgraderCreepInfo extends CreepInfo {
   role = CreepRole.upgrader;
 
@@ -265,7 +261,6 @@ interface HaulerCreepMemory extends CreepMemory {
   spot: string;
 }
 
-@profile
 export class HaulerCreepInfo extends CreepInfo {
   role = CreepRole.hauler;
 
@@ -301,7 +296,6 @@ interface RemoteHaulerCreepMemory extends CreepMemory {
   spot: string;
 }
 
-@profile
 export class RemoteHaulerCreepInfo extends CreepInfo {
   role = CreepRole.remoteHauler;
 
@@ -336,7 +330,6 @@ interface ClaimerCreepMemory extends CreepMemory {
   claimTarget?: string;
 }
 
-@profile
 export class ClaimerCreepInfo extends CreepInfo {
   role = CreepRole.claimer;
 
@@ -362,7 +355,6 @@ interface TenderCreepMemory extends CreepMemory {
   targetStore: Id<AnyStoreStructure>;
 }
 
-@profile
 export class TenderCreepInfo extends CreepInfo {
   role = CreepRole.claimer;
 
@@ -408,7 +400,6 @@ interface ExtractorCreepMemory extends CreepMemory {
   spot: string;
 }
 
-@profile
 export class ExtractorCreepInfo extends CreepInfo {
   role = CreepRole.extractor;
 
@@ -442,7 +433,6 @@ interface ScoutCreepMemory extends CreepMemory {
   targetRoom?: string;
 }
 
-@profile
 export class ScoutCreepInfo extends CreepInfo {
   role = CreepRole.scout;
 
@@ -477,7 +467,6 @@ interface GuardCreepMemory extends CreepMemory {
   targetRoom?: string;
 }
 
-@profile
 export class GuardCreepInfo extends CreepInfo {
   role = CreepRole.guard;
 
@@ -514,7 +503,6 @@ interface EscortCreepMemory extends CreepMemory {
   range: number;
 }
 
-@profile
 export class EscortCreepInfo extends CreepInfo {
   role = CreepRole.escort;
 
@@ -567,7 +555,6 @@ interface RangedHarvesterCreepMemory extends CreepMemory {
   spot: string;
 }
 
-@profile
 export class RangedHarvesterCreepInfo extends CreepInfo {
   role = CreepRole.rangedHarvester;
 
@@ -654,7 +641,6 @@ export const enum CreepRole {
   rangedHarvester = "ranged_harvester",
 }
 
-@profile
 export class CreepMemoryError extends MemoryError {
   constructor(creepName: string, message?: string) {
     let msg = `Creep ${creepName} memory error`;
@@ -675,7 +661,6 @@ class CreepInfoError extends CreepMemoryError {
   }
 }
 
-@profile
 export class CreepMemoryFieldError extends CreepMemoryError {
   constructor(creep: Creep, invalidField: string, message?: string) {
     let msg = `Creep ${creep.name} has invalid field ${invalidField}`;
@@ -686,7 +671,6 @@ export class CreepMemoryFieldError extends CreepMemoryError {
   }
 }
 
-@profile
 export class CreepRoleMemoryError extends CreepMemoryFieldError {
   constructor(creep: Creep, invalidField: string, message?: string) {
     let msg = `Field ${invalidField} is required for creep role ${creep.memory.role}`;
@@ -697,7 +681,6 @@ export class CreepRoleMemoryError extends CreepMemoryFieldError {
   }
 }
 
-@profile
 export class InvalidCreepTaskError extends CreepRoleMemoryError {
   constructor(creep: Creep, validTasks?: CreepTask[], message?: string) {
     let msg = `Invalid task for role ${creep.memory.role}: ${creep.memory.task}`;
@@ -717,7 +700,6 @@ export class InvalidCreepTaskError extends CreepRoleMemoryError {
   }
 }
 
-@profile
 export class InvalidCreepRoleError extends CreepRoleMemoryError {
   constructor(creep: Creep, validRoles?: CreepRole[], message?: string) {
     let msg = `Invalid role for ${creep.name}: ${creep.memory.role}`;
