@@ -41,7 +41,6 @@ export class CreepAction {
     target: RoomPosition,
     providedOptions?: Partial<MoveActionOptions>,
   ): ScreepsReturnCode {
-    const startCpu = Game.cpu.getUsed();
     const MOVE_ACTION_DEFAULTS: MoveActionOptions = {
       range: 0,
       avoidHostiles: true,
@@ -122,17 +121,6 @@ export class CreepAction {
       actionWarn(creep, "move", response);
     }
 
-    const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
-    if (used >= 0.3) {
-      info(
-        `Action ${_.padLeft("move", 11)} used ${_.padRight(
-          String(used),
-          5,
-        )} cpu: ${creep.pos} to ${target} ${
-          response === OK ? "+intent" : "-no"
-        }`,
-      );
-    }
     return response;
   }
 
@@ -260,7 +248,6 @@ export class CreepAction {
   }
 
   static getEnergy(creep: Creep): ScreepsReturnCode {
-    const startCpu = Game.cpu.getUsed();
     // Get energy from:
     // 0. Adjacent tombstones or piles
     // 1. Room storage
@@ -297,7 +284,6 @@ export class CreepAction {
       const storageEnergy = storage.store[RESOURCE_ENERGY];
       if (storageEnergy > 0) {
         const amount = Math.min(creepCapacity, storageEnergy);
-        info(`Stored, used ${Game.cpu.getUsed() - startCpu}`);
         return CreepAction.getResource(creep, storage, RESOURCE_ENERGY, amount);
       }
     }
@@ -317,7 +303,6 @@ export class CreepAction {
           creepCapacity,
           container.store[RESOURCE_ENERGY],
         );
-        info(`Container, used ${Game.cpu.getUsed() - startCpu}`);
         return CreepAction.getResource(
           creep,
           container,
@@ -338,25 +323,13 @@ export class CreepAction {
       },
     });
     if (nearestSource != undefined) {
-      info(`Harvesting, used ${Game.cpu.getUsed() - startCpu}`);
       return CreepAction.harvest(creep, nearestSource);
-    }
-
-    const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
-    if (used >= 0.1) {
-      info(
-        `Action ${_.padLeft("getEnergy", 11)} used ${_.padRight(
-          String(used),
-          5,
-        )} cpu`,
-      );
     }
 
     return ERR_NOT_FOUND;
   }
 
   static depositEnergy(creep: Creep): ScreepsReturnCode {
-    const startCpu = Game.cpu.getUsed();
     // Deposit energy into:
     // 1. Nearest spawn/extension
     // 2. Tower under half capacity
@@ -373,7 +346,6 @@ export class CreepAction {
       );
       return CreepAction.putResource(creep, extension, RESOURCE_ENERGY, amount);
     }
-    info(`extension, used ${Game.cpu.getUsed() - startCpu}`);
 
     const spawn = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
       filter: (structure) => {
@@ -384,7 +356,6 @@ export class CreepAction {
       },
     }) as StructureSpawn | null;
 
-    info(`spawn, used ${Game.cpu.getUsed() - startCpu}`);
     if (spawn != undefined) {
       const amount = Math.min(
         creepEnergy,
@@ -401,7 +372,6 @@ export class CreepAction {
         );
       },
     }) as StructureTower | null;
-    info(`tower, used ${Game.cpu.getUsed() - startCpu}`);
     if (tower != undefined) {
       const amount = Math.min(
         creepEnergy,
@@ -416,16 +386,6 @@ export class CreepAction {
       return CreepAction.tendLink(creep, spawnLink, LINK_CAPACITY / 2, "put");
     } catch (error) {
       // No spawn link
-    }
-
-    const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
-    if (used >= 0.1) {
-      info(
-        `Action ${_.padLeft("depEnergy", 11)} used ${_.padRight(
-          String(used),
-          5,
-        )} cpu`,
-      );
     }
 
     return ERR_NOT_FOUND;
@@ -494,14 +454,8 @@ export class CreepAction {
     action?: "get" | "put" | "decide",
     warn = true,
   ): ScreepsReturnCode {
-    const startCpu = Game.cpu.getUsed();
-
-    function usedCpu(msg: string): void {
-      info(`Creep ${creep.name} used ${Game.cpu.getUsed() - startCpu} ${msg}`);
-    }
     const linkEnergy = target.store[RESOURCE_ENERGY];
     const extraEnergy = linkEnergy - energyTarget;
-    usedCpu("counting energy");
 
     if (extraEnergy === 0) {
       return ERR_FULL;
@@ -518,7 +472,6 @@ export class CreepAction {
       case "get": {
         if (extraEnergy > 0) {
           const amount = Math.min(creep.store.getFreeCapacity(), extraEnergy);
-          usedCpu("get");
           return CreepAction.getResource(
             creep,
             target,
@@ -527,14 +480,12 @@ export class CreepAction {
             warn,
           );
         } else {
-          usedCpu("get err");
           return ERR_NOT_ENOUGH_RESOURCES;
         }
       }
       case "put": {
         if (extraEnergy < 0) {
           const amount = Math.min(creep.store[RESOURCE_ENERGY], -extraEnergy);
-          usedCpu("put");
           return CreepAction.putResource(
             creep,
             target,
@@ -543,7 +494,6 @@ export class CreepAction {
             warn,
           );
         } else {
-          usedCpu("put err");
           return ERR_FULL;
         }
       }

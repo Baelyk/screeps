@@ -1251,7 +1251,6 @@ class CreepBehavior {
    * @param creep The creep
    */
   static creepBehavior(creep: Creep): void {
-    const startCpu = Game.cpu.getUsed();
     if (creep.spawning) return;
 
     const creepInfo = new CreepInfo(creep.name);
@@ -1329,15 +1328,6 @@ class CreepBehavior {
         break;
       default:
         throw new InvalidCreepRoleError(creep);
-    }
-    const used = Math.round((Game.cpu.getUsed() - startCpu) * 100) / 100;
-    if (used >= 0.4) {
-      info(
-        `Creep ${_.padLeft(creep.name, 12)} used ${_.padRight(
-          String(used),
-          5,
-        )} cpu`,
-      );
     }
   }
 }
