@@ -5,7 +5,7 @@ import {
   RoomPlanner,
   RoomPlanExecuter,
 } from "classes/roomPlanner";
-import { census } from "population";
+import { PopulationManager } from "population";
 import { createLinkMemory } from "links";
 import { Pos, Position } from "classes/position";
 import { TerminalInfo, TerminalMemory } from "terminalMemory";
@@ -591,7 +591,6 @@ export class RoomInfo implements RoomMemory {
     if (limit != undefined) {
       return limit;
     }
-    warn(`Room ${this.name} has undefined pop limit for role ${role}`);
     return 0;
   }
 
@@ -1175,7 +1174,11 @@ export class VisibleRoom extends RoomInfo {
       info(`Resetting pop limits for room ${this.name}`);
       Memory.rooms[this.name].populationLimit = {};
     }
-    census(this);
+    Memory.rooms[
+      this.name
+    ].populationLimit = PopulationManager.recalculatePopulationLimits(
+      this.name,
+    );
   }
 
   public getNextConstructionSite(

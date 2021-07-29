@@ -2,7 +2,6 @@ import { info } from "utils/logger";
 import { linkManager } from "links";
 import { wrapper } from "utils/errors";
 import { towerManager } from "towers";
-import { census } from "population";
 import { roomDebugLoop } from "utils/debug";
 import { updateSpawnQueue } from "spawning";
 import { roomVisualManager } from "roomVisuals";
@@ -110,7 +109,7 @@ function infrequentRoomActions(room: VisibleRoom) {
     // Update repair queue and pop limits every 100 ticks
     room.updateRepairQueue();
     room.updateWallRepairQueue();
-    census(room);
+    room.updatePopulationLimitMemory();
 
     // If the controller has leveled up, level up the room
     if (room.levelChangeCheck()) {

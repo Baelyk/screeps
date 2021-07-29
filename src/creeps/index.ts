@@ -3,6 +3,7 @@ export {
   AnyCreepMemory,
   CreepInfo,
   CreepRole,
+  CreepRoleList,
   CreepTask,
   RoleCreepInfo,
 } from "./memory";

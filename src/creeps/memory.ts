@@ -719,6 +719,22 @@ export class InvalidCreepRoleError extends CreepRoleMemoryError {
   }
 }
 
+export const CreepRoleList = [
+  CreepRole.harvester,
+  CreepRole.miner,
+  CreepRole.builder,
+  CreepRole.upgrader,
+  CreepRole.hauler,
+  CreepRole.claimer,
+  CreepRole.tender,
+  CreepRole.extractor,
+  CreepRole.remoteHauler,
+  CreepRole.scout,
+  CreepRole.guard,
+  CreepRole.escort,
+  CreepRole.rangedHarvester,
+];
+
 export const RoleCreepInfo = {
   [CreepRole.harvester]: HarvesterCreepInfo,
   [CreepRole.miner]: MinerCreepInfo,
