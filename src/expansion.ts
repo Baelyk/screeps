@@ -17,7 +17,7 @@ interface ExpansionMemory {
 
 function getExpansionTarget(): string | undefined {
   // TODO: Not hardcoded
-  return "E18N46";
+  return undefined;
 }
 
 export function expansionManager(): void {

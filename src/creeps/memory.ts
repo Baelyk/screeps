@@ -68,6 +68,7 @@ export class CreepInfo {
   setTask(task: CreepTask): void {
     Memory.creeps[this.creepName].task = task;
   }
+
   getRole(): CreepRole {
     return this.getMemory().role;
   }

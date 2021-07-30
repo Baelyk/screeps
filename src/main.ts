@@ -9,12 +9,16 @@ import { roomManager } from "rooms";
 import { expansionManager } from "expansion";
 import { mapVisualManager } from "mapVisuals";
 import { ensureMemoryPaths } from "utils/helpers";
-import "./utils/profiler";
+import { MemoryProfiler } from "./utils/profiler";
 
 console.log("- - - - RESTARTING - - - -");
 ensureMemoryPaths();
 export const loop = ErrorMapper.wrapLoop(() => {
   tick();
+
+  // Profile the CPU cost of parsing memory, which seems to be done on the first
+  // access of the Memory object
+  MemoryProfiler.firstParse();
 
   // Debug
   wrapper(() => debugLoop(), `Error in debug loop`);

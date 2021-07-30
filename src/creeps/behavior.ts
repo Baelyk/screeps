@@ -505,7 +505,6 @@ class CreepBehavior {
       case CreepTask.getEnergy: {
         if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
           let response = null;
-          const preLink = Game.cpu.getUsed();
           try {
             const room = new VisibleRoom(creep.room.name);
             if (room.roomLevel() >= 5) {
@@ -524,8 +523,6 @@ class CreepBehavior {
           if (response !== OK) {
             actions.getEnergy(creep);
           }
-          const postLink = Game.cpu.getUsed() - preLink;
-          info(`Creep ${creep.name} used ${postLink} cpu getting link`);
         } else {
           // If the creep has full energy, begin building
           CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.deposit);
@@ -539,7 +536,6 @@ class CreepBehavior {
         if (creep.store[RESOURCE_ENERGY] > 0) {
           let response = actions.depositEnergy(creep);
           // If not depositing, tend to the spawn link
-          const preLink = Game.cpu.getUsed();
           if (response !== OK) {
             try {
               const room = new VisibleRoom(creep.room.name);
@@ -553,7 +549,7 @@ class CreepBehavior {
                   false,
                 );
                 if (
-                  response === ERR_FULL &&
+                  response === ERR_NOT_ENOUGH_RESOURCES &&
                   creep.store.getFreeCapacity() === 0
                 ) {
                   response = actions.storeEnergy(creep);
@@ -565,10 +561,17 @@ class CreepBehavior {
                 `Creep ${creep.name} failed to put into spawn link ${error}`,
               );
             }
-            const postLink = Game.cpu.getUsed() - preLink;
-            info(`Creep ${creep.name} used ${postLink} cpu depositing link`);
           }
-          // If not depositing or link tending, plunder tombs
+          // If not depositing or link tending, supply the terminal
+          if (response !== OK) {
+            response = actions.supplyTerminal(creep);
+            info(
+              `Creep ${creep.name} supplying terminal with ${errorConstant(
+                response,
+              )}`,
+            );
+          }
+          // If still not doing anything, plunder tombs
           if (response !== OK) {
             // Only plunder if there is a room storage, though
             const storage = creep.room.storage;

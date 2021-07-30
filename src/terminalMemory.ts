@@ -4,6 +4,7 @@ import { GetByIdError } from "utils/errors";
 export interface TerminalMemory {
   id: Id<StructureTerminal>;
   requesting: TerminalRequestingMemory;
+  deals: Id<Order>[];
 }
 
 export type TerminalRequestingMemory = { [key in ResourceConstant]?: number };
@@ -12,7 +13,7 @@ export class TerminalInfo {
   roomName: string;
 
   static createMemory(terminal: StructureTerminal): TerminalMemory {
-    return { id: terminal.id, requesting: {} };
+    return { id: terminal.id, requesting: {}, deals: [] };
   }
 
   constructor(roomName: string) {

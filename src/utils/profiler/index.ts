@@ -119,6 +119,13 @@ function truncPadLeft(str: string | number, length: number): string {
   );
 }
 
+@profile
+export class MemoryProfiler {
+  static firstParse(): boolean {
+    return Memory.profiler == undefined;
+  }
+}
+
 // CLI
 class Profiler {
   static init(): void {

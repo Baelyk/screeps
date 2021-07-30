@@ -7,6 +7,7 @@ import { updateSpawnQueue } from "spawning";
 import { roomVisualManager } from "roomVisuals";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 import { CreepRole, CreepTask } from "./creeps";
+import { terminalManager } from "terminals";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
@@ -66,10 +67,10 @@ function roomBehavior(roomName: string): void {
     );
   }
 
-  if (room.getRemotes().length > 0) {
+  if (room.roomLevel() >= 6) {
     wrapper(
-      () => remoteManager(room),
-      `Error managing remotes for room ${room.name}`,
+      () => terminalManager(room),
+      `Error managing terminal for room ${room.name}`,
     );
   }
 

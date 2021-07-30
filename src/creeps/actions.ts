@@ -659,4 +659,85 @@ export class CreepAction {
 
     return response;
   }
+
+  static supplyTerminal(creep: Creep): ScreepsReturnCode {
+    const storage = creep.room.storage;
+    const terminal = creep.room.terminal;
+    if (storage == undefined || terminal == undefined) {
+      return ERR_NOT_FOUND;
+    }
+
+    const terminalInfo = new VisibleRoom(creep.room.name).getTerminalInfo();
+    const [resource, requestAmount] = terminalInfo.getNextUnsatisfiedRequest();
+    if (resource == undefined || requestAmount === 0) {
+      return ERR_FULL;
+    }
+
+    if (requestAmount > 0) {
+      // Bring resource to terminal
+      const creepFreeCapacity = creep.store.getFreeCapacity(resource);
+      const creepAmount = creep.store[resource];
+      const storageAmount = storage.store[resource];
+      if (
+        creepFreeCapacity > 0 &&
+        creepAmount < requestAmount &&
+        storageAmount > 0
+      ) {
+        // If the creep can carry more, is carrying less than the requested
+        // amount, and there is more in storage, get some from the storage.
+        const amount = Math.min(
+          creepFreeCapacity,
+          requestAmount,
+          storageAmount,
+        );
+        return this.getResource(creep, storage, resource, amount);
+      } else if (creepAmount > 0) {
+        // If the creep has some of the resource (either the desired amount or
+        // less than the desired amount but the storage has none left), bring
+        // what is carried to the terminal.
+        const amount = Math.min(creepAmount, requestAmount);
+        return this.putResource(creep, terminal, resource, amount);
+      } else if (storageAmount === 0) {
+        return ERR_NOT_ENOUGH_RESOURCES;
+      }
+    } else {
+      // Remove resource from terminal
+
+      // Request amount is negative, e.g. -x means take x amount from the
+      // terminal and put it into storage.
+
+      const creepFreeCapacity = creep.store.getFreeCapacity(resource);
+      const creepAmount = creep.store[resource];
+      const terminalAmount = terminal.store[resource];
+
+      if (terminalAmount === 0 || terminalAmount < -requestAmount) {
+        warn(
+          `Creep ${creep.name} detected invalid negative terminal request, ignoring`,
+        );
+        return ERR_INVALID_ARGS;
+      }
+
+      if (
+        creepFreeCapacity > 0 &&
+        creepAmount < -requestAmount &&
+        terminalAmount > 0
+      ) {
+        // If the creep can carry more, is carrying less than the requested
+        // amount, and there is more in the terminal, get more from the terminal
+        const amount = Math.min(creepFreeCapacity, -requestAmount);
+        return this.getResource(creep, terminal, resource, amount);
+      } else if (creepAmount > 0) {
+        // If the creep has some of the resource (either the desired amount or
+        // less than the desired amount but the storage has none left), bring
+        // what is carried to the terminal.
+        const amount = Math.min(creepAmount, requestAmount);
+        return this.putResource(creep, storage, resource, amount);
+      }
+    }
+
+    warn(
+      `Creep ${creep.name} doesn't know how to supply terminal ${requestAmount} ${resource}`,
+    );
+    return ERR_INVALID_ARGS;
+  }
 }

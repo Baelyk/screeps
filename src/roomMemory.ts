@@ -267,14 +267,6 @@ export class RoomInfo implements RoomMemory {
     return ownedMemory.links;
   }
 
-  public getTerminalMemory(): TerminalMemory {
-    const ownedMemory = this.getOwnedMemory();
-    if (ownedMemory.terminal == undefined) {
-      throw new ScriptError(`Room ${this.name} lacks terminal memory`);
-    }
-    return ownedMemory.terminal;
-  }
-
   getPlannerMemory(): RoomPlannerMemory | undefined {
     const memory = this.getMemory();
     return memory.planner;
@@ -1423,6 +1415,21 @@ export class VisibleRoom extends RoomInfo {
       return false;
     });
     return nextExtension;
+  }
+
+  public getTerminalMemory(): TerminalMemory {
+    const ownedMemory = this.getOwnedMemory();
+    if (ownedMemory.terminal == undefined) {
+      const terminal = this.getRoom().terminal;
+      if (terminal == undefined) {
+        throw new ScriptError(`Room ${this.name} lacks terminal memory`);
+      }
+      const memory = TerminalInfo.createMemory(terminal);
+      ownedMemory.terminal = memory;
+      Memory.rooms[this.name].owned = ownedMemory;
+      return memory;
+    }
+    return ownedMemory.terminal;
   }
 }
 
