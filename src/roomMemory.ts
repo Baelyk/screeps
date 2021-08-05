@@ -777,7 +777,10 @@ export class VisibleRoom extends RoomInfo {
       RoomType.expansion,
     ];
     if (_.includes(plannableRoomTypes, this.roomType)) {
-      this.updatePlannerMemory();
+      if (reset) {
+        // Only replan the room on first memory update or reset
+        this.updatePlannerMemory();
+      }
       this.updateTombsMemory();
       this.updateQueuesMemory(reset);
       this.updatePopulationLimitMemory();
