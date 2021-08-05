@@ -503,6 +503,17 @@ class CreepBehavior {
     switch (task) {
       // Creep is getting energy
       case CreepTask.getEnergy: {
+        if (creep.store.getUsedCapacity() - creep.store[RESOURCE_ENERGY] > 0) {
+          const storage = creep.room.storage;
+          const resource = (Object.keys(
+            creep.store,
+          ) as ResourceConstant[]).find(
+            (resource) => resource !== RESOURCE_ENERGY,
+          );
+          if (storage != undefined && resource != undefined) {
+            actions.putResource(creep, storage, resource);
+          }
+        }
         if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
           let response = null;
           try {
@@ -549,7 +560,7 @@ class CreepBehavior {
                   false,
                 );
                 if (
-                  response === ERR_NOT_ENOUGH_RESOURCES &&
+                  response === ERR_FULL &&
                   creep.store.getFreeCapacity() === 0
                 ) {
                   response = actions.storeEnergy(creep);

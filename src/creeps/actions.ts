@@ -458,7 +458,7 @@ export class CreepAction {
     const extraEnergy = linkEnergy - energyTarget;
 
     if (extraEnergy === 0) {
-      return ERR_FULL;
+      return ERR_NOT_ENOUGH_RESOURCES;
     }
 
     // `action` is true when trying to get energy, false when trying to put
@@ -472,6 +472,9 @@ export class CreepAction {
       case "get": {
         if (extraEnergy > 0) {
           const amount = Math.min(creep.store.getFreeCapacity(), extraEnergy);
+          if (amount === 0) {
+            return ERR_FULL;
+          }
           return CreepAction.getResource(
             creep,
             target,
@@ -494,7 +497,7 @@ export class CreepAction {
             warn,
           );
         } else {
-          return ERR_FULL;
+          return ERR_NOT_ENOUGH_RESOURCES;
         }
       }
     }

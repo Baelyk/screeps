@@ -55,10 +55,13 @@ export class TerminalInfo {
 
   public updateRequestedResources(
     requesting: TerminalRequestingMemory,
-    reset = false,
+    reset?: "override" | "reset" | "add",
   ): void {
+    if (reset == undefined) {
+      reset = "add";
+    }
     const memory = this.getMemory();
-    if (reset) {
+    if (reset === "reset") {
       memory.requesting = requesting;
     } else {
       _.forEach(requesting, (amount, key) => {
@@ -66,7 +69,8 @@ export class TerminalInfo {
           return;
         }
         const resource = key as keyof TerminalRequestingMemory;
-        let resourceAmount = memory.requesting[resource] || 0;
+        let resourceAmount =
+          reset === "add" ? memory.requesting[resource] || 0 : 0;
         resourceAmount += amount;
         memory.requesting[resource] = resourceAmount;
       });

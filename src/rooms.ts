@@ -115,8 +115,8 @@ function infrequentRoomActions(room: VisibleRoom) {
       }
     }
 
-    // Update special structure lists
-    room.updateSpecialStructuresMemory();
+    // Update memory pertaining to this being an owned room
+    room.updateOwnedRoomMemory();
 
     // Remote executePlan checker if no structures
     if (room.roomType === RoomType.remote) {
