@@ -61,7 +61,6 @@ export function towerBehavior(tower: StructureTower): void {
         info(`Tower ${tower.pos} is in energy saver mode`);
       }
     } else {
-      info(JSON.stringify(target));
       // Target is an injured friendly creep
       const response = errorConstant(tower.heal(target));
       if (response !== "OK") {

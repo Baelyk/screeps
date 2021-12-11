@@ -1,4 +1,4 @@
-import { Position } from "classes/Position";
+import { Position } from "classes/position";
 import { GetByIdError } from "utils/errors";
 
 export function getSpot(spot: string): RoomPosition | undefined {
