@@ -219,6 +219,11 @@ class CreepBehavior {
           CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.repair);
           return;
         } else {
+          // Before switching to getting energy, unassign repairs target so the
+          // builder returns to typical building tasks, and doesn't repair a
+          // rampart it just built until it dies
+          creepInfo.removeAssignedRepairs();
+
           CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.getEnergy);
           return;
         }
