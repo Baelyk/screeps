@@ -139,13 +139,16 @@ export class TerminalBehavior {
     const energyStored = this.terminal.store[RESOURCE_ENERGY];
     let amount = 0;
     if (order.roomName != undefined) {
-      amount = this.maxAmountToSell(
-        energyStored,
-        Game.map.getRoomLinearDistance(this.info.roomName, order.roomName),
-        resource === RESOURCE_ENERGY,
+      amount = Math.min(
+        this.terminal.store[resource],
+        this.maxAmountToSell(
+          energyStored,
+          Game.map.getRoomLinearDistance(this.info.roomName, order.roomName),
+          resource === RESOURCE_ENERGY,
+        ),
       );
     }
-    const response = OK; // Game.market.deal(order.id, amount, this.info.roomName);
+    const response = Game.market.deal(order.id, amount, this.info.roomName);
     info(
       `Selling ${amount} ${resource} to ${order.id}: ${errorConstant(
         response,
