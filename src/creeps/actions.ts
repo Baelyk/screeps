@@ -338,7 +338,14 @@ export class CreepAction {
 
     const room = new VisibleRoom(creep.room.name);
 
-    const extension = room.getNextExtension();
+    const extension = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
+      filter: (structure) => {
+        return (
+          structure.structureType === STRUCTURE_EXTENSION &&
+          structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+        );
+      },
+    }) as StructureExtension | null;
     if (extension != undefined) {
       const amount = Math.min(
         creepEnergy,
