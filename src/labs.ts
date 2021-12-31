@@ -65,6 +65,19 @@ class LabInfo implements LabMemory {
     return resources;
   }
 
+  static getAllReagentLabs(roomName: string): Id<StructureLab>[] {
+    const room = new VisibleRoom(roomName);
+    const labsMemory = room.getLabsMemory();
+    const reagentLabIds: Id<StructureLab>[] = [];
+    for (const id in labsMemory) {
+      const memory = labsMemory[id];
+      if (memory.reagentLabs != undefined) {
+        reagentLabIds.push(...memory.reagentLabs);
+      }
+    }
+    return reagentLabIds;
+  }
+
   constructor(lab: StructureLab) {
     this.name = Position.serialize(lab.pos);
     this.roomName = lab.room.name;
@@ -234,6 +247,10 @@ class LabInfo implements LabMemory {
   setReagentLabs(labs: [StructureLab, StructureLab]): void {
     this.setReagentLabIds([labs[0].id, labs[1].id]);
   }
+
+  isActiveReagentLab(): boolean {
+    return LabInfo.getAllReagentLabs(this.roomName).indexOf(this.lab.id) !== -1;
+  }
 }
 
 class LabActor {
@@ -283,6 +300,13 @@ class LabActor {
           this.info.removeReagentLabIds();
         }
       }
+    }
+
+    // If this lab is supplying a reaction that's no longer occuring, stop
+    if (this.info.isSupplying() && !this.info.isActiveReagentLab()) {
+      this.info.setResource(undefined);
+      this.info.setRole(LabRole.None);
+      this.info.setTargetAmount(undefined);
     }
 
     this.manageLogistics();
