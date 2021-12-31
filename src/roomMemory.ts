@@ -991,6 +991,7 @@ export class VisibleRoom extends RoomInfo {
       towers,
       links,
       terminal,
+      labs,
       extensions,
     } = this.createSpecialStructuresMemory();
 
@@ -1019,6 +1020,7 @@ export class VisibleRoom extends RoomInfo {
       towers,
       links,
       terminal,
+      labs,
       remotes,
       extensions,
     };
@@ -1029,6 +1031,7 @@ export class VisibleRoom extends RoomInfo {
     towers: Id<StructureTower>[];
     links: RoomLinksMemory;
     terminal?: TerminalMemory;
+    labs?: RoomLabsMemory;
     extensions: Id<StructureExtension>[];
   } {
     let spawns = [];
@@ -1070,6 +1073,14 @@ export class VisibleRoom extends RoomInfo {
       terminal = TerminalInfo.createMemory(terminalStructure);
     }
 
+    let labs: RoomLabsMemory | undefined = undefined;
+    const labStructures = structures.filter(
+      (structure) => structure.structureType === STRUCTURE_LAB,
+    );
+    if (labStructures.length > 0) {
+      labs = {};
+    }
+
     // Get extension ids in planned order
     const planner = this.getPlannerMemory();
     if (planner == undefined) {
@@ -1092,7 +1103,7 @@ export class VisibleRoom extends RoomInfo {
       }
     });
 
-    return { spawns, towers, links, terminal, extensions };
+    return { spawns, towers, links, terminal, labs, extensions };
   }
 
   updatePlannerMemory(): void {

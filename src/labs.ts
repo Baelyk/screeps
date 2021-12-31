@@ -123,6 +123,7 @@ class LabInfo implements LabMemory {
 
   setRequestKey(requestKey: string): void {
     this.logisticsRequest = requestKey;
+    this.updateMemory();
   }
 
   getRole(): LabRole {
@@ -131,6 +132,7 @@ class LabInfo implements LabMemory {
 
   setRole(role: LabRole): void {
     this.role = role;
+    this.updateMemory();
   }
 
   getResource(): ResourceConstant | undefined {
@@ -139,6 +141,7 @@ class LabInfo implements LabMemory {
 
   setResource(resource: ResourceConstant | undefined): void {
     this.resource = resource;
+    this.updateMemory();
   }
 
   getTargetAmount(): number | undefined {
@@ -147,6 +150,7 @@ class LabInfo implements LabMemory {
 
   setTargetAmount(amount: number | undefined): void {
     this.targetAmount = amount;
+    this.updateMemory();
   }
 
   getReagentLabIds(): [Id<StructureLab>, Id<StructureLab>] | undefined {
@@ -155,10 +159,12 @@ class LabInfo implements LabMemory {
 
   setReagentLabIds(labIds: [Id<StructureLab>, Id<StructureLab>]): void {
     this.reagentLabs = labIds;
+    this.updateMemory();
   }
 
   removeReagentLabIds(): void {
     this.reagentLabs = undefined;
+    this.updateMemory();
   }
 
   get room() {
