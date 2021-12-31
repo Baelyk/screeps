@@ -2,6 +2,7 @@ import { MemoryError } from "utils/errors";
 import * as CreepInfoHelpers from "./helpers";
 import { warn } from "utils/logger";
 import { profile } from "utils/profiler";
+import { LogisticsInfo, LogisticsRequest } from "logistics";
 
 // Keep the generic CreepMemory in global
 declare global {
@@ -354,10 +355,11 @@ interface TenderCreepMemory extends CreepMemory {
   role: CreepRole.tender;
   task: CreepTask.fresh | CreepTask.getEnergy | CreepTask.deposit;
   targetStore: Id<AnyStoreStructure>;
+  logisticsRequest: string;
 }
 
 export class TenderCreepInfo extends CreepInfo {
-  role = CreepRole.claimer;
+  role = CreepRole.tender;
 
   constructor(creepName: string) {
     super(creepName);
@@ -391,6 +393,34 @@ export class TenderCreepInfo extends CreepInfo {
 
   removeTargetStore(): void {
     delete (Memory.creeps[this.creepName] as TenderCreepMemory).targetStore;
+  }
+
+  getLogisticsRequest(): LogisticsRequest | undefined {
+    try {
+      const key = this.getMemory().logisticsRequest;
+      if (key == undefined) {
+        return undefined;
+      }
+      const logistics = new LogisticsInfo(this.getAssignedRoomName());
+      const request = logistics.get(key);
+      return request;
+    } catch (error) {
+      warn(
+        `Removing logistics request from Creep ${this.creepName} due to error:`,
+      );
+      warn(error.toString());
+      this.removeLogisticsRequest();
+    }
+    return undefined;
+  }
+
+  setLogisticsRequest(key: string): void {
+    (Memory.creeps[this.creepName] as TenderCreepMemory).logisticsRequest = key;
+  }
+
+  removeLogisticsRequest(): void {
+    delete (Memory.creeps[this.creepName] as TenderCreepMemory)
+      .logisticsRequest;
   }
 }
 

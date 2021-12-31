@@ -1,6 +1,7 @@
 import { TerminalInfo, TerminalRequestingMemory } from "terminalMemory";
 import { VisibleRoom } from "roomMemory";
 import { info, errorConstant } from "utils/logger";
+import { LogisticsInfo, LogisticsRequest } from "logistics";
 
 export function terminalManager(room: VisibleRoom): void {
   const terminal = room.getRoom().terminal;
@@ -54,6 +55,14 @@ export class TerminalBehavior {
     storageResources.forEach((resource) => {
       const amount = storage.store[resource] - 100000;
       if (amount > 0) {
+        const request = new LogisticsRequest(
+          this.terminal.id,
+          resource,
+          amount,
+          storage.id,
+        );
+        const logistics = new LogisticsInfo(this.terminal.room.name);
+        logistics.addUnique(request, "add");
         excessResources[resource] = amount;
       }
     });

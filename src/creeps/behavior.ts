@@ -17,6 +17,7 @@ import { CreepAction as actions } from "./actions";
 import { Position } from "classes/position";
 import * as RoleCreepMemory from "./roleMemoryInterfaces";
 import { profile } from "utils/profiler";
+import { LogisticsInfo, LogisticsRequest } from "logistics";
 
 @profile
 class CreepBehavior {
@@ -501,6 +502,7 @@ class CreepBehavior {
       creep.suicide();
       return;
     }
+    const creepInfo = new RoleCreepInfo[CreepRole.tender](creep.name);
 
     // Tasks for this creep:
     // 1. getEnergy: Get energy from fullest container
@@ -578,15 +580,42 @@ class CreepBehavior {
               );
             }
           }
-          // If not depositing or link tending, supply the terminal
+          // If not depositing or link tending, satisfy logistics requests
           if (response !== OK) {
-            response = actions.supplyTerminal(creep);
-            info(
-              `Creep ${creep.name} supplying terminal with ${errorConstant(
-                response,
-              )}`,
-            );
+            let assignedRequest = creepInfo.getLogisticsRequest();
+
+            // If there is no assigned logistics request, try to get a new one
+            if (assignedRequest == undefined) {
+              // Get a new logistics request
+              const logistics = new LogisticsInfo(creep.room.name);
+              const requestKey = logistics.getNextKey();
+              if (requestKey != undefined) {
+                assignedRequest = logistics.get(requestKey);
+                if (assignedRequest == undefined) {
+                  error(
+                    `Creep ${creep.name} unable to get logistics request ${requestKey}`,
+                  );
+                }
+                creepInfo.setLogisticsRequest(requestKey);
+              }
+            }
+
+            // If there is an assigned request, satisfy it
+            if (assignedRequest != undefined) {
+              response = actions.satisfyLogisticsRequest(
+                creep,
+                assignedRequest,
+              );
+              info(
+                `Creep ${
+                  creep.name
+                } satisfying logistics requests with ${errorConstant(
+                  response,
+                )}`,
+              );
+            }
           }
+
           // If still not doing anything, plunder tombs
           if (response !== OK) {
             // Only plunder if there is a room storage, though

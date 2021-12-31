@@ -35,6 +35,8 @@ declare global {
     queues?: RoomQueueMemory;
     /** Population limits */
     populationLimit?: RoomPopulationLimitMemory;
+    /** Logistics requests */
+    logistics?: LogisticsMemory;
 
     /** Debug memory for the room */
     debug?: RoomDebugMemory;
@@ -286,6 +288,16 @@ export class RoomInfo implements RoomMemory {
       throw new ScriptError(`Room ${this.name} lacks population limit memory`);
     }
     return memory.populationLimit;
+  }
+
+  getLogisticsMemory(): LogisticsMemory {
+    const memory = this.getMemory();
+    if (memory.logistics == undefined) {
+      warn(`Room ${this.name} lacked logistics memory, creating it`);
+      Memory.rooms[this.name].logistics = {};
+      return {};
+    }
+    return memory.logistics;
   }
 
   getDebugMemory(): RoomDebugMemory {
@@ -674,6 +686,10 @@ export class RoomInfo implements RoomMemory {
     if (plannerMemory != undefined) {
       RoomPlanner.visualizePlan(plannerMemory);
     }
+  }
+
+  updateLogisticsMemory(logisticsMemory: LogisticsMemory): void {
+    Memory.rooms[this.name].logistics = logisticsMemory;
   }
 }
 

@@ -1,8 +1,9 @@
-import { info, warn, errorConstant } from "utils/logger";
+import { info, warn, errorConstant, error } from "utils/logger";
 import { ScriptError } from "utils/errors";
 import { VisibleRoom } from "roomMemory";
 import { Position } from "classes/position";
 import { profile } from "utils/profiler";
+import { LogisticsInfo, LogisticsRequest } from "logistics";
 
 class CreepActionError extends ScriptError {
   constructor(creep: Creep, action: string, message: string) {
@@ -670,57 +671,52 @@ export class CreepAction {
     return response;
   }
 
-  static supplyTerminal(creep: Creep): ScreepsReturnCode {
-    const storage = creep.room.storage;
-    const terminal = creep.room.terminal;
-    if (storage == undefined || terminal == undefined) {
+  static satisfyLogisticsRequest(
+    creep: Creep,
+    request: LogisticsRequest,
+  ): ScreepsReturnCode {
+    const source = request.getSource();
+    const sink = request.getSink() || creep.room.storage;
+
+    if (sink == undefined) {
+      warn(`Creep ${creep.name} lacks sink and storage to supply request`);
       return ERR_NOT_FOUND;
     }
 
-    const terminalInfo = new VisibleRoom(creep.room.name).getTerminalInfo();
-    const [resource, requestAmount] = terminalInfo.getNextUnsatisfiedRequest();
-    if (resource == undefined || requestAmount === 0) {
-      return ERR_FULL;
-    }
-
-    if (requestAmount > 0) {
-      // Bring resource to terminal
-      const creepFreeCapacity = creep.store.getFreeCapacity(resource);
-      const creepAmount = creep.store[resource];
-      const storageAmount = storage.store[resource];
+    if (request.amount > 0) {
+      // Bring resource to source
+      const creepFreeCapacity = creep.store.getFreeCapacity(request.resource);
+      const creepAmount = creep.store[request.resource];
+      const sinkAmount = sink.store[request.resource];
       if (
         creepFreeCapacity > 0 &&
-        creepAmount < requestAmount &&
-        storageAmount > 0
+        creepAmount < request.amount &&
+        sinkAmount > 0
       ) {
         // If the creep can carry more, is carrying less than the requested
-        // amount, and there is more in storage, get some from the storage.
-        const amount = Math.min(
-          creepFreeCapacity,
-          requestAmount,
-          storageAmount,
-        );
-        return this.getResource(creep, storage, resource, amount);
+        // amount, and there is more in storage, get some from the sink.
+        const amount = Math.min(creepFreeCapacity, request.amount, sinkAmount);
+        return this.getResource(creep, sink, request.resource, amount);
       } else if (creepAmount > 0) {
         // If the creep has some of the resource (either the desired amount or
         // less than the desired amount but the storage has none left), bring
-        // what is carried to the terminal.
-        const amount = Math.min(creepAmount, requestAmount);
-        return this.putResource(creep, terminal, resource, amount);
-      } else if (storageAmount === 0) {
+        // what is carried to the source.
+        const amount = Math.min(creepAmount, request.amount);
+        return this.putResource(creep, source, request.resource, amount);
+      } else if (sinkAmount === 0) {
         return ERR_NOT_ENOUGH_RESOURCES;
       }
     } else {
-      // Remove resource from terminal
+      // Remove resource from sink
 
       // Request amount is negative, e.g. -x means take x amount from the
-      // terminal and put it into storage.
+      // source and put it into the sink.
 
-      const creepFreeCapacity = creep.store.getFreeCapacity(resource);
-      const creepAmount = creep.store[resource];
-      const terminalAmount = terminal.store[resource];
+      const creepFreeCapacity = creep.store.getFreeCapacity(request.resource);
+      const creepAmount = creep.store[request.resource];
+      const sourceAmount = source.store[request.resource];
 
-      if (terminalAmount === 0 || terminalAmount < -requestAmount) {
+      if (sourceAmount === 0 || sourceAmount < -request.amount) {
         warn(
           `Creep ${creep.name} detected invalid negative terminal request, ignoring`,
         );
@@ -729,24 +725,26 @@ export class CreepAction {
 
       if (
         creepFreeCapacity > 0 &&
-        creepAmount < -requestAmount &&
-        terminalAmount > 0
+        creepAmount < -request.amount &&
+        sourceAmount > 0
       ) {
         // If the creep can carry more, is carrying less than the requested
-        // amount, and there is more in the terminal, get more from the terminal
-        const amount = Math.min(creepFreeCapacity, -requestAmount);
-        return this.getResource(creep, terminal, resource, amount);
+        // amount, and there is more in the source, get more from the source
+        const amount = Math.min(creepFreeCapacity, -request.amount);
+        return this.getResource(creep, source, request.resource, amount);
       } else if (creepAmount > 0) {
         // If the creep has some of the resource (either the desired amount or
-        // less than the desired amount but the storage has none left), bring
-        // what is carried to the terminal.
-        const amount = Math.min(creepAmount, requestAmount);
-        return this.putResource(creep, storage, resource, amount);
+        // less than the desired amount but the source has none left), bring
+        // what is carried to the sink.
+        const amount = Math.min(creepAmount, request.amount);
+        return this.putResource(creep, sink, request.resource, amount);
       }
     }
 
     warn(
-      `Creep ${creep.name} doesn't know how to supply terminal ${requestAmount} ${resource}`,
+      `Creep ${
+        creep.name
+      } doesn't know how to satisfy request ${request.toString()}`,
     );
     return ERR_INVALID_ARGS;
   }
