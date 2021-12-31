@@ -291,11 +291,13 @@ class LabActor {
     // If this lab is producing, try and produce
     if (this.info.isProducing()) {
       const response = this.performReaction();
-      info(
-        `Lab ${this.lab.id} in ${
-          this.lab.room.name
-        } attempting reaction: ${errorConstant(response)}`,
-      );
+      if (response !== OK && !(response === ERR_TIRED && this.isOnCooldown())) {
+        info(
+          `Lab ${this.lab.id} in ${
+            this.lab.room.name
+          } attempting reaction: ${errorConstant(response)}`,
+        );
+      }
       if (response === ERR_NOT_ENOUGH_RESOURCES) {
         if (this.considerStopping()) {
           info(`Lab ${this.info.name} stopping current reaction`);
