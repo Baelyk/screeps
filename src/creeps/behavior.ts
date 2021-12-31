@@ -163,7 +163,12 @@ class CreepBehavior {
       case CreepTask.getEnergy: {
         if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
           // If the creep can hold more energy, keep getting energy
-          actions.getEnergy(creep);
+          const response = actions.getEnergy(creep);
+          // If creep is unable to get more energy but has some, be productive
+          // while we wait
+          if (response === ERR_NOT_FOUND && creep.store[RESOURCE_ENERGY] > 0) {
+            CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.build);
+          }
         } else {
           CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.build);
           return;
