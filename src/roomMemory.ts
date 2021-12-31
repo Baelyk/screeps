@@ -115,6 +115,7 @@ declare global {
     remotes?: string[];
     terminal?: TerminalMemory;
     extensions: Id<StructureExtension>[];
+    labs?: RoomLabsMemory;
   }
 
   interface RoomQueueMemory {
@@ -267,6 +268,14 @@ export class RoomInfo implements RoomMemory {
       throw new ScriptError(`Room ${this.name} lacks links memory`);
     }
     return ownedMemory.links;
+  }
+
+  public getLabsMemory(): RoomLabsMemory {
+    const ownedMemory = this.getOwnedMemory();
+    if (ownedMemory.labs == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks labs memory`);
+    }
+    return ownedMemory.labs;
   }
 
   getPlannerMemory(): RoomPlannerMemory | undefined {
