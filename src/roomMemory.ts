@@ -986,14 +986,15 @@ export class VisibleRoom extends RoomInfo {
     const ownedMemory = Memory.rooms[this.name].owned;
     let remotes = [];
 
+    const specialStructuresMemory = this.createSpecialStructuresMemory();
     const {
       spawns,
       towers,
       links,
       terminal,
-      labs,
       extensions,
-    } = this.createSpecialStructuresMemory();
+    } = specialStructuresMemory;
+    let labs = specialStructuresMemory.labs;
 
     if (ownedMemory == undefined) {
       reset = true;
@@ -1013,6 +1014,8 @@ export class VisibleRoom extends RoomInfo {
       }
     } else {
       remotes = ownedMemory.remotes;
+      // Don't reset lab memory if reset not true
+      labs = ownedMemory.labs;
     }
 
     Memory.rooms[this.name].owned = {
