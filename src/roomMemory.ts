@@ -700,6 +700,12 @@ export class RoomInfo implements RoomMemory {
   updateLogisticsMemory(logisticsMemory: LogisticsMemory): void {
     Memory.rooms[this.name].logistics = logisticsMemory;
   }
+
+  updateLabsMemory(labsMemory: RoomLabsMemory): void {
+    const ownedMemory = this.getOwnedMemory();
+    ownedMemory.labs = labsMemory;
+    Memory.rooms[this.name].owned = ownedMemory;
+  }
 }
 
 @profile
