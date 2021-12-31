@@ -15,7 +15,9 @@ export function terminalManager(room: VisibleRoom): void {
   if (terminal.store[RESOURCE_ENERGY] !== 0) {
     const resources = Object.keys(terminal.store) as ResourceConstant[];
     resources.forEach((resource) => {
-      terminalBehavior.sellResource(resource);
+      if (resource !== RESOURCE_ENERGY) {
+        terminalBehavior.sellResource(resource);
+      }
     });
   }
 }
