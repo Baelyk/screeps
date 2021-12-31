@@ -216,7 +216,6 @@ class LabInfo implements LabMemory {
   }
 
   setRequest(request: LogisticsRequest): string {
-    this.removeRequest();
     const key = this.logistics.addUnique(request, "replace");
     this.setRequestKey(key);
     return key;
@@ -365,8 +364,7 @@ class LabActor {
           } has role ${this.info.getRole()} but no resource specified`,
         );
       }
-      const targetAmount =
-        this.info.getTargetAmount() || this.lab.store.getCapacity() || 0;
+      const targetAmount = this.info.getTargetAmount() || LAB_MINERAL_CAPACITY;
       if (storedResource == undefined) {
         // Lab is empty, request resource
         const request = new LogisticsRequest(
