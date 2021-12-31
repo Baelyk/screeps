@@ -955,7 +955,7 @@ class CreepBehavior {
       case CreepTask.idle: {
         const homeRoomName = creepInfo.getAssignedRoomName();
         // Check for hostiles in current room, home room, then home room's remotes
-        const roomsToGuard = [creep.room.name, homeRoomName];
+        const roomsToGuard = [homeRoomName];
         const homeRoom = new RoomInfo(homeRoomName);
         roomsToGuard.push(...homeRoom.getRemotes());
         const roomTarget = _.find(roomsToGuard, (roomName) => {
