@@ -28,7 +28,6 @@ export function expansionManager(): void {
     (Memory.expansion.inProgress || []).length === 0 &&
     Game.gcl.level > controlCount
   ) {
-    info(`Expansion possible`);
     expand();
   }
 
@@ -187,7 +186,6 @@ function expansionBehavior(expansionName: string): void {
 function expand(): void {
   const expansionTarget = getExpansionTarget();
   if (expansionTarget == undefined) {
-    info(`Unable to find expansion target`);
     return;
   }
   info(`Targetting ${expansionTarget} for expansion`);
