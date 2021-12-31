@@ -1,7 +1,7 @@
 import { VisibleRoom } from "roomMemory";
 import { info, warn, errorConstant } from "utils/logger";
 import { LogisticsInfo, LogisticsRequest } from "logistics";
-import { GetByIdError, ScriptError } from "utils/errors";
+import { GetByIdError, ScriptError, wrapper } from "utils/errors";
 import { Position } from "classes/position";
 
 enum LabRole {
@@ -536,4 +536,20 @@ class LabActor {
 
     return this.lab.runReaction(...reagentLabs);
   }
+}
+
+export function labManager(room: VisibleRoom): void {
+  const labs = room
+    .getRoom()
+    .find(FIND_MY_STRUCTURES)
+    .filter(
+      (structure) => structure.structureType === STRUCTURE_LAB,
+    ) as StructureLab[];
+
+  labs.forEach((lab) => {
+    wrapper(() => {
+      const actor = new LabActor(lab);
+      actor.behave();
+    }, `Error while processing behavior for lab ${lab.id} in ${lab.room.name}`);
+  });
 }

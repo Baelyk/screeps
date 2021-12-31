@@ -8,6 +8,7 @@ import { roomVisualManager } from "roomVisuals";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 import { CreepRole, CreepTask } from "./creeps";
 import { terminalManager } from "terminals";
+import { labManager } from "labs";
 
 export function initRoom(room: Room): void {
   info(`Initializing room ${room.name}`);
@@ -71,6 +72,13 @@ function roomBehavior(roomName: string): void {
     wrapper(
       () => terminalManager(room),
       `Error managing terminal for room ${room.name}`,
+    );
+  }
+
+  if (room.roomLevel() >= 6) {
+    wrapper(
+      () => labManager(room),
+      `Error managing labs for room ${room.name}`,
     );
   }
 
