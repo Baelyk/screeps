@@ -250,10 +250,12 @@ class CreepBehavior {
           // target.
           if (assignedRepairs != undefined) {
             if (
-              assignedRepairs.hits < assignedRepairs.hitsMax ||
-              ((assignedRepairs.structureType === STRUCTURE_WALL ||
-                assignedRepairs.structureType === STRUCTURE_RAMPART) &&
-                assignedRepairs.hits < RAMPART_DECAY_AMOUNT * 10)
+              assignedRepairs.hits < assignedRepairs.hitsMax &&
+              !(
+                (assignedRepairs.structureType === STRUCTURE_WALL ||
+                  assignedRepairs.structureType === STRUCTURE_RAMPART) &&
+                assignedRepairs.hits > RAMPART_DECAY_AMOUNT * 10
+              )
             ) {
               actions.repair(creep, assignedRepairs);
               return;
