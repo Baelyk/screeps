@@ -133,3 +133,13 @@ class LabInfo implements LabMemory {
     return key;
   }
 }
+
+class LabActor {
+  lab: StructureLab;
+  info: LabInfo;
+
+  constructor(lab: StructureLab) {
+    this.lab = lab;
+    this.info = new LabInfo(lab);
+  }
+}
