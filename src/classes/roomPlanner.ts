@@ -904,6 +904,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - Place miner containers
         this.build(plan.spawn, STRUCTURE_SPAWN);
         this.buildMany(plan.roads.spawnRing, STRUCTURE_ROAD);
+        this.buildMany(plan.roads.storageRing, STRUCTURE_ROAD);
         this.buildMany(plan.roads.sources, STRUCTURE_ROAD);
         this.buildMany(plan.roads.controller, STRUCTURE_ROAD);
         this.buildMany(plan.sourceContainers, STRUCTURE_CONTAINER);
