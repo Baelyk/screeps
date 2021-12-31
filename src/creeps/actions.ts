@@ -683,25 +683,29 @@ export class CreepAction {
       return ERR_NOT_FOUND;
     }
 
-    if (request.amount > 0) {
+    const creepFreeCapacity = creep.store.getFreeCapacity(request.resource);
+    const creepAmount = creep.store[request.resource];
+    const sinkAmount = sink.store[request.resource];
+    const sourceAmount = source.store[request.resource];
+    const remainingAmount = request.amount - sourceAmount;
+
+    if (remainingAmount > 0) {
       // Bring resource to source
-      const creepFreeCapacity = creep.store.getFreeCapacity(request.resource);
-      const creepAmount = creep.store[request.resource];
-      const sinkAmount = sink.store[request.resource];
+
       if (
         creepFreeCapacity > 0 &&
-        creepAmount < request.amount &&
+        creepAmount < remainingAmount &&
         sinkAmount > 0
       ) {
         // If the creep can carry more, is carrying less than the requested
         // amount, and there is more in storage, get some from the sink.
-        const amount = Math.min(creepFreeCapacity, request.amount, sinkAmount);
+        const amount = Math.min(creepFreeCapacity, remainingAmount, sinkAmount);
         return this.getResource(creep, sink, request.resource, amount);
       } else if (creepAmount > 0) {
         // If the creep has some of the resource (either the desired amount or
         // less than the desired amount but the storage has none left), bring
         // what is carried to the source.
-        const amount = Math.min(creepAmount, request.amount);
+        const amount = Math.min(creepAmount, remainingAmount);
         return this.putResource(creep, source, request.resource, amount);
       } else if (sinkAmount === 0) {
         return ERR_NOT_ENOUGH_RESOURCES;
@@ -709,14 +713,10 @@ export class CreepAction {
     } else {
       // Remove resource from sink
 
-      // Request amount is negative, e.g. -x means take x amount from the
-      // source and put it into the sink.
+      // Remainging request amount is negative, e.g. -x means take x amount
+      // from the source and put it into the sink.
 
-      const creepFreeCapacity = creep.store.getFreeCapacity(request.resource);
-      const creepAmount = creep.store[request.resource];
-      const sourceAmount = source.store[request.resource];
-
-      if (sourceAmount === 0 || sourceAmount < -request.amount) {
+      if (sourceAmount === 0 || sourceAmount < -remainingAmount) {
         warn(
           `Creep ${creep.name} detected invalid negative terminal request, ignoring`,
         );
@@ -725,18 +725,18 @@ export class CreepAction {
 
       if (
         creepFreeCapacity > 0 &&
-        creepAmount < -request.amount &&
+        creepAmount < -remainingAmount &&
         sourceAmount > 0
       ) {
         // If the creep can carry more, is carrying less than the requested
         // amount, and there is more in the source, get more from the source
-        const amount = Math.min(creepFreeCapacity, -request.amount);
+        const amount = Math.min(creepFreeCapacity, -remainingAmount);
         return this.getResource(creep, source, request.resource, amount);
       } else if (creepAmount > 0) {
         // If the creep has some of the resource (either the desired amount or
         // less than the desired amount but the source has none left), bring
         // what is carried to the sink.
-        const amount = Math.min(creepAmount, request.amount);
+        const amount = Math.min(creepAmount, remainingAmount);
         return this.putResource(creep, sink, request.resource, amount);
       }
     }

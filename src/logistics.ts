@@ -8,10 +8,9 @@ declare global {
   /**
    * Stores information about a logistics request.
    *
-   * The logistics request wants to add `amount` of `resource` to `source` and
-   * subtract `amount` of `resource` from `sink`, sign accounted for. So, if
-   * the amount is negative, the resouce is removed from the source and added
-   * to the sink.
+   * The logistics requests wants source to have `amount` of `resource` stored.
+   * So, if `amount` is less than what is stored, bring `resource` to the
+   * source from the sink, and if it's less, take `resource` from the source to the sink.
    */
   interface LogisticsRequestMemory {
     /** The origin of the logistics request */
@@ -130,7 +129,7 @@ export class LogisticsInfo {
 
   /* Map-type helper methods */
 
-  public add(request: LogisticsRequest): void {
+  public add(request: LogisticsRequest): string {
     const memory = this.getMemory();
     const key = LogisticsInfo.newLogisticsRequestKey();
     if (memory[key] != undefined) {
@@ -140,6 +139,7 @@ export class LogisticsInfo {
     }
     memory[key] = LogisticsRequest.toMemory(request);
     this.updateMemory(memory);
+    return key;
   }
 
   public get(key: string): LogisticsRequest {
@@ -182,12 +182,12 @@ export class LogisticsInfo {
   public addUnique(
     request: LogisticsRequest,
     method?: "add" | "replace",
-  ): void {
+  ): string {
     const oldKey = this.find(request);
 
     if (oldKey == undefined) {
       // This request is already unique, add it normally
-      this.add(request);
+      return this.add(request);
     } else if (method == undefined || method === "add") {
       // Add the request amounts together
       const oldRequest = this.get(oldKey);
@@ -200,6 +200,7 @@ export class LogisticsInfo {
       // Replace the old request with the new request
       this.replace(oldKey, request);
     }
+    return oldKey;
   }
 
   public getNextKey(): string | undefined {

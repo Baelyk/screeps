@@ -3,17 +3,15 @@ import { GetByIdError } from "utils/errors";
 
 export interface TerminalMemory {
   id: Id<StructureTerminal>;
-  requesting: TerminalRequestingMemory;
+  requests: string[];
   deals: Id<Order>[];
 }
-
-export type TerminalRequestingMemory = { [key in ResourceConstant]?: number };
 
 export class TerminalInfo {
   roomName: string;
 
   static createMemory(terminal: StructureTerminal): TerminalMemory {
-    return { id: terminal.id, requesting: {}, deals: [] };
+    return { id: terminal.id, requests: [], deals: [] };
   }
 
   constructor(roomName: string) {
@@ -37,62 +35,26 @@ export class TerminalInfo {
     return terminal;
   }
 
-  public getRequestedResources(): TerminalRequestingMemory {
-    return this.getMemory().requesting;
+  public getLogisticsRequests(): string[] {
+    return this.getMemory().requests || [];
   }
 
-  public getRequestedResourceTypes(): ResourceConstant[] {
-    return _.keys(this.getRequestedResources()) as ResourceConstant[];
-  }
-
-  public getRequestedAmount(resource: ResourceConstant): number {
-    const amount = this.getRequestedResources()[resource];
-    if (amount == undefined) {
-      return 0;
-    }
-    return amount;
-  }
-
-  public updateRequestedResources(
-    requesting: TerminalRequestingMemory,
-    reset?: "override" | "reset" | "add",
+  public updateRequests(
+    newRequests: string[],
+    method?: "append" | "reset",
   ): void {
-    if (reset == undefined) {
-      reset = "add";
-    }
     const memory = this.getMemory();
-    if (reset === "reset") {
-      memory.requesting = requesting;
-    } else {
-      _.forEach(requesting, (amount, key) => {
-        if (key == undefined || amount == undefined) {
-          return;
+    if (method == undefined || method == "append") {
+      const requests = this.getLogisticsRequests();
+      newRequests.forEach((requestKey) => {
+        if (requests.indexOf(requestKey) === -1) {
+          requests.push(requestKey);
         }
-        const resource = key as keyof TerminalRequestingMemory;
-        let resourceAmount =
-          reset === "add" ? memory.requesting[resource] || 0 : 0;
-        resourceAmount += amount;
-        memory.requesting[resource] = resourceAmount;
       });
+      memory.requests = requests;
+    } else if (method == "reset") {
+      memory.requests = newRequests;
     }
     this.getVisibleRoom().updateTerminalMemory(memory);
-  }
-
-  public getNextUnsatisfiedRequest(): [ResourceConstant | undefined, number] {
-    const terminal = this.getTerminal();
-    const requesting = this.getRequestedResources();
-    const unsatisfiedResource = _.findKey(requesting, (value, key) => {
-      const amount = value as number;
-      if (key == undefined || amount == undefined) {
-        return;
-      }
-      const resource = key as keyof TerminalRequestingMemory;
-      const stored = terminal.store.getUsedCapacity(resource);
-      return stored <= amount;
-    }) as ResourceConstant | undefined;
-    if (unsatisfiedResource == undefined) {
-      return [undefined, 0];
-    }
-    return [unsatisfiedResource, requesting[unsatisfiedResource] || 0];
   }
 }

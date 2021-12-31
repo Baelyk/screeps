@@ -1,6 +1,6 @@
-import { TerminalInfo, TerminalRequestingMemory } from "terminalMemory";
+import { TerminalInfo } from "terminalMemory";
 import { VisibleRoom } from "roomMemory";
-import { info, errorConstant } from "utils/logger";
+import { info, warn, errorConstant } from "utils/logger";
 import { LogisticsInfo, LogisticsRequest } from "logistics";
 
 export function terminalManager(room: VisibleRoom): void {
@@ -10,10 +10,14 @@ export function terminalManager(room: VisibleRoom): void {
   }
   const terminalBehavior = new TerminalBehavior(terminal);
   terminalBehavior.requestExcessResources();
-  const resources = Object.keys(terminal.store) as ResourceConstant[];
-  resources.forEach((resource) => {
-    terminalBehavior.sellResource(resource);
-  });
+  terminalBehavior.manageLogisticsRequests();
+
+  if (terminal.store[RESOURCE_ENERGY] !== 0) {
+    const resources = Object.keys(terminal.store) as ResourceConstant[];
+    resources.forEach((resource) => {
+      terminalBehavior.sellResource(resource);
+    });
+  }
 }
 
 export class TerminalBehavior {
@@ -25,49 +29,50 @@ export class TerminalBehavior {
     this.info = new TerminalInfo(terminal.room.name);
   }
 
-  getRequestsForDeals(roomName: string): TerminalRequestingMemory {
-    const deals = Game.market.orders;
-    const roomDeals = _.filter(deals, { type: ORDER_SELL, roomName: roomName });
-    const requesting: TerminalRequestingMemory = {};
-    _.forEach(roomDeals, (deal) => {
-      // Only request game resources (not account resources)
-      switch (deal.resourceType) {
-        case SUBSCRIPTION_TOKEN:
-        case CPU_UNLOCK:
-        case PIXEL:
-        case ACCESS_KEY:
-          return;
-      }
-      let resourceAmount = requesting[deal.resourceType] || 0;
-      resourceAmount += deal.remainingAmount;
-      requesting[deal.resourceType] = resourceAmount;
-    });
-    return requesting;
-  }
-
   requestExcessResources(): void {
     const storage = this.terminal.room.storage;
     if (storage == undefined) {
       return;
     }
     const storageResources = Object.keys(storage.store) as ResourceConstant[];
-    const excessResources: TerminalRequestingMemory = {};
+    const requests: string[] = [];
     storageResources.forEach((resource) => {
       const amount = storage.store[resource] - 100000;
       if (amount > 0) {
         const request = new LogisticsRequest(
           this.terminal.id,
           resource,
-          amount,
+          this.terminal.store[resource] + amount,
           storage.id,
         );
         const logistics = new LogisticsInfo(this.terminal.room.name);
-        logistics.addUnique(request, "replace");
-        excessResources[resource] = amount;
+        const key = logistics.addUnique(request, "replace");
+        requests.push(key);
       }
     });
-    info(`requesting ${JSON.stringify(excessResources)}`);
-    this.info.updateRequestedResources(excessResources, "override");
+    this.info.updateRequests(requests);
+  }
+
+  manageLogisticsRequests(): void {
+    const requests = this.info.getLogisticsRequests();
+    const logistics = new LogisticsInfo(this.terminal.room.name);
+    const keptRequests = requests.filter((requestKey) => {
+      // Returns true to keep the request, false to remove it
+      try {
+        const request = logistics.get(requestKey);
+        // Remove the logistics request if the request is satisfied
+        if (this.terminal.store[request.resource] === request.amount) {
+          logistics.remove(requestKey);
+          return false;
+        }
+      } catch (error) {
+        warn(
+          `Terminal ${this.terminal.room.name} unable to manage request ${requestKey}`,
+        );
+      }
+      return true;
+    });
+    this.info.updateRequests(keptRequests, "reset");
   }
 
   private calcPricePerOne(order: Order, energyPrice: number): number {
