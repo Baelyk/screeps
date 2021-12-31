@@ -115,6 +115,7 @@ declare global {
     remotes?: string[];
     terminal?: TerminalMemory;
     extensions: Id<StructureExtension>[];
+    labs?: RoomLabsMemory;
   }
 
   interface RoomQueueMemory {
@@ -267,6 +268,14 @@ export class RoomInfo implements RoomMemory {
       throw new ScriptError(`Room ${this.name} lacks links memory`);
     }
     return ownedMemory.links;
+  }
+
+  public getLabsMemory(): RoomLabsMemory {
+    const ownedMemory = this.getOwnedMemory();
+    if (ownedMemory.labs == undefined) {
+      throw new ScriptError(`Room ${this.name} lacks labs memory`);
+    }
+    return ownedMemory.labs;
   }
 
   getPlannerMemory(): RoomPlannerMemory | undefined {
@@ -691,6 +700,12 @@ export class RoomInfo implements RoomMemory {
   updateLogisticsMemory(logisticsMemory: LogisticsMemory): void {
     Memory.rooms[this.name].logistics = logisticsMemory;
   }
+
+  updateLabsMemory(labsMemory: RoomLabsMemory): void {
+    const ownedMemory = this.getOwnedMemory();
+    ownedMemory.labs = labsMemory;
+    Memory.rooms[this.name].owned = ownedMemory;
+  }
 }
 
 @profile
@@ -971,13 +986,15 @@ export class VisibleRoom extends RoomInfo {
     const ownedMemory = Memory.rooms[this.name].owned;
     let remotes = [];
 
+    const specialStructuresMemory = this.createSpecialStructuresMemory();
     const {
       spawns,
       towers,
       links,
       terminal,
       extensions,
-    } = this.createSpecialStructuresMemory();
+    } = specialStructuresMemory;
+    let labs = specialStructuresMemory.labs;
 
     if (ownedMemory == undefined) {
       reset = true;
@@ -997,6 +1014,8 @@ export class VisibleRoom extends RoomInfo {
       }
     } else {
       remotes = ownedMemory.remotes;
+      // Don't reset lab memory if reset not true
+      labs = ownedMemory.labs;
     }
 
     Memory.rooms[this.name].owned = {
@@ -1004,6 +1023,7 @@ export class VisibleRoom extends RoomInfo {
       towers,
       links,
       terminal,
+      labs,
       remotes,
       extensions,
     };
@@ -1014,6 +1034,7 @@ export class VisibleRoom extends RoomInfo {
     towers: Id<StructureTower>[];
     links: RoomLinksMemory;
     terminal?: TerminalMemory;
+    labs?: RoomLabsMemory;
     extensions: Id<StructureExtension>[];
   } {
     let spawns = [];
@@ -1055,6 +1076,14 @@ export class VisibleRoom extends RoomInfo {
       terminal = TerminalInfo.createMemory(terminalStructure);
     }
 
+    let labs: RoomLabsMemory | undefined = undefined;
+    const labStructures = structures.filter(
+      (structure) => structure.structureType === STRUCTURE_LAB,
+    );
+    if (labStructures.length > 0) {
+      labs = {};
+    }
+
     // Get extension ids in planned order
     const planner = this.getPlannerMemory();
     if (planner == undefined) {
@@ -1077,7 +1106,7 @@ export class VisibleRoom extends RoomInfo {
       }
     });
 
-    return { spawns, towers, links, terminal, extensions };
+    return { spawns, towers, links, terminal, labs, extensions };
   }
 
   updatePlannerMemory(): void {
