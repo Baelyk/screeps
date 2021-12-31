@@ -402,8 +402,14 @@ class LabActor {
 
     // Find a possible reaction
     for (const firstResource in storage.store) {
+      if (firstResource === RESOURCE_ENERGY) {
+        continue;
+      }
       const possibleReactions = REACTIONS[firstResource];
       for (const secondResource in storage.store) {
+        if (secondResource === RESOURCE_ENERGY) {
+          continue;
+        }
         const possibleReaction = possibleReactions[secondResource] as
           | ResourceConstant
           | undefined;
