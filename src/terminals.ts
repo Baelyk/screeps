@@ -62,7 +62,7 @@ export class TerminalBehavior {
           storage.id,
         );
         const logistics = new LogisticsInfo(this.terminal.room.name);
-        logistics.addUnique(request, "add");
+        logistics.addUnique(request, "replace");
         excessResources[resource] = amount;
       }
     });
