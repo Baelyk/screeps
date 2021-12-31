@@ -30,11 +30,24 @@ export function towerBehavior(tower: StructureTower): void {
       // like if the tender dies (and is taking a while to spawn, or can't spawn).
       if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > 200) {
         const room = new VisibleRoom(tower.room.name);
+
+        // Repair critical targets
         target = room.getNextRepairTarget() || null;
+        if (target != undefined && target.hits > target.hitsMax / 20) {
+          target = null;
+        }
 
         // There are no creeps, structures to target
         if (target == undefined) {
+          // Repair critical ramparts, don't repair walls at all
           target = room.getNextWallRepairTarget() || null;
+          if (
+            target != undefined &&
+            (target.structureType === STRUCTURE_WALL ||
+              target.hits > RAMPART_DECAY_AMOUNT * 10)
+          ) {
+            target = null;
+          }
           if (target != undefined) {
             // Target is a wall/rampart in need of repair
             const response = errorConstant(tower.repair(target));

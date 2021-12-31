@@ -57,21 +57,14 @@ export class PopulationManager implements PopulationInterface {
     // Recalculate miners
     this[CreepRole.miner] = this.minerLimit();
 
-    // One builder per two construction queue items
+    // Builders build and repair
     this[CreepRole.builder] =
-      this.roomInfo.getConstructionQueue().length > 0 ? 1 : 0;
-    // If there isn't a tower, builders must repair too
-    if (
-      this.roomInfo.roomType === RoomType.primary &&
-      this.roomInfo.getRoom().find(FIND_MY_STRUCTURES, {
-        filter: { structureType: STRUCTURE_TOWER },
-      }).length === 0
-    ) {
-      this[CreepRole.builder] = Math.max(
-        this.roomInfo.getRepairQueue().length > 0 ? 1 : 0,
-        this[CreepRole.builder],
-      );
-    }
+      this.roomInfo.getConstructionQueue().length +
+        this.roomInfo.getRepairQueue().length >
+      0
+        ? 1
+        : 0;
+
     if (this[CreepRole.miner] === 0) {
       // If we have no miners, we need harvesters
       this[CreepRole.harvester] = 2;
