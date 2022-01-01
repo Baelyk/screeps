@@ -21,6 +21,7 @@ interface MoveActionOptions {
   costCallback: (roomName: string, costMatrix: CostMatrix) => CostMatrix | void;
   flee: boolean;
   reusePath: number;
+  repair: boolean;
 }
 
 function actionWarn(
@@ -50,6 +51,7 @@ export class CreepAction {
       },
       flee: false,
       reusePath: 5,
+      repair: true,
     };
     const options: MoveActionOptions = _.assign(
       MOVE_ACTION_DEFAULTS,
@@ -104,6 +106,21 @@ export class CreepAction {
 
     if (options.flee && options.range <= 1) {
       warn(`Creep ${creep.name} fleeing without range, canceling flee`);
+    }
+
+    // Repair as we go
+    if (
+      options.repair &&
+      creep.getActiveBodyparts(WORK) > 0 &&
+      creep.getActiveBodyparts(CARRY) > 0 &&
+      creep.store[RESOURCE_ENERGY] > 0
+    ) {
+      const target = creep.pos
+        .lookFor(LOOK_STRUCTURES)
+        .find((structure) => structure.hits < structure.hitsMax);
+      if (target != undefined) {
+        creep.repair(target);
+      }
     }
 
     let response: ScreepsReturnCode;
