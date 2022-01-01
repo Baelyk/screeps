@@ -3,6 +3,7 @@ import { info, warn, errorConstant } from "utils/logger";
 import { LogisticsInfo, LogisticsRequest } from "logistics";
 import { GetByIdError, ScriptError, wrapper } from "utils/errors";
 import { Position } from "classes/position";
+import { profile } from "utils/profiler";
 
 enum LabRole {
   /** This lab is storing reagent for a reaction */
@@ -29,6 +30,7 @@ declare global {
   }
 }
 
+@profile
 class LabInfo implements LabMemory {
   // LabMemory fields
   logisticsRequest?: string;
@@ -258,6 +260,7 @@ class LabInfo implements LabMemory {
   }
 }
 
+@profile
 class LabActor {
   lab: StructureLab;
   info: LabInfo;
