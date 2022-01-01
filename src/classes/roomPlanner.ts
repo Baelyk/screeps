@@ -32,6 +32,7 @@ interface OwnedRoomPlannerPlanMemory {
   occupied: number[];
   spawn: number;
   storage: number;
+  terminal: number;
   sourceContainers: number[];
   towers: number[];
   links: [number, number, number[]];
@@ -306,8 +307,11 @@ export class RoomPlanner extends RoomPlannerBase {
     cpuNow("spawn");
 
     const storageLocation = this.findStorageLocation(spawnLocation);
+    // Terminal at top-right of storage
+    const terminal = storageLocation - 49;
     this.occupy(storageLocation, ...this.graph.getNeighbors(storageLocation));
     this.addObstruction(storageLocation);
+    this.addObstruction(terminal);
     cpuNow("storage");
 
     const sourceContainers = this.findSourceContainerLocations();
@@ -382,6 +386,7 @@ export class RoomPlanner extends RoomPlannerBase {
       occupied,
       spawn: spawnLocation,
       storage: storageLocation,
+      terminal: terminal,
       sourceContainers,
       towers: towerLocations,
       links: linkLocations,
@@ -852,6 +857,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         // - 3 labs
         this.buildMany(plan.extensions.slice(30, 40), STRUCTURE_EXTENSION);
         this.build(plan.links[2][0], STRUCTURE_LINK);
+        this.build(plan.terminal, STRUCTURE_TERMINAL);
         if (plan.extractor != undefined && plan.roads.extractor != undefined) {
           this.buildMany(plan.roads.extractor, STRUCTURE_EXTRACTOR);
           this.build(plan.extractor, STRUCTURE_EXTRACTOR);
