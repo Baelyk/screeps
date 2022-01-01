@@ -859,7 +859,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
         this.build(plan.links[2][0], STRUCTURE_LINK);
         this.build(plan.terminal, STRUCTURE_TERMINAL);
         if (plan.extractor != undefined && plan.roads.extractor != undefined) {
-          this.buildMany(plan.roads.extractor, STRUCTURE_EXTRACTOR);
+          this.buildMany(plan.roads.extractor, STRUCTURE_ROAD);
           this.build(plan.extractor, STRUCTURE_EXTRACTOR);
         }
       }
