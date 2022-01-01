@@ -150,6 +150,22 @@ export class PopulationManager implements PopulationInterface {
       }
     }
 
+    // If RCL 7 and the room has less than 10k energy stored and the controller
+    // has over 10% downgrade, don't spawn an upgrader.
+    if (this.roomInfo.roomLevel() === 7) {
+      if (this.roomInfo.storedResourceAmount(RESOURCE_ENERGY) < 10000) {
+        const controller = this.roomInfo.getRoom().controller;
+        if (controller == undefined) {
+          throw new ScriptError(
+            `Room ${this.roomInfo.name} lacks a controller`,
+          );
+        }
+        if (controller.ticksToDowngrade > CONTROLLER_DOWNGRADE[7] * 0.1) {
+          return 0;
+        }
+      }
+    }
+
     const gameRoom = this.roomInfo.getRoom();
 
     // If there is a storage, use the storage to calculate how many upgraders.
