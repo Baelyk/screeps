@@ -1,55 +1,49 @@
+//interface CreepJob {
+//jobName: string;
+//tasks: CreepTask[];
+//isValid: () => boolean;
+//do: (creep: Creep, currentTask: CreepTask) => void;
+//}
+
+interface CreepTask {
+  name: string;
+  do: () => void;
+}
+
+const GetEnergyTask: CreepTask = {
+  name: "get_energy",
+  do: () => console.log("getting energy"),
+};
+
+const BuildTask: CreepTask = {
+  name: "build",
+  do: () => console.log("building"),
+};
+
 abstract class CreepJob {
-  abstract name: string;
-  abstract tasks: CreepTask[];
+  static jobName: string;
+  static tasks: CreepTask[];
   abstract isValid(): boolean;
   abstract do(): void;
 }
 
-abstract class CreepTask {
-  abstract name: string;
-  abstract do(): void;
-}
-
 class BuildJob extends CreepJob {
-  name = "build";
-  tasks = [GetEnergyTask, BuildTask];
-
-  isValid(): boolean {
-    return true;
-  }
+  static jobName = "build";
+  static tasks = [GetEnergyTask, BuildTask];
 
   site: Id<ConstructionSite>;
 
   constructor(site: Id<ConstructionSite>) {
     super();
+
     this.site = site;
   }
 
-  do() {
-    // Do stuff!
-  }
-}
-
-class GetEnergyTask extends CreepTask {
-  name = "get_energy";
-
-  constructor() {
-    super();
+  isValid(): boolean {
+    return true;
   }
 
   do(): void {
-    console.log("hi");
-  }
-}
-
-class BuildTask extends CreepTask {
-  name = "get_energy";
-
-  constructor() {
-    super();
-  }
-
-  do(): void {
-    console.log("HI");
+    1 + 1;
   }
 }
