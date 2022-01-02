@@ -9,12 +9,15 @@ import {
 } from "./returns";
 import { CreepActor } from "./actor";
 import { Position } from "classes/position";
+import { RoomInfo, VisibleRoom } from "roomMemory";
+import { ScriptError } from "utils/errors";
 
 export enum CreepTask {
   MineSource = "mine_source",
   GetEnergy = "get_energy",
   Build = "build",
   Repair = "repair",
+  Upgrade = "upgrade",
   None = "none",
 }
 
@@ -121,10 +124,45 @@ const MineSourceTask: ICreepTask = {
   },
 };
 
+const UpgradeTask: ICreepTask = {
+  name: CreepTask.Upgrade,
+  do(
+    actor: CreepActor,
+    roomInfo: RoomInfo,
+    controller: StructureController | undefined,
+  ): InProgress | NeedResource | UnhandledScreepsReturn {
+    // Make sure we have energy
+    if (!actor.hasResource(RESOURCE_ENERGY)) {
+      return new NeedResource(RESOURCE_ENERGY);
+    }
+
+    // Get vision on the controller
+    if (controller == undefined) {
+      if (VisibleRoom.isVisible(roomInfo.name)) {
+        throw new ScriptError(
+          `Cannot upgrade room ${roomInfo.name} lacking controller`,
+        );
+      }
+      // Move to the room
+      const position = new Position(new RoomPosition(25, 25, roomInfo.name));
+      return actor.moveTo(position, 24);
+    }
+
+    // Upgrade the controller
+    const response = actor.upgradeController(controller);
+    if (response instanceof NeedMove) {
+      return actor.moveTo(response.value.destination, response.value.range);
+    } else {
+      return response;
+    }
+  },
+};
+
 export const Tasks = {
   [CreepTask.Build]: BuildTask,
   [CreepTask.GetEnergy]: GetEnergyTask,
   [CreepTask.Repair]: RepairTask,
   [CreepTask.MineSource]: MineSourceTask,
+  [CreepTask.Upgrade]: UpgradeTask,
   [CreepTask.None]: undefined,
 };

@@ -219,4 +219,19 @@ export class CreepActor {
 
     return new NotFound();
   }
+
+  upgradeController(
+    controller: StructureController,
+  ): InProgress | NeedResource | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.upgradeController(controller);
+    if (response === OK) {
+      return new InProgress();
+    } else if (response === ERR_NOT_ENOUGH_RESOURCES) {
+      return new NeedResource(RESOURCE_ENERGY);
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(controller.pos, 3);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
 }

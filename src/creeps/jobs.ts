@@ -11,11 +11,13 @@ import {
   UnhandledScreepsReturn,
 } from "./returns";
 import { CreepActor } from "./actor";
+import { RoomInfo } from "roomMemory";
 
 const enum CreepJob {
   Build = "build",
   MineSource = "mine_source",
   Repair = "repair",
+  Upgrade = "upgrade",
 }
 
 abstract class Job {
@@ -348,8 +350,94 @@ class RepairJob extends Job {
   }
 }
 
+class UpgradeJob extends Job {
+  static jobName = CreepJob.Upgrade;
+  name: string;
+  initialTask = CreepTask.Upgrade;
+
+  roomInfo: RoomInfo;
+  _room?: Room;
+  _controller?: StructureController;
+
+  static deserialize(parts: string[]): UpgradeJob {
+    const roomInfo = new RoomInfo(parts[0]);
+    return new UpgradeJob(roomInfo);
+  }
+
+  constructor(roomInfo: RoomInfo) {
+    super();
+    this.name = UpgradeJob.jobName;
+
+    this.roomInfo = roomInfo;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.roomInfo.name}`;
+  }
+
+  get room() {
+    if (this._room == undefined) {
+      this._room = Game.rooms[this.roomInfo.name] || undefined;
+    }
+    return this._room;
+  }
+
+  get controller() {
+    if (this.room == undefined) {
+      return undefined;
+    }
+    if (this._controller == undefined) {
+      this._controller = this.room.controller || undefined;
+    }
+    return this._controller;
+  }
+
+  isCompleted(): boolean {
+    return this.controller == undefined || this.controller.level < 8;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    let response: Return;
+    if (task.name === CreepTask.Upgrade) {
+      response = (task as typeof Tasks[CreepTask.Upgrade]).do(
+        actor,
+        this.roomInfo,
+        this.controller,
+      );
+    } else if (task.name === CreepTask.GetEnergy) {
+      response = (task as typeof Tasks[CreepTask.GetEnergy]).do(actor);
+    } else {
+      this.unexpectedTask(task.name);
+      return;
+    }
+
+    // Resond to the task outcome
+    if (response instanceof InProgress) {
+      return;
+    } else if (response instanceof Done) {
+      actor.info.task = CreepTask.Upgrade;
+      this.do(actor);
+      return;
+    } else if (response instanceof NeedResource) {
+      if (response.value !== RESOURCE_ENERGY) {
+        throw new ScriptError(`Unable to retrieve resource ${response.value}`);
+      }
+      actor.info.task = CreepTask.GetEnergy;
+      this.do(actor);
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
 const Jobs = {
   [CreepJob.Build]: BuildJob,
   [CreepJob.Repair]: BuildJob,
   [CreepJob.MineSource]: MineSourceJob,
+  [CreepJob.Upgrade]: UpgradeJob,
 };
