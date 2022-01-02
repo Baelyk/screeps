@@ -278,6 +278,11 @@ class CreepBehavior {
           } else {
             room = new VisibleRoom(creep.room.name);
           }
+          // If there are things to build, do that
+          if (room.getConstructionQueue().length > 0) {
+            CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.build);
+            return;
+          }
           const repairTarget = room.getNextRepairTarget();
           if (repairTarget != undefined) {
             // Assign the new target and rerun repair logic
