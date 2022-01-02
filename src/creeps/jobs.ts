@@ -12,11 +12,16 @@ import {
 } from "./returns";
 import { CreepActor } from "./actor";
 
-abstract class CreepJob {
+const enum CreepJob {
+  Build = "build",
+}
+
+abstract class Job {
   abstract name: string;
   abstract initialTask: CreepTask;
   abstract isCompleted(): boolean;
   abstract _do(actor: CreepActor): void;
+  abstract serialize(): string;
 
   do(actor: CreepActor): boolean {
     if (!this.isCompleted()) {
@@ -53,8 +58,9 @@ abstract class CreepJob {
   }
 }
 
-class BuildJob extends CreepJob {
-  name = "build";
+class BuildJob extends Job {
+  static jobName = CreepJob.Build;
+  name: string;
   initialTask = CreepTask.Build;
 
   position: Position;
@@ -62,10 +68,20 @@ class BuildJob extends CreepJob {
   _rampart?: StructureRampart;
   _pos?: RoomPosition;
 
-  constructor(pos: string) {
-    super();
+  static deserialize(parts: string[]): BuildJob {
+    const position = Position.fromSerialized(parts[0]);
+    return new BuildJob(position);
+  }
 
-    this.position = Position.fromSerialized(pos);
+  constructor(position: Position) {
+    super();
+    this.name = BuildJob.jobName;
+
+    this.position = new Position(position);
+  }
+
+  serialize(): string {
+    return `${this.name},${this.position.toString()}`;
   }
 
   get pos() {
@@ -151,3 +167,7 @@ class BuildJob extends CreepJob {
     }
   }
 }
+
+const Jobs = {
+  [CreepJob.Build]: BuildJob,
+};
