@@ -1,0 +1,178 @@
+import { CreepInfo } from "./memory";
+import {
+  Return,
+  Ok,
+  Done,
+  NeedResource,
+  NeedMove,
+  NotFound,
+  UnhandledScreepsReturn,
+} from "./returns";
+import { Position } from "classes/position";
+import { move } from "./move";
+import * as Actions from "./actions";
+
+export class CreepActor {
+  creep: Creep;
+  info: CreepInfo;
+
+  constructor(creep: Creep) {
+    this.creep = creep;
+    this.info = new CreepInfo(creep.name);
+  }
+
+  hasResource(resource: ResourceConstant): boolean {
+    return this.creep.store[resource] > 0;
+  }
+
+  hasFreeCapacity(resource?: ResourceConstant): boolean {
+    const free = this.creep.store.getFreeCapacity(resource);
+    if (free == undefined) {
+      return false;
+    }
+    return free > 0;
+  }
+
+  get name() {
+    return this.creep.name;
+  }
+
+  // Primitive actions
+  pickupResource(pile: Resource): Ok | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.pickup(pile);
+    if (response === OK) {
+      return new Ok();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(pile.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  recoverResource(
+    resource: ResourceConstant,
+  ): Ok | NeedMove | NotFound | UnhandledScreepsReturn {
+    const piles = this.creep.room
+      .find(FIND_DROPPED_RESOURCES)
+      .filter((pile) => pile.resourceType === resource && pile.amount > 0);
+    if (piles.length > 0) {
+      const pile = this.creep.pos.findClosestByPath(piles);
+      if (pile != undefined) {
+        return this.pickupResource(pile);
+      }
+    }
+    return new NotFound();
+  }
+
+  getResourceFrom(
+    target: AnyStoreStructure | Tombstone,
+    resource: ResourceConstant,
+    amount?: number,
+  ): Ok | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.withdraw(target, resource, amount);
+    if (response === OK) {
+      return new Ok();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(target.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  // Actions
+
+  harvest(source: Source): Ok | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.harvest(source);
+    if (response === OK) {
+      return new Ok();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(source.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  build(
+    site: ConstructionSite,
+  ): Ok | NeedMove | NeedResource | UnhandledScreepsReturn {
+    const response = this.creep.build(site);
+    if (response === OK) {
+      return new Ok();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(site.pos, 3);
+    } else if (response === ERR_NOT_ENOUGH_RESOURCES) {
+      return new NeedResource(RESOURCE_ENERGY);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  moveTo(destination: Position, range = 0): Ok | UnhandledScreepsReturn {
+    const response = move(this.creep, destination.intoRoomPosition(), {
+      range,
+    });
+    if (response === OK || response === ERR_TIRED) {
+      return new Ok();
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  getEnergy(): Ok | NeedMove | NotFound | UnhandledScreepsReturn {
+    // Get energy from:
+    // 0. Adjacent tombstones or piles
+    // 1. Room storage
+    // 2. Containers
+    // 3. Nearest tombstone or pile
+    // 4. Harvesting from sources
+
+    const adjacentPiles = this.creep.pos
+      .findInRange(FIND_DROPPED_RESOURCES, 1)
+      .filter((r) => r.resourceType === RESOURCE_ENERGY);
+    if (adjacentPiles.length > 0) {
+      return this.pickupResource(adjacentPiles[0]);
+    }
+    const adjacentTombstones = this.creep.pos
+      .findInRange(FIND_TOMBSTONES, 1)
+      .filter((t) => t.store[RESOURCE_ENERGY] > 0);
+    if (adjacentTombstones.length > 0) {
+      return this.getResourceFrom(adjacentTombstones[0], RESOURCE_ENERGY);
+    }
+
+    const storage = this.creep.room.storage;
+    if (storage != undefined && storage.store[RESOURCE_ENERGY] > 0) {
+      return this.getResourceFrom(storage, RESOURCE_ENERGY);
+    }
+
+    const containers = this.creep.room
+      .find(FIND_STRUCTURES)
+      .filter(
+        (s) =>
+          s.structureType === STRUCTURE_CONTAINER &&
+          s.store[RESOURCE_ENERGY] > 0,
+      ) as StructureContainer[];
+    if (containers.length > 0) {
+      const container = this.creep.pos.findClosestByPath(containers);
+      if (container != undefined) {
+        return this.getResourceFrom(container, RESOURCE_ENERGY);
+      }
+    }
+
+    const recoverResponse = this.recoverResource(RESOURCE_ENERGY);
+    if (!(recoverResponse instanceof NotFound)) {
+      return recoverResponse;
+    }
+
+    const sources = this.creep.room
+      .find(FIND_SOURCES)
+      .filter((s) => s.energy > 0);
+    if (sources.length > 0) {
+      const source = this.creep.pos.findClosestByPath(sources);
+      if (source != undefined) {
+        return this.harvest(source);
+      }
+    }
+
+    return new NotFound();
+  }
+}

@@ -81,4 +81,8 @@ export class Position implements Pos {
       return undefined;
     }
   }
+
+  public toString(): string {
+    return Position.serialize(this);
+  }
 }
