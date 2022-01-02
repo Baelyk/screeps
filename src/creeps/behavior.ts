@@ -290,16 +290,9 @@ class CreepBehavior {
             CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.repair);
             return;
           } else {
-            // No repair. If assigned to a remote, reassign to remote's owner
-            if (room.roomType === RoomType.remote) {
-              creepInfo.setAssignedRoomName(room.getRemoteOwner());
-              info(
-                `Creep ${creep.name} (in ${
-                  creep.room.name
-                }) reassigned to remote's owner ${creepInfo.getAssignedRoomName()}`,
-              );
-              // Try and build again
-              CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.build);
+            const wallRepairTarget = room.getNextWallRepairTarget();
+            if (wallRepairTarget != undefined) {
+              actions.repair(creep, wallRepairTarget);
               return;
             }
             CreepBehavior.switchTaskAndDoRoll(creep, CreepTask.idle);

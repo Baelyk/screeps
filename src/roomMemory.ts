@@ -1181,7 +1181,8 @@ export class VisibleRoom extends RoomInfo {
       ) {
         return false;
       }
-      return structure.hits < structure.hitsMax;
+      // 20 * REPAIR_POWER = 1 tick of max builder repairing
+      return structure.hits < structure.hitsMax - 2 * 20 * REPAIR_POWER;
     });
     const repairQueue = _.pluck(_.sortBy(structures, "hits"), "id");
     const queuesMemory = this.getQueuesMemory();
