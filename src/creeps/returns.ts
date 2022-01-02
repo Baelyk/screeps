@@ -13,7 +13,7 @@ interface IReturn {
 
 export enum ReturnType {
   /** Succesful but in progress */
-  Ok = "ok",
+  InProgress = "in_progress",
   /** Finished succesfully */
   Done = "done",
   /** Unhandled Screeps return code */
@@ -24,6 +24,8 @@ export enum ReturnType {
   Move = "move",
   /** No target found */
   NotFound = "not_found",
+  /** Switch tasks */
+  SwitchTask = "switch_tasks",
 }
 
 export class Return implements IReturn {
@@ -42,17 +44,13 @@ export class Return implements IReturn {
       return `${this.type}`;
     }
   }
-
-  isOk(): boolean {
-    return this.type === ReturnType.Ok;
-  }
 }
 
-export class Ok extends Return {
+export class InProgress extends Return {
   value: undefined;
 
   constructor() {
-    super(ReturnType.Ok, undefined);
+    super(ReturnType.InProgress, undefined);
   }
 }
 

@@ -4,7 +4,7 @@ import { ICreepTask, CreepTask, Tasks } from "./tasks";
 import {
   Return,
   ReturnType,
-  Ok,
+  InProgress,
   Done,
   NeedResource,
   NotFound,
@@ -14,16 +14,15 @@ import { CreepActor } from "./actor";
 
 abstract class CreepJob {
   abstract name: string;
-  abstract tasks: ICreepTask[];
   abstract initialTask: CreepTask;
   abstract isCompleted(): boolean;
-  abstract _do(actor: CreepActor, currentTask: CreepTask): void;
+  abstract _do(actor: CreepActor): void;
 
-  do(actor: CreepActor, currentTask: CreepTask): boolean {
+  do(actor: CreepActor): boolean {
     if (!this.isCompleted()) {
       wrapper(
-        () => this._do(actor, currentTask),
-        `Creep ${actor.name} failed to perform ${this.name}/${currentTask}`,
+        () => this._do(actor),
+        `Creep ${actor.name} failed to perform ${this.name}`,
       );
       return false;
     } else {
@@ -31,27 +30,35 @@ abstract class CreepJob {
     }
   }
 
-  getValidTasks(): string[] {
-    return this.tasks.map((task) => task.name);
+  getTask(taskName: CreepTask): ICreepTask {
+    const task = Tasks[taskName];
+    if (task == undefined) {
+      throw new ScriptError(
+        `Job ${this.name} encounted unexpected undefined task for ${taskName}`,
+      );
+    }
+    return task;
   }
 
-  isValidTask(task: CreepTask): boolean {
-    return this.tasks.map((task) => task.name).includes(task);
+  unexpectedResponse(task: CreepTask, response: Return): void {
+    throw new ScriptError(
+      `Job ${this.name} encountered unexpected response ${response.toString} during task ${task}`,
+    );
   }
 
-  getTask(taskName: CreepTask): ICreepTask | undefined {
-    return this.tasks.find((task) => task.name === taskName);
+  unexpectedTask(task: CreepTask): void {
+    throw new ScriptError(
+      `Job ${this.name} encountered unexpected task ${task}`,
+    );
   }
 }
 
 class BuildJob extends CreepJob {
   name = "build";
-  tasks = [Tasks[CreepTask.GetEnergy], Tasks[CreepTask.Build]];
   initialTask = CreepTask.Build;
 
   position: Position;
   _site?: ConstructionSite;
-  _siteType?: StructureConstant;
   _rampart?: StructureRampart;
   _pos?: RoomPosition;
 
@@ -68,20 +75,20 @@ class BuildJob extends CreepJob {
     return this._pos;
   }
 
-  get site() {
+  get site(): ConstructionSite | undefined {
     if (this._site == undefined) {
-      const site = this.pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
-      if (site == undefined) {
-        throw new ScriptError(
-          `Unable to find construction site at ${this.position.toString()}`,
-        );
-      }
+      const site = this.pos.lookFor(LOOK_CONSTRUCTION_SITES)[0] || undefined;
       this._site = site;
     }
     return this._site;
   }
 
-  get rampart() {
+  get rampart(): StructureRampart | undefined {
+    // If the site still exists, the rampart definitely doesn't
+    if (this.site != undefined) {
+      return undefined;
+    }
+
     if (this._rampart == undefined) {
       const rampart = this.pos
         .lookFor(LOOK_STRUCTURES)
@@ -91,82 +98,56 @@ class BuildJob extends CreepJob {
         this._rampart = rampart as StructureRampart;
       }
     }
-    if (this._rampart == undefined) {
-      throw new ScriptError(
-        `No newly built rampart at ${this.position.toString()}`,
-      );
-    }
     return this._rampart;
   }
 
-  get siteType() {
-    if (this._siteType == undefined) {
-      try {
-        this._siteType = this.site.structureType;
-      } catch (error) {
-        if (this.rampart != undefined) {
-          this._siteType = STRUCTURE_RAMPART;
-        } else {
-          throw new ScriptError(
-            `No site/new rampart found at ${this.position.toString()}`,
-          );
-        }
-      }
-    }
-    return this._siteType;
-  }
-
   isCompleted(): boolean {
-    try {
-      if (this.site != undefined) {
-        return false;
-      } else {
-        return true;
-      }
-    } catch (error) {
-      // The site is built, incomplete if building a rampart
-      try {
-        return this.rampart == undefined;
-      } catch (error) {
-        // No site, no rampart, so all done
-        return true;
-      }
-    }
+    return this.site == undefined && this.rampart == undefined;
   }
 
-  _do(actor: CreepActor, currentTask: CreepTask): void {
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
     const task = this.getTask(currentTask);
-    if (task == undefined) {
-      return;
-    }
+
+    // Do the task
     let response: Return;
     if (task.name === CreepTask.Build) {
-      response = task.do(actor, this.site);
-    } else {
+      if (this.site != undefined) {
+        response = task.do(actor, this.site);
+      } else if (this.rampart == undefined) {
+        actor.info.task = CreepTask.Repair;
+        this.do(actor);
+        return;
+      } else {
+        // We should be done
+        return;
+      }
+    } else if (task.name === CreepTask.GetEnergy) {
       response = task.do(actor);
+    } else if (task.name === CreepTask.Repair) {
+      response = task.do(actor, this.rampart);
+    } else {
+      this.unexpectedTask(task.name);
+      return;
     }
 
-    switch (response.type) {
-      // Current task is in progress
-      case ReturnType.Ok:
-        break;
-      // Current task has succesfully finished, switch back to primary task
-      case ReturnType.Done: {
-        if (currentTask !== this.initialTask) {
-          this.do(actor, this.initialTask);
-        }
-        break;
+    // Resond to the task outcome
+    if (response instanceof InProgress) {
+      return;
+    } else if (response instanceof Done) {
+      actor.info.task = CreepTask.Build;
+      this.do(actor);
+      return;
+    } else if (response instanceof NeedResource) {
+      if (response.value !== RESOURCE_ENERGY) {
+        throw new ScriptError(`Unable to retrieve resource ${response.value}`);
       }
-      // Current task needs a resource to continue
-      case ReturnType.NeedResource: {
-        if (response.value !== RESOURCE_ENERGY) {
-          throw new Error(`Unable to retrieve resource ${response.value}`);
-        }
-        this.do(actor, CreepTask.GetEnergy);
-        break;
-      }
-      default:
-        throw new Error(`Unable to handle response ${response.toString()}`);
+      actor.info.task = CreepTask.GetEnergy;
+      this.do(actor);
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
     }
   }
 }
