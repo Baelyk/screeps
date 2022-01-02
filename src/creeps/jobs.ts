@@ -2,6 +2,7 @@ import { ScriptError, wrapper } from "utils/errors";
 import { Position } from "classes/position";
 import { ICreepTask, CreepTask, Tasks } from "./tasks";
 import {
+  Return,
   ReturnType,
   Ok,
   Done,
@@ -11,9 +12,9 @@ import {
 } from "./returns";
 import { CreepActor } from "./actor";
 
-abstract class CreepJob<T extends ICreepTask<S>, S> {
+abstract class CreepJob {
   abstract name: string;
-  abstract tasks: T[];
+  abstract tasks: ICreepTask[];
   abstract initialTask: CreepTask;
   abstract isCompleted(): boolean;
   abstract _do(actor: CreepActor, currentTask: CreepTask): void;
@@ -38,15 +39,12 @@ abstract class CreepJob<T extends ICreepTask<S>, S> {
     return this.tasks.map((task) => task.name).includes(task);
   }
 
-  getTask(taskName: CreepTask): T | undefined {
+  getTask(taskName: CreepTask): ICreepTask | undefined {
     return this.tasks.find((task) => task.name === taskName);
   }
 }
 
-class BuildJob extends CreepJob<
-  typeof Tasks[CreepTask.GetEnergy] | typeof Tasks[CreepTask.Build],
-  Ok | Done | NeedResource | NotFound | UnhandledScreepsReturn
-> {
+class BuildJob extends CreepJob {
   name = "build";
   tasks = [Tasks[CreepTask.GetEnergy], Tasks[CreepTask.Build]];
   initialTask = CreepTask.Build;
@@ -141,7 +139,7 @@ class BuildJob extends CreepJob<
     if (task == undefined) {
       return;
     }
-    let response: Ok | Done | NeedResource | NotFound | UnhandledScreepsReturn;
+    let response: Return;
     if (task.name === CreepTask.Build) {
       response = task.do(actor, this.site);
     } else {

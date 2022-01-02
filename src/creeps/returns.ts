@@ -1,9 +1,14 @@
 import { Position } from "classes/position";
 import { MoveCommand } from "./move";
 
-interface IReturn<T> {
+type ReturnValue =
+  | undefined
+  | ResourceConstant
+  | MoveCommand
+  | ScreepsReturnCode;
+interface IReturn {
   type: ReturnType;
-  value?: T;
+  value: ReturnValue;
 }
 
 export enum ReturnType {
@@ -21,11 +26,11 @@ export enum ReturnType {
   NotFound = "not_found",
 }
 
-export class Return<T> implements IReturn<T> {
+export class Return implements IReturn {
   type: ReturnType;
-  value: T;
+  value: ReturnValue;
 
-  constructor(type: ReturnType, value: T) {
+  constructor(type: ReturnType, value: ReturnValue) {
     this.type = type;
     this.value = value;
   }
@@ -43,38 +48,50 @@ export class Return<T> implements IReturn<T> {
   }
 }
 
-export class Ok extends Return<undefined> {
+export class Ok extends Return {
+  value: undefined;
+
   constructor() {
     super(ReturnType.Ok, undefined);
   }
 }
 
-export class Done extends Return<undefined> {
+export class Done extends Return {
+  value: undefined;
+
   constructor() {
     super(ReturnType.Done, undefined);
   }
 }
 
-export class NotFound extends Return<undefined> {
+export class NotFound extends Return {
+  value: undefined;
+
   constructor() {
     super(ReturnType.NotFound, undefined);
   }
 }
 
-export class NeedResource extends Return<ResourceConstant> {
+export class NeedResource extends Return {
+  value!: ResourceConstant;
+
   constructor(resource: ResourceConstant) {
     super(ReturnType.NeedResource, resource);
   }
 }
 
-export class NeedMove extends Return<MoveCommand> {
+export class NeedMove extends Return {
+  value!: MoveCommand;
+
   constructor(pos: RoomPosition | Position, range = 0) {
     const destination = new Position(pos);
     super(ReturnType.NeedResource, { destination, range });
   }
 }
 
-export class UnhandledScreepsReturn extends Return<ScreepsReturnCode> {
+export class UnhandledScreepsReturn extends Return {
+  value!: ScreepsReturnCode;
+
   constructor(response: ScreepsReturnCode) {
     super(ReturnType.Unhandled, response);
   }
