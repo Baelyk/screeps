@@ -37,6 +37,14 @@ export class CreepActor {
     return this.creep.name;
   }
 
+  _position?: Position;
+  get position(): Position {
+    if (this._position == undefined) {
+      this._position = new Position(this.creep.pos);
+    }
+    return this._position;
+  }
+
   // Primitive actions
   pickupResource(
     pile: Resource,
@@ -53,9 +61,10 @@ export class CreepActor {
 
   recoverResource(
     resource: ResourceConstant,
+    range = 50,
   ): InProgress | NeedMove | NotFound | UnhandledScreepsReturn {
-    const piles = this.creep.room
-      .find(FIND_DROPPED_RESOURCES)
+    const piles = this.creep.pos
+      .findInRange(FIND_DROPPED_RESOURCES, range)
       .filter((pile) => pile.resourceType === resource && pile.amount > 0);
     if (piles.length > 0) {
       const pile = this.creep.pos.findClosestByPath(piles);
@@ -72,6 +81,21 @@ export class CreepActor {
     amount?: number,
   ): InProgress | NeedMove | UnhandledScreepsReturn {
     const response = this.creep.withdraw(target, resource, amount);
+    if (response === OK) {
+      return new InProgress();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(target.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  putResourceInto(
+    target: AnyStoreStructure,
+    resource: ResourceConstant,
+    amount?: number,
+  ): InProgress | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.transfer(target, resource, amount);
     if (response === OK) {
       return new InProgress();
     } else if (response === ERR_NOT_IN_RANGE) {

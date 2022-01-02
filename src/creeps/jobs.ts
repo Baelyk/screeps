@@ -1,4 +1,4 @@
-import { ScriptError, wrapper } from "utils/errors";
+import { ScriptError, GetByIdError, wrapper } from "utils/errors";
 import { Position } from "classes/position";
 import { ICreepTask, CreepTask, Tasks } from "./tasks";
 import {
@@ -14,6 +14,8 @@ import { CreepActor } from "./actor";
 
 const enum CreepJob {
   Build = "build",
+  MineSource = "mine_source",
+  Repair = "repair",
 }
 
 abstract class Job {
@@ -168,6 +170,186 @@ class BuildJob extends Job {
   }
 }
 
+class MineSourceJob extends Job {
+  static jobName = CreepJob.MineSource;
+
+  static deserialize(parts: string[]): MineSourceJob {
+    const position = Position.fromSerialized(parts[0]);
+    return new MineSourceJob(position);
+  }
+
+  name: string;
+  initialTask = CreepTask.MineSource;
+
+  position: Position;
+  _pos?: RoomPosition;
+  _source?: Source;
+  _container?: StructureContainer;
+  _link?: StructureLink;
+
+  constructor(position: Position) {
+    super();
+    this.name = MineSourceJob.jobName;
+
+    this.position = position;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.position.toString()}`;
+  }
+
+  get pos(): RoomPosition {
+    if (this._pos == undefined) {
+      this._pos = this.position.intoRoomPosition();
+    }
+    return this._pos;
+  }
+
+  get source(): Source {
+    if (this._source == undefined) {
+      const source = this.pos.findInRange(FIND_SOURCES, 1)[0];
+      if (source == undefined) {
+        throw new ScriptError(`No source near ${this.position.toString()}`);
+      }
+      this._source = source;
+    }
+    return this._source;
+  }
+
+  get container(): StructureContainer | undefined {
+    if (this._container == undefined) {
+      const container = this.pos
+        .findInRange(FIND_STRUCTURES, 1)
+        .find((s) => s.structureType === STRUCTURE_CONTAINER);
+      if (container == undefined) {
+        return undefined;
+      }
+      this._container = container as StructureContainer;
+    }
+    return this._container;
+  }
+
+  get link(): StructureLink | undefined {
+    if (this._link == undefined) {
+      const link = this.pos
+        .findInRange(FIND_STRUCTURES, 1)
+        .find((s) => s.structureType === STRUCTURE_LINK);
+      if (link == undefined) {
+        return undefined;
+      }
+      this._link = link as StructureLink;
+    }
+    return this._link;
+  }
+
+  isCompleted(): boolean {
+    // Okay I could come up with some logic of if the source on cooldown and
+    // there is no energy in the container/ground to put in the link then the
+    // job is completed, but I'm not sure I see the use case?
+    return false;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    if (task.name !== CreepTask.MineSource) {
+      this.unexpectedTask(task.name);
+      return;
+    }
+    const response = (task as typeof Tasks[CreepTask.MineSource]).do(
+      actor,
+      this.container,
+      this.link,
+    );
+
+    if (response instanceof InProgress) {
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
+class RepairJob extends Job {
+  static jobName = CreepJob.Repair;
+  name: string;
+  initialTask = CreepTask.Repair;
+
+  structure: Structure;
+
+  static deserialize(parts: string[]): RepairJob {
+    const structure = Game.getObjectById(parts[0]);
+    if (structure == undefined) {
+      throw new GetByIdError(parts[0]);
+    } else if (
+      (structure as { structureType?: StructureConstant }).structureType ==
+      undefined
+    ) {
+      throw new ScriptError(
+        `Expected structure not ${JSON.stringify(structure)}`,
+      );
+    }
+    return new RepairJob(structure as Structure);
+  }
+
+  constructor(structure: Structure) {
+    super();
+    this.name = RepairJob.jobName;
+
+    this.structure = structure;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.structure.id}`;
+  }
+
+  isCompleted(): boolean {
+    return this.structure.hits === this.structure.hitsMax;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    // Do the task
+    let response: Return;
+    if (task.name === CreepTask.Repair) {
+      response = (task as typeof Tasks[CreepTask.Repair]).do(
+        actor,
+        this.structure,
+      );
+    } else if (task.name === CreepTask.GetEnergy) {
+      response = (task as typeof Tasks[CreepTask.GetEnergy]).do(actor);
+    } else {
+      this.unexpectedTask(task.name);
+      return;
+    }
+
+    // Response to task outcome
+    if (response instanceof InProgress) {
+      return;
+    } else if (response instanceof Done) {
+      actor.info.task = CreepTask.Repair;
+      this.do(actor);
+      return;
+    } else if (response instanceof NeedResource) {
+      if (response.value !== RESOURCE_ENERGY) {
+        throw new ScriptError(`Unable to retrieve resource ${response.value}`);
+      }
+      actor.info.task = CreepTask.GetEnergy;
+      this.do(actor);
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
 const Jobs = {
   [CreepJob.Build]: BuildJob,
+  [CreepJob.Repair]: BuildJob,
+  [CreepJob.MineSource]: MineSourceJob,
 };
