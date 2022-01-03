@@ -11,6 +11,7 @@ import { CreepActor } from "./actor";
 import { Position } from "classes/position";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 import { ScriptError } from "utils/errors";
+import { warn } from "utils/logger";
 
 export enum CreepTask {
   MineSource = "mine_source",
@@ -20,6 +21,7 @@ export enum CreepTask {
   Upgrade = "upgrade",
   Store = "store",
   Harvest = "harvest",
+  AssertControl = "assert_control",
   None = "none",
 }
 
@@ -237,6 +239,57 @@ const HarvestTask: ICreepTask = {
   },
 };
 
+export const enum AssertControlType {
+  Claim = "claim",
+  Reserve = "reserve",
+  Attack = "attack",
+}
+const AssertControlTask: ICreepTask = {
+  name: CreepTask.AssertControl,
+  do(
+    actor: CreepActor,
+    controller: StructureController | undefined,
+    roomName: string,
+    type: AssertControlType,
+  ): InProgress | UnhandledScreepsReturn {
+    const room = Game.rooms[roomName];
+    if (room == undefined) {
+      // Move to the room
+      const position = new Position(new RoomPosition(25, 25, roomName));
+      return actor.moveTo(position, 24);
+    }
+    if (controller == undefined) {
+      throw new ScriptError(`Room ${roomName} lacks controller`);
+    }
+
+    let response: InProgress | NeedMove | UnhandledScreepsReturn;
+    if (
+      controller.reservation == undefined ||
+      controller.reservation.username === "Baelyk"
+    ) {
+      if (type === AssertControlType.Claim) {
+        response = actor.claimController(controller);
+      } else if (type === AssertControlType.Reserve) {
+        response = actor.reserveController(controller);
+      } else {
+        warn(
+          `No need to attack owned controller ${Position.serialize(
+            controller.pos,
+          )}`,
+        );
+        response = new InProgress();
+      }
+    } else {
+      response = actor.attackController(controller);
+    }
+
+    if (response instanceof NeedMove) {
+      return actor.moveTo(response.value.destination, response.value.range);
+    }
+    return response;
+  },
+};
+
 export const Tasks = {
   [CreepTask.Build]: BuildTask,
   [CreepTask.GetEnergy]: GetEnergyTask,
@@ -245,5 +298,6 @@ export const Tasks = {
   [CreepTask.Upgrade]: UpgradeTask,
   [CreepTask.Store]: StoreTask,
   [CreepTask.Harvest]: HarvestTask,
+  [CreepTask.AssertControl]: AssertControlTask,
   [CreepTask.None]: undefined,
 };

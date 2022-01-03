@@ -222,6 +222,45 @@ export class CreepActor {
     return new NotFound();
   }
 
+  attackController(
+    controller: StructureController,
+  ): InProgress | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.attackController(controller);
+    if (response === OK) {
+      return new InProgress();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(controller.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  claimController(
+    controller: StructureController,
+  ): InProgress | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.claimController(controller);
+    if (response === OK) {
+      return new InProgress();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(controller.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
+  reserveController(
+    controller: StructureController,
+  ): InProgress | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.reserveController(controller);
+    if (response === OK) {
+      return new InProgress();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(controller.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
+  }
+
   upgradeController(
     controller: StructureController,
   ): InProgress | NeedResource | NeedMove | UnhandledScreepsReturn {

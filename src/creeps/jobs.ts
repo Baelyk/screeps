@@ -1,6 +1,6 @@
 import { ScriptError, GetByIdError, wrapper } from "utils/errors";
 import { Position } from "classes/position";
-import { ICreepTask, CreepTask, Tasks } from "./tasks";
+import { ICreepTask, CreepTask, Tasks, AssertControlType } from "./tasks";
 import {
   Return,
   ReturnType,
@@ -20,6 +20,7 @@ const enum CreepJob {
   Upgrade = "upgrade",
   SupplySpawn = "supply_spawn",
   Harvest = "harvest",
+  AssertControl = "assert_control",
 }
 
 abstract class Job {
@@ -639,6 +640,83 @@ class HarvestJob extends Job {
   }
 }
 
+class AssertControlJob extends Job {
+  static jobName = CreepJob.AssertControl;
+  name: string;
+  initialTask = CreepTask.AssertControl;
+
+  roomName: string;
+  type: AssertControlType;
+  _controller?: StructureController;
+
+  static deserialize(parts: string[]): AssertControlJob {
+    return new AssertControlJob(parts[0], parts[1] as AssertControlType);
+  }
+
+  constructor(roomName: string, type: AssertControlType) {
+    super();
+    this.name = AssertControlJob.jobName;
+
+    this.roomName = roomName;
+    this.type = type;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.roomName},${this.type}`;
+  }
+
+  get controller(): StructureController | undefined {
+    if (this._controller == undefined) {
+      const room = Game.rooms[this.roomName];
+      if (room == undefined) {
+        return undefined;
+      }
+      const controller = room.controller;
+      if (controller == undefined) {
+        throw new ScriptError(
+          `Cannot assert control of room ${this.roomName} lacking a controller`,
+        );
+      }
+      this._controller = controller;
+    }
+    return this._controller;
+  }
+
+  isCompleted(): boolean {
+    // Controller not visible yet
+    if (this.controller == undefined) {
+      return false;
+    }
+    if (this.type === AssertControlType.Claim) {
+      return this.controller.my;
+    } else if (this.type === AssertControlType.Attack) {
+      return (
+        this.controller.reservation == undefined ||
+        this.controller.reservation.username != "Baelyk"
+      );
+    }
+    // Never done reserving
+    return false;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    if (task.name !== CreepTask.AssertControl) {
+      this.unexpectedTask(task.name);
+      return;
+    }
+    const response = task.do(actor, this.controller, this.roomName, this.type);
+    if (response instanceof InProgress) {
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
 const Jobs = {
   [CreepJob.Build]: BuildJob,
   [CreepJob.Repair]: BuildJob,
@@ -646,4 +724,5 @@ const Jobs = {
   [CreepJob.Upgrade]: UpgradeJob,
   [CreepJob.SupplySpawn]: SupplySpawnJob,
   [CreepJob.Harvest]: HarvestJob,
+  [CreepJob.AssertControl]: AssertControlJob,
 };
