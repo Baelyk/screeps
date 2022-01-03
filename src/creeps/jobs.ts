@@ -896,10 +896,12 @@ class LogisticsJob extends Job {
 
 const Jobs = {
   [CreepJob.Build]: BuildJob,
-  [CreepJob.Repair]: BuildJob,
+  [CreepJob.Repair]: RepairJob,
   [CreepJob.MineSource]: MineSourceJob,
   [CreepJob.Upgrade]: UpgradeJob,
   [CreepJob.SupplySpawn]: SupplySpawnJob,
   [CreepJob.Harvest]: HarvestJob,
   [CreepJob.AssertControl]: AssertControlJob,
+  [CreepJob.Protect]: ProtectJob,
+  [CreepJob.Logistics]: LogisticsJob,
 };
