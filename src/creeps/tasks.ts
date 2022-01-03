@@ -4,6 +4,7 @@ import {
   NeedResource,
   NeedMove,
   NotFound,
+  NoCapacity,
   UnhandledScreepsReturn,
   Return,
 } from "./returns";
@@ -20,8 +21,11 @@ export enum CreepTask {
   Repair = "repair",
   Upgrade = "upgrade",
   Store = "store",
+  GetResource = "get_resource",
   Harvest = "harvest",
   AssertControl = "assert_control",
+  Protect = "protect",
+  Unload = "unload",
   None = "none",
 }
 
@@ -32,7 +36,9 @@ export interface ICreepTask {
 
 const GetEnergyTask: ICreepTask = {
   name: CreepTask.GetEnergy,
-  do(actor: CreepActor): InProgress | Done | NotFound | UnhandledScreepsReturn {
+  do(
+    actor: CreepActor,
+  ): InProgress | Done | NotFound | NoCapacity | UnhandledScreepsReturn {
     if (actor.hasFreeCapacity(RESOURCE_ENERGY)) {
       const response = actor.getEnergy();
       if (response instanceof NeedMove) {
@@ -169,7 +175,7 @@ const StoreTask: ICreepTask = {
     resource?: ResourceConstant,
     structure?: AnyStoreStructure,
     amount?: number,
-  ): InProgress | NeedResource | UnhandledScreepsReturn {
+  ): InProgress | NeedResource | NoCapacity | UnhandledScreepsReturn {
     // Auto-select resource if unspecified
     if (resource == undefined) {
       for (const res in actor.creep.store) {
@@ -290,6 +296,106 @@ const AssertControlTask: ICreepTask = {
   },
 };
 
+const ProtectTask: ICreepTask = {
+  name: CreepTask.Protect,
+  do(
+    actor: CreepActor,
+    protectee: CreepActor,
+  ): InProgress | UnhandledScreepsReturn {
+    // Attack closest hostile within range
+    const hostiles = protectee.creep.pos.findInRange(FIND_HOSTILE_CREEPS, 5);
+    function closerToActor(a: Creep, b: Creep): Creep {
+      return actor.creep.pos.getRangeTo(a) < actor.creep.pos.getRangeTo(b)
+        ? a
+        : b;
+    }
+    const target = hostiles.reduce(closerToActor);
+    if (target != undefined) {
+      const distance = actor.creep.pos.getRangeTo(target);
+      if (distance > 3) {
+        return actor.moveTo(new Position(target.pos), 3);
+      } else if (distance < 3) {
+        return actor.moveTo(new Position(target.pos), 3, true);
+      } else {
+        const response = actor.attack(target);
+        if (response instanceof NeedMove) {
+          throw new ScriptError(`Shouldn't need to move`);
+        }
+        return response;
+      }
+    }
+    return new InProgress();
+  },
+};
+
+const GetResourceTask: ICreepTask = {
+  name: CreepTask.GetResource,
+  do(
+    actor: CreepActor,
+    resource: ResourceConstant,
+    amount?: number,
+    structure?: AnyStoreStructure,
+  ) {
+    // If the creep has the specified amount or has some and cannot carry more,
+    // done.
+    if (amount != undefined && actor.storedAmount(resource) >= amount) {
+      return new Done();
+    } else if (
+      amount == undefined &&
+      actor.hasResource(resource) &&
+      !actor.hasFreeCapacity(resource)
+    ) {
+      return new Done();
+    } else if (!actor.hasFreeCapacity(resource)) {
+      return new NoCapacity(resource);
+    }
+
+    // If no specified structure, uto select this creeps assigned room's storage
+    if (structure == undefined) {
+      if (actor.creep.room.name !== actor.info.assignedRoomName) {
+        const position = new Position(
+          new RoomPosition(25, 25, actor.info.assignedRoomName),
+        );
+        return actor.moveTo(position, 24);
+      }
+      structure = actor.creep.room.storage;
+      if (structure == undefined) {
+        throw new ScriptError(
+          `Creep cannot auto store if room lacks a storage`,
+        );
+      }
+      return this.do(actor, resource, structure, amount) as
+        | InProgress
+        | NeedResource
+        | UnhandledScreepsReturn;
+    }
+
+    const response = actor.getResourceFrom(structure, resource, amount);
+    if (response instanceof NeedMove) {
+      return actor.moveTo(response.value.destination, response.value.range);
+    }
+    return response;
+  },
+};
+
+const UnloadTask: ICreepTask = {
+  name: CreepTask.Unload,
+  do(actor: CreepActor, keep?: ResourceConstant[], store?: AnyStoreStructure) {
+    let resource: ResourceConstant | undefined;
+    for (const resKey in actor.creep.store) {
+      const res = resKey as ResourceConstant;
+      if (keep == undefined || keep.indexOf(res) === -1) {
+        resource = res;
+        break;
+      }
+    }
+    if (resource == undefined) {
+      return new Done();
+    }
+    return StoreTask.do(actor, resource, store);
+  },
+};
+
 export const Tasks = {
   [CreepTask.Build]: BuildTask,
   [CreepTask.GetEnergy]: GetEnergyTask,
@@ -299,5 +405,8 @@ export const Tasks = {
   [CreepTask.Store]: StoreTask,
   [CreepTask.Harvest]: HarvestTask,
   [CreepTask.AssertControl]: AssertControlTask,
+  [CreepTask.Protect]: ProtectTask,
+  [CreepTask.GetResource]: GetResourceTask,
+  [CreepTask.Unload]: UnloadTask,
   [CreepTask.None]: undefined,
 };

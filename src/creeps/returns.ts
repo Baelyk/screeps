@@ -26,6 +26,8 @@ export enum ReturnType {
   NotFound = "not_found",
   /** Switch tasks */
   SwitchTask = "switch_tasks",
+  /** No capacity for this resource */
+  NoCapacity = "no_capacity",
 }
 
 export class Return implements IReturn {
@@ -92,5 +94,13 @@ export class UnhandledScreepsReturn extends Return {
 
   constructor(response: ScreepsReturnCode) {
     super(ReturnType.Unhandled, response);
+  }
+}
+
+export class NoCapacity extends Return {
+  value!: ResourceConstant;
+
+  constructor(resource: ResourceConstant) {
+    super(ReturnType.NoCapacity, resource);
   }
 }

@@ -6,6 +6,7 @@ import {
   NeedResource,
   NeedMove,
   NotFound,
+  NoCapacity,
   UnhandledScreepsReturn,
 } from "./returns";
 import { Position } from "classes/position";
@@ -19,6 +20,10 @@ export class CreepActor {
   constructor(creep: Creep) {
     this.creep = creep;
     this.info = new CreepInfo(creep.name);
+  }
+
+  storedAmount(resource?: ResourceConstant): number {
+    return this.creep.store.getUsedCapacity(resource);
   }
 
   hasResource(resource?: ResourceConstant): boolean {
@@ -48,12 +53,14 @@ export class CreepActor {
   // Primitive actions
   pickupResource(
     pile: Resource,
-  ): InProgress | NeedMove | UnhandledScreepsReturn {
+  ): InProgress | NeedMove | NoCapacity | UnhandledScreepsReturn {
     const response = this.creep.pickup(pile);
     if (response === OK) {
       return new InProgress();
     } else if (response === ERR_NOT_IN_RANGE) {
       return new NeedMove(pile.pos, 1);
+    } else if (response === ERR_FULL) {
+      return new NoCapacity(pile.resourceType);
     } else {
       return new UnhandledScreepsReturn(response);
     }
@@ -62,7 +69,7 @@ export class CreepActor {
   recoverResource(
     resource: ResourceConstant,
     range = 50,
-  ): InProgress | NeedMove | NotFound | UnhandledScreepsReturn {
+  ): InProgress | NeedMove | NoCapacity | NotFound | UnhandledScreepsReturn {
     const piles = this.creep.pos
       .findInRange(FIND_DROPPED_RESOURCES, range)
       .filter((pile) => pile.resourceType === resource && pile.amount > 0);
@@ -79,12 +86,14 @@ export class CreepActor {
     target: AnyStoreStructure | Tombstone,
     resource: ResourceConstant,
     amount?: number,
-  ): InProgress | NeedMove | UnhandledScreepsReturn {
+  ): InProgress | NeedMove | NoCapacity | UnhandledScreepsReturn {
     const response = this.creep.withdraw(target, resource, amount);
     if (response === OK) {
       return new InProgress();
     } else if (response === ERR_NOT_IN_RANGE) {
       return new NeedMove(target.pos, 1);
+    } else if (response === ERR_FULL) {
+      return new NoCapacity(resource);
     } else {
       return new UnhandledScreepsReturn(response);
     }
@@ -94,12 +103,14 @@ export class CreepActor {
     target: AnyStoreStructure,
     resource: ResourceConstant,
     amount?: number,
-  ): InProgress | NeedMove | UnhandledScreepsReturn {
+  ): InProgress | NeedMove | NoCapacity | UnhandledScreepsReturn {
     const response = this.creep.transfer(target, resource, amount);
     if (response === OK) {
       return new InProgress();
     } else if (response === ERR_NOT_IN_RANGE) {
       return new NeedMove(target.pos, 1);
+    } else if (response === ERR_FULL) {
+      return new NoCapacity(resource);
     } else {
       return new UnhandledScreepsReturn(response);
     }
@@ -153,9 +164,11 @@ export class CreepActor {
   moveTo(
     destination: Position,
     range = 0,
+    flee = false,
   ): InProgress | UnhandledScreepsReturn {
     const response = move(this.creep, destination.intoRoomPosition(), {
       range,
+      flee,
     });
     if (response === OK || response === ERR_TIRED) {
       return new InProgress();
@@ -164,7 +177,12 @@ export class CreepActor {
     }
   }
 
-  getEnergy(): InProgress | NeedMove | NotFound | UnhandledScreepsReturn {
+  getEnergy():
+    | InProgress
+    | NeedMove
+    | NoCapacity
+    | NotFound
+    | UnhandledScreepsReturn {
     // Get energy from:
     // 0. Adjacent tombstones or piles
     // 1. Room storage
@@ -274,5 +292,18 @@ export class CreepActor {
     } else {
       return new UnhandledScreepsReturn(response);
     }
+  }
+
+  attack(target: Creep | PowerCreep | Structure): InProgress | NeedMove {
+    const distance = this.creep.pos.getRangeTo(target);
+    if (distance == 1) {
+      this.creep.attack(target);
+      this.creep.rangedMassAttack();
+    } else if (distance <= 3) {
+      this.creep.rangedAttack(target);
+    } else {
+      return new NeedMove(target.pos, 1);
+    }
+    return new InProgress();
   }
 }

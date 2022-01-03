@@ -7,11 +7,13 @@ import {
   InProgress,
   Done,
   NeedResource,
+  NoCapacity,
   NotFound,
   UnhandledScreepsReturn,
 } from "./returns";
 import { CreepActor } from "./actor";
 import { RoomInfo, VisibleRoom } from "roomMemory";
+import { LogisticsInfo, LogisticsRequest } from "logistics";
 
 const enum CreepJob {
   Build = "build",
@@ -21,6 +23,8 @@ const enum CreepJob {
   SupplySpawn = "supply_spawn",
   Harvest = "harvest",
   AssertControl = "assert_control",
+  Protect = "protect",
+  Logistics = "logistics",
 }
 
 abstract class Job {
@@ -709,6 +713,179 @@ class AssertControlJob extends Job {
     }
     const response = task.do(actor, this.controller, this.roomName, this.type);
     if (response instanceof InProgress) {
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
+class ProtectJob extends Job {
+  static jobName = CreepJob.Protect;
+  name: string;
+  initialTask = CreepTask.Protect;
+
+  protectee: CreepActor;
+
+  static deserialize(parts: string[]): ProtectJob {
+    const protectee = Game.creeps[parts[0]];
+    if (protectee == undefined) {
+      throw new ScriptError(`Creep ${parts[0]} doesn't exist`);
+    }
+    return new ProtectJob(new CreepActor(protectee));
+  }
+
+  constructor(protectee: CreepActor) {
+    super();
+    this.name = ProtectJob.jobName;
+
+    this.protectee = protectee;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.protectee.name}`;
+  }
+
+  isCompleted(): boolean {
+    // The protectee is still alive so we must protec
+    return false;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    if (task.name !== CreepTask.Protect) {
+      this.unexpectedTask(task.name);
+      return;
+    }
+    const response = task.do(actor, this.protectee);
+    if (response instanceof InProgress) {
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
+class LogisticsJob extends Job {
+  static jobName = CreepJob.Logistics;
+  name: string;
+  initialTask = CreepTask.GetResource;
+
+  roomName: string;
+  requestKey: string;
+  request: LogisticsRequest;
+  _source?: AnyStoreStructure;
+
+  static deserialize(parts: string[]): LogisticsJob {
+    return new LogisticsJob(parts[0], parts[1]);
+  }
+
+  constructor(roomName: string, requestKey: string) {
+    super();
+    this.name = LogisticsJob.jobName;
+
+    this.roomName = roomName;
+    this.requestKey = requestKey;
+    const logistics = new LogisticsInfo(roomName);
+    this.request = logistics.get(requestKey);
+  }
+
+  get source(): AnyStoreStructure {
+    if (this._source == undefined) {
+      this._source = this.request.getSource();
+    }
+    return this._source;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.roomName},${this.requestKey}`;
+  }
+
+  isCompleted(): boolean {
+    return this.request.amount - this.source.store[this.request.resource] !== 0;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    const amount =
+      this.request.amount - this.source.store[this.request.resource];
+
+    if (amount === 0) {
+      throw new ScriptError(`Unexpected satisfied request ${this.requestKey}`);
+    }
+
+    let response: Return;
+    if (task.name === CreepTask.GetResource) {
+      if (amount > 0) {
+        // Get resource from the sink, if specified, otherwise the assigned
+        // storage
+        response = task.do(
+          actor,
+          this.request.resource,
+          amount,
+          this.request.getSink(),
+        );
+      } else {
+        // Get resource from the source
+        response = task.do(actor, this.request.resource, -amount, this.source);
+      }
+    } else if (task.name === CreepTask.Store) {
+      if (amount > 0) {
+        // Store the resource in the requesting structure
+        response = task.do(
+          actor,
+          this.request.resource,
+          this.request.getSource(),
+          amount,
+        );
+      } else {
+        // Store the resource in the sink if specified, or the assigned storage
+        response = task.do(
+          actor,
+          this.request.resource,
+          this.request.getSink(),
+          amount,
+        );
+      }
+    } else if (task.name === CreepTask.Unload) {
+      // Unload extraneous resources
+      response = task.do(actor, [this.request.resource]);
+    } else {
+      this.unexpectedTask(task.name);
+      return;
+    }
+
+    if (response instanceof InProgress) {
+      return;
+    } else if (response instanceof NeedResource) {
+      actor.info.task = CreepTask.GetResource;
+      this.do(actor);
+      return;
+    } else if (response instanceof Done) {
+      if (task.name === CreepTask.GetResource) {
+        actor.info.task = CreepTask.Store;
+      } else if (task.name === CreepTask.Unload) {
+        actor.info.task = CreepTask.GetResource;
+      } else {
+        this.unexpectedResponse(task.name, response);
+        return;
+      }
+      this.do(actor);
+      return;
+    } else if (response instanceof NoCapacity) {
+      if (task.name === CreepTask.GetResource) {
+        // Unload unnecessary resources
+        actor.info.task = CreepTask.Unload;
+        this.do(actor);
+      } else {
+        this.unexpectedResponse(task.name, response);
+      }
       return;
     } else {
       this.unexpectedResponse(task.name, response);
