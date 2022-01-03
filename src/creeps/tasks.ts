@@ -19,6 +19,7 @@ export enum CreepTask {
   Repair = "repair",
   Upgrade = "upgrade",
   Store = "store",
+  Harvest = "harvest",
   None = "none",
 }
 
@@ -163,16 +164,72 @@ const StoreTask: ICreepTask = {
   name: CreepTask.Store,
   do(
     actor: CreepActor,
-    structure: AnyStoreStructure,
-    resource: ResourceConstant,
+    resource?: ResourceConstant,
+    structure?: AnyStoreStructure,
     amount?: number,
   ): InProgress | NeedResource | UnhandledScreepsReturn {
+    // Auto-select resource if unspecified
+    if (resource == undefined) {
+      for (const res in actor.creep.store) {
+        resource = res as ResourceConstant;
+        break;
+      }
+      if (resource == undefined) {
+        throw new ScriptError(`Creep cannot store if it has no resources`);
+      }
+    }
     // Make sure we have the resource
     if (!actor.hasResource(resource)) {
       return new NeedResource(resource);
     }
 
+    // Auto store in this creeps assigned room's storage
+    if (structure == undefined) {
+      if (actor.creep.room.name !== actor.info.assignedRoomName) {
+        const position = new Position(
+          new RoomPosition(25, 25, actor.info.assignedRoomName),
+        );
+        return actor.moveTo(position, 24);
+      }
+      structure = actor.creep.room.storage;
+      if (structure == undefined) {
+        throw new ScriptError(
+          `Creep cannot auto store if room lacks a storage`,
+        );
+      }
+      return this.do(actor, resource, structure, amount) as
+        | InProgress
+        | NeedResource
+        | UnhandledScreepsReturn;
+    }
+
+    // Normal store in specified structure
     const response = actor.putResourceInto(structure, resource, amount);
+    if (response instanceof NeedMove) {
+      return actor.moveTo(response.value.destination, response.value.range);
+    }
+    return response;
+  },
+};
+
+const HarvestTask: ICreepTask = {
+  name: CreepTask.Harvest,
+  do(
+    actor: CreepActor,
+    target: Source | Mineral | Deposit | undefined,
+    roomName: string,
+  ): InProgress | UnhandledScreepsReturn {
+    if (actor.creep.room.name !== roomName) {
+      // Move to the room
+      const position = new Position(new RoomPosition(25, 25, roomName));
+      return actor.moveTo(position, 24);
+    }
+    if (target == undefined) {
+      throw new ScriptError(
+        `Unexpected undefined harvest target while in room`,
+      );
+    }
+    const response = actor.harvest(target);
     if (response instanceof NeedMove) {
       return actor.moveTo(response.value.destination, response.value.range);
     }
@@ -187,5 +244,6 @@ export const Tasks = {
   [CreepTask.MineSource]: MineSourceTask,
   [CreepTask.Upgrade]: UpgradeTask,
   [CreepTask.Store]: StoreTask,
+  [CreepTask.Harvest]: HarvestTask,
   [CreepTask.None]: undefined,
 };

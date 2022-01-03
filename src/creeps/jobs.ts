@@ -19,6 +19,7 @@ const enum CreepJob {
   Repair = "repair",
   Upgrade = "upgrade",
   SupplySpawn = "supply_spawn",
+  Harvest = "harvest",
 }
 
 abstract class Job {
@@ -439,7 +440,7 @@ class UpgradeJob extends Job {
 class SupplySpawnJob extends Job {
   static jobName = CreepJob.SupplySpawn;
   name: string;
-  initialTask = CreepTask.GetEnergy;
+  initialTask = CreepTask.Store;
 
   roomInfo: VisibleRoom;
   _room?: Room;
@@ -539,10 +540,110 @@ class SupplySpawnJob extends Job {
   }
 }
 
+class HarvestJob extends Job {
+  static jobName = CreepJob.Harvest;
+  name: string;
+  initialTask = CreepTask.Harvest;
+
+  position: Position;
+  _target?: Source | Mineral | Deposit;
+
+  static deserialize(parts: string[]): HarvestJob {
+    const position = Position.fromSerialized(parts[0]);
+    return new HarvestJob(position);
+  }
+
+  constructor(position: Position) {
+    super();
+    this.name = HarvestJob.jobName;
+
+    this.position = position;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.position.toString()}`;
+  }
+
+  get target(): Source | Mineral | Deposit | undefined {
+    if (Game.rooms[this.position.roomName] == undefined) {
+      return undefined;
+    }
+    if (this._target == undefined) {
+      const pos = this.position.intoRoomPosition();
+      const target = pos
+        .look()
+        .map((x) => {
+          if (x.type === LOOK_SOURCES) {
+            return x.source;
+          } else if (x.type === LOOK_MINERALS) {
+            return x.mineral;
+          } else if (x.type === LOOK_DEPOSITS) {
+            return x.deposit;
+          } else {
+            return undefined;
+          }
+        })
+        .find((x) => x != undefined);
+      if (target == undefined) {
+        throw new ScriptError(`No harvestable at ${this.position.toString()}`);
+      }
+      this._target = target;
+    }
+    return this._target;
+  }
+
+  isCompleted(): boolean {
+    if (this.target != undefined) {
+      if ((this.target as Source).energy === 0) {
+        return true;
+      } else if ((this.target as Mineral).mineralAmount === 0) {
+        return true;
+      }
+    }
+    // If target not visible, target is a deposit, or target still has
+    // energy/mineral remaining, not complete
+    return false;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    // Do the task
+    let response: Return;
+    if (task.name === CreepTask.Harvest) {
+      response = task.do(actor, this.target, this.position.roomName);
+    } else if (task.name === CreepTask.Store) {
+      response = task.do(actor);
+    } else {
+      this.unexpectedTask(task.name);
+      return;
+    }
+
+    // Respond to task outcome
+    if (response instanceof InProgress) {
+      if (task.name === CreepTask.Harvest && !actor.hasFreeCapacity()) {
+        actor.info.task = CreepTask.Store;
+        this.do(actor);
+        return;
+      } else if (task.name === CreepTask.Store && !actor.hasResource()) {
+        actor.info.task = CreepTask.Harvest;
+        this.do(actor);
+        return;
+      }
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
 const Jobs = {
   [CreepJob.Build]: BuildJob,
   [CreepJob.Repair]: BuildJob,
   [CreepJob.MineSource]: MineSourceJob,
   [CreepJob.Upgrade]: UpgradeJob,
   [CreepJob.SupplySpawn]: SupplySpawnJob,
+  [CreepJob.Harvest]: HarvestJob,
 };

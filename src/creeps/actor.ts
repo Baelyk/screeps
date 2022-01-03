@@ -21,8 +21,8 @@ export class CreepActor {
     this.info = new CreepInfo(creep.name);
   }
 
-  hasResource(resource: ResourceConstant): boolean {
-    return this.creep.store[resource] > 0;
+  hasResource(resource?: ResourceConstant): boolean {
+    return this.creep.store.getUsedCapacity(resource) > 0;
   }
 
   hasFreeCapacity(resource?: ResourceConstant): boolean {

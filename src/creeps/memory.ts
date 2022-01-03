@@ -28,4 +28,8 @@ export class CreepInfo {
   set task(task: CreepTask) {
     this.memory.task = task;
   }
+
+  get assignedRoomName(): string {
+    return this.memory.room;
+  }
 }
