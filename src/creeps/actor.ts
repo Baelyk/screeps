@@ -107,12 +107,14 @@ export class CreepActor {
 
   // Actions
 
-  harvest(source: Source): InProgress | NeedMove | UnhandledScreepsReturn {
-    const response = this.creep.harvest(source);
+  harvest(
+    target: Source | Mineral | Deposit,
+  ): InProgress | NeedMove | UnhandledScreepsReturn {
+    const response = this.creep.harvest(target);
     if (response === OK) {
       return new InProgress();
     } else if (response === ERR_NOT_IN_RANGE) {
-      return new NeedMove(source.pos, 1);
+      return new NeedMove(target.pos, 1);
     } else {
       return new UnhandledScreepsReturn(response);
     }
