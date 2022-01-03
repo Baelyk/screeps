@@ -18,6 +18,7 @@ export enum CreepTask {
   Build = "build",
   Repair = "repair",
   Upgrade = "upgrade",
+  Store = "store",
   None = "none",
 }
 
@@ -158,11 +159,33 @@ const UpgradeTask: ICreepTask = {
   },
 };
 
+const StoreTask: ICreepTask = {
+  name: CreepTask.Store,
+  do(
+    actor: CreepActor,
+    structure: AnyStoreStructure,
+    resource: ResourceConstant,
+    amount?: number,
+  ): InProgress | NeedResource | UnhandledScreepsReturn {
+    // Make sure we have the resource
+    if (!actor.hasResource(resource)) {
+      return new NeedResource(resource);
+    }
+
+    const response = actor.putResourceInto(structure, resource, amount);
+    if (response instanceof NeedMove) {
+      return actor.moveTo(response.value.destination, response.value.range);
+    }
+    return response;
+  },
+};
+
 export const Tasks = {
   [CreepTask.Build]: BuildTask,
   [CreepTask.GetEnergy]: GetEnergyTask,
   [CreepTask.Repair]: RepairTask,
   [CreepTask.MineSource]: MineSourceTask,
   [CreepTask.Upgrade]: UpgradeTask,
+  [CreepTask.Store]: StoreTask,
   [CreepTask.None]: undefined,
 };

@@ -11,13 +11,14 @@ import {
   UnhandledScreepsReturn,
 } from "./returns";
 import { CreepActor } from "./actor";
-import { RoomInfo } from "roomMemory";
+import { RoomInfo, VisibleRoom } from "roomMemory";
 
 const enum CreepJob {
   Build = "build",
   MineSource = "mine_source",
   Repair = "repair",
   Upgrade = "upgrade",
+  SupplySpawn = "supply_spawn",
 }
 
 abstract class Job {
@@ -435,9 +436,113 @@ class UpgradeJob extends Job {
   }
 }
 
+class SupplySpawnJob extends Job {
+  static jobName = CreepJob.SupplySpawn;
+  name: string;
+  initialTask = CreepTask.GetEnergy;
+
+  roomInfo: VisibleRoom;
+  _room?: Room;
+  _structure?: StructureSpawn | StructureExtension;
+
+  static deserialize(parts: string[]): SupplySpawnJob {
+    const roomInfo = new VisibleRoom(parts[0]);
+    return new SupplySpawnJob(roomInfo);
+  }
+
+  constructor(roomInfo: VisibleRoom) {
+    super();
+    this.name = SupplySpawnJob.jobName;
+
+    this.roomInfo = roomInfo;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.roomInfo.name}`;
+  }
+
+  get room(): Room {
+    if (this._room == undefined) {
+      this._room = this.roomInfo.getRoom();
+    }
+    return this._room;
+  }
+
+  get structure(): StructureSpawn | StructureExtension {
+    if (
+      this._structure == undefined ||
+      this._structure.store.getFreeCapacity(RESOURCE_ENERGY) === 0
+    ) {
+      // Erase existing structure (if it exists)
+      this._structure == undefined;
+
+      // TODO: This will be silly with multiple creeps performing this job
+      const extension = this.roomInfo.getNextExtension();
+      if (extension != undefined) {
+        this._structure = extension;
+        return this._structure;
+      }
+      // TODO: Support multiple spawns
+      const spawn = this.roomInfo.getPrimarySpawn();
+      if (spawn.store.getFreeCapacity(RESOURCE_ENERGY) !== 0) {
+        this._structure = spawn;
+        return this._structure;
+      }
+    }
+
+    if (this._structure == undefined) {
+      throw new ScriptError(
+        `Unable to find fillable extension/spawn in room ${this.roomInfo.name}`,
+      );
+    }
+
+    return this._structure;
+  }
+
+  isCompleted(): boolean {
+    return this.room.energyAvailable === this.room.energyCapacityAvailable;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    // Do the task
+    let response: Return;
+    if (task.name === CreepTask.Store) {
+      response = task.do(actor, this.structure, RESOURCE_ENERGY);
+    } else if (task.name === CreepTask.GetEnergy) {
+      response = task.do(actor);
+    } else {
+      this.unexpectedTask(task.name);
+      return;
+    }
+
+    // Respond to task outcome
+    if (response instanceof InProgress) {
+      return;
+    } else if (response instanceof Done) {
+      actor.info.task = CreepTask.Store;
+      this.do(actor);
+      return;
+    } else if (response instanceof NeedResource) {
+      if (response.value !== RESOURCE_ENERGY) {
+        throw new ScriptError(`Unable to retrieve resource ${response.value}`);
+      }
+      actor.info.task = CreepTask.GetEnergy;
+      this.do(actor);
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
 const Jobs = {
   [CreepJob.Build]: BuildJob,
   [CreepJob.Repair]: BuildJob,
   [CreepJob.MineSource]: MineSourceJob,
   [CreepJob.Upgrade]: UpgradeJob,
+  [CreepJob.SupplySpawn]: SupplySpawnJob,
 };
