@@ -12,6 +12,7 @@ import {
 import { Position } from "classes/position";
 import { move } from "./move";
 import * as Actions from "./actions";
+import { VisibleRoom } from "roomMemory";
 
 export class CreepActor {
   creep: Creep;
@@ -305,5 +306,18 @@ export class CreepActor {
       return new NeedMove(target.pos, 1);
     }
     return new InProgress();
+  }
+
+  renew(roomName: string): InProgress | NeedMove | UnhandledScreepsReturn {
+    const room = new VisibleRoom(roomName);
+    const spawn = room.getPrimarySpawn();
+    const response = spawn.renewCreep(this.creep);
+    if (response === OK) {
+      return new InProgress();
+    } else if (response === ERR_NOT_IN_RANGE) {
+      return new NeedMove(spawn.pos, 1);
+    } else {
+      return new UnhandledScreepsReturn(response);
+    }
   }
 }

@@ -11,6 +11,8 @@ import { Pos, Position } from "classes/position";
 import { TerminalInfo, TerminalMemory } from "terminalMemory";
 import { CreepRole, CreepTask, AnyCreepMemory } from "./creeps";
 import { profile } from "./utils/profiler";
+import { JobManager } from "jobsManager";
+import { CreepJob as CreepJobName, Jobs, Job } from "creeps/jobs";
 
 declare global {
   interface RoomMemory {
@@ -123,8 +125,10 @@ declare global {
     repair: RepairQueue;
     wallRepair: WallRepairQueue;
     spawn: SpawnQueueItem[];
+    job: JobQueue;
   }
 
+  type JobQueue = string[];
   type ConstructionQueue = string[];
   type RepairQueue = Id<Structure>[];
   type RoomPopulationLimitMemory = { [key in CreepRole]?: number };
@@ -706,6 +710,31 @@ export class RoomInfo implements RoomMemory {
     ownedMemory.labs = labsMemory;
     Memory.rooms[this.name].owned = ownedMemory;
   }
+
+  getJobQueue(): JobQueue {
+    const queues = this.getQueuesMemory();
+    return queues.job;
+  }
+
+  updateJobQueue(jobQueue: JobQueue): void {
+    const queues = this.getQueuesMemory();
+    queues.job = jobQueue;
+    Memory.rooms[this.name].queues = queues;
+  }
+
+  getNextJob(jobTypes?: CreepJobName[], unique?: boolean): Job | undefined {
+    const avoidJobs: string[] = [];
+    if (unique) {
+      for (const name in Memory.creeps) {
+        const memory = Memory.creeps[name];
+        if (memory.job != undefined) {
+          avoidJobs.push(memory.job);
+        }
+      }
+    }
+    const manager = new JobManager(this.name);
+    return manager.getNext(avoidJobs, jobTypes);
+  }
 }
 
 @profile
@@ -1134,15 +1163,18 @@ export class VisibleRoom extends RoomInfo {
     const repair: RepairQueue = [];
     const wallRepair: WallRepairQueue = [];
     let spawn: SpawnQueueItem[] = [];
+    let job: JobQueue = [];
 
     if (queuesMemory == undefined) {
       reset = true;
     } else {
       spawn = queuesMemory.spawn;
+      job = [];
     }
 
     if (reset) {
       spawn = [];
+      job = [];
     }
 
     Memory.rooms[this.name].queues = {
@@ -1150,6 +1182,7 @@ export class VisibleRoom extends RoomInfo {
       repair,
       wallRepair,
       spawn,
+      job,
     };
 
     this.updateConstructionQueue();

@@ -26,6 +26,7 @@ export enum CreepTask {
   AssertControl = "assert_control",
   Protect = "protect",
   Unload = "unload",
+  Renew = "renew",
   None = "none",
 }
 
@@ -396,6 +397,21 @@ const UnloadTask: ICreepTask = {
   },
 };
 
+const RenewTask: ICreepTask = {
+  name: CreepTask.Renew,
+  do(actor: CreepActor, roomName: string) {
+    if (actor.creep.room.name !== roomName) {
+      const position = new Position(new RoomPosition(25, 25, roomName));
+      return actor.moveTo(position, 24);
+    }
+    const response = actor.renew(roomName);
+    if (response instanceof NeedMove) {
+      return actor.moveTo(response.value.destination, response.value.range);
+    }
+    return response;
+  },
+};
+
 export const Tasks = {
   [CreepTask.Build]: BuildTask,
   [CreepTask.GetEnergy]: GetEnergyTask,
@@ -408,5 +424,6 @@ export const Tasks = {
   [CreepTask.Protect]: ProtectTask,
   [CreepTask.GetResource]: GetResourceTask,
   [CreepTask.Unload]: UnloadTask,
+  [CreepTask.Renew]: RenewTask,
   [CreepTask.None]: undefined,
 };

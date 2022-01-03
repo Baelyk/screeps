@@ -15,7 +15,7 @@ import { CreepActor } from "./actor";
 import { RoomInfo, VisibleRoom } from "roomMemory";
 import { LogisticsInfo, LogisticsRequest } from "logistics";
 
-const enum CreepJob {
+export const enum CreepJob {
   Build = "build",
   MineSource = "mine_source",
   Repair = "repair",
@@ -25,9 +25,10 @@ const enum CreepJob {
   AssertControl = "assert_control",
   Protect = "protect",
   Logistics = "logistics",
+  Renew = "renew",
 }
 
-abstract class Job {
+export abstract class Job {
   abstract name: string;
   abstract initialTask: CreepTask;
   abstract isCompleted(): boolean;
@@ -894,7 +895,52 @@ class LogisticsJob extends Job {
   }
 }
 
-const Jobs = {
+class RenewJob extends Job {
+  static jobName = CreepJob.Renew;
+  name: string;
+  initialTask = CreepTask.Renew;
+
+  roomName: string;
+
+  static deserialize(parts: string[]): RenewJob {
+    return new RenewJob(parts[0]);
+  }
+
+  constructor(roomName: string) {
+    super();
+    this.name = RenewJob.jobName;
+
+    this.roomName = roomName;
+  }
+
+  serialize(): string {
+    return `${this.name},${this.roomName}`;
+  }
+
+  isCompleted(): boolean {
+    // The room or creep manager decides when we're done
+    return false;
+  }
+
+  _do(actor: CreepActor): void {
+    const currentTask = actor.info.task;
+    const task = this.getTask(currentTask);
+
+    if (task.name !== CreepTask.Renew) {
+      this.unexpectedTask(task.name);
+      return;
+    }
+    const response = task.do(actor, this.roomName);
+    if (response instanceof InProgress) {
+      return;
+    } else {
+      this.unexpectedResponse(task.name, response);
+      return;
+    }
+  }
+}
+
+export const Jobs = {
   [CreepJob.Build]: BuildJob,
   [CreepJob.Repair]: RepairJob,
   [CreepJob.MineSource]: MineSourceJob,
@@ -904,4 +950,5 @@ const Jobs = {
   [CreepJob.AssertControl]: AssertControlJob,
   [CreepJob.Protect]: ProtectJob,
   [CreepJob.Logistics]: LogisticsJob,
+  [CreepJob.Renew]: RenewJob,
 };
