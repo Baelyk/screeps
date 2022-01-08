@@ -1,4 +1,16 @@
-export function watcher (): void {
+declare global {
+  interface Memory {
+    watch: ScreepsMultimeterWatch;
+  }
+
+  interface ScreepsMultimeterWatch {
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    expressions?: object | undefined;
+    values?: { [index: string]: any };
+  }
+}
+
+export function watcher(): void {
   if (typeof Memory.watch !== "object") {
     Memory.watch = {};
   }
@@ -24,4 +36,4 @@ export function watcher (): void {
         typeof result !== "undefined" ? result.toString() : result;
     }
   }
-};
+}
