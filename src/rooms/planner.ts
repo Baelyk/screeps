@@ -1,6 +1,6 @@
 import { ScriptError } from "utils/errors";
 import { Graph, IndexSet } from "classes/graph";
-import { info, warn, errorConstant } from "utils/logger";
+import { Log } from "utils/log";
 import { profile } from "utils/profiler";
 
 class RoomPlannerError extends ScriptError {
@@ -13,12 +13,14 @@ class RoomPlannerError extends ScriptError {
   }
 }
 
-export interface RoomPlannerMemory {
-  roomName: string;
-  roomType: RoomType;
-  costMatrix: number[];
-  plan: RoomPlannerPlanMemory;
-  level: number;
+declare global {
+  interface RoomPlannerMemory {
+    roomName: string;
+    roomType: RoomType;
+    costMatrix: number[];
+    plan: RoomPlannerPlanMemory;
+    level: number;
+  }
 }
 
 type RoomPlannerPlanMemory =
@@ -102,6 +104,7 @@ class RoomPlannerBase {
   }
 }
 
+@profile
 export class RoomPlanner extends RoomPlannerBase {
   roomType: RoomType;
   costMatrix: CostMatrix;
@@ -777,6 +780,7 @@ export class RoomPlanner extends RoomPlannerBase {
   }
 }
 
+@profile
 export class RoomPlanExecuter extends RoomPlannerBase {
   plan: RoomPlannerMemory;
   sitePositions: RoomPosition[];
@@ -808,7 +812,7 @@ export class RoomPlanExecuter extends RoomPlannerBase {
       }
     }
 
-    info(
+    Log.info(
       `Room ${this.roomName} plan execution for level ${level} encountered ${this.invalidTargets} invalid targets`,
     );
     return this.sitePositions;
@@ -932,10 +936,10 @@ export class RoomPlanExecuter extends RoomPlannerBase {
     } else if (response === ERR_INVALID_TARGET) {
       this.invalidTargets++;
     } else {
-      warn(
+      Log.warn(
         `Attempted to build ${structureType} at (${pos.x}, ${
           pos.y
-        }) with response ${errorConstant(response)}`,
+        }) with response ${Log.errorConstant(response)}`,
       );
     }
   }
