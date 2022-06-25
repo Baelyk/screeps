@@ -42,24 +42,6 @@ export function bodyCost(
   return cost;
 }
 
-/**
- * Generates a name for the creep based on its memory
- *
- * @param memory The memory of the creep-to-be
- * @returns A name
- */
-export function nameCreep(memory: CreepMemory): string {
-  // Start the name with the creeps role
-  const name = memory.role + "_";
-  // Since there will be multiple creeps per role, a number will be need since names must be unique
-  let number = 0;
-  // While there is a creep with the same name, increment number
-  while (Game.creeps[name + number] !== undefined) {
-    number++;
-  }
-  return name + number;
-}
-
 export function livenRoomPosition(
   position:
     | RoomPosition
@@ -109,7 +91,7 @@ export function onExit(pos: RoomPosition): boolean {
  * @param radius=0 The radius of the ring, where radius 0 is just the point
  * @returns An array of coordinate pairs forming the ring
  */
-function getSurroundingCoords(
+export function getSurroundingCoords(
   x: number,
   y: number,
   radius = 1,
@@ -163,11 +145,37 @@ export function getSurroundingTiles(
   ) as RoomPosition[];
 }
 
-export function ensureMemoryPaths(): void {
-  if (Memory.debug == undefined) {
-    Memory.debug = {};
-  }
-  if (Memory.expansion == undefined) {
-    Memory.expansion = {};
-  }
+/**
+ * Get a new array without duplicates from a supplied array.
+ *
+ * @param array The array to remove duplicates from
+ * @returns A new array without duplicates
+ */
+export function roomPositionArrayRemoveDuplicates(
+  array: RoomPosition[],
+): RoomPosition[] {
+  const newArray: RoomPosition[] = [];
+  array.forEach((element) => {
+    const duplicate = newArray.find((newElement) =>
+      newElement.isEqualTo(element),
+    );
+    if (duplicate == undefined) newArray.push(element);
+  });
+  return newArray;
+}
+/**
+ * Converts a path to a RoomPosition[]
+ *
+ * @param room The room the path is in
+ * @returns The spots in the path as a RoomPosition[]
+ */
+export function pathToRoomPosition(
+  room: Room,
+  path: PathStep[],
+): RoomPosition[] {
+  const spots = path.map((step) => room.getPositionAt(step.x, step.y));
+  const positions = spots.filter(
+    (position) => position != undefined,
+  ) as RoomPosition[];
+  return positions;
 }

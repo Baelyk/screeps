@@ -43,7 +43,7 @@ type GameObjectWithId =
   | "tombstone";
 export class GetByIdError extends ScriptError {
   constructor(
-    object: Id<StructureConstant> | string,
+    object: Id<_HasId> | string,
     objectType?: GameObjectWithId,
     message?: string,
   ) {
@@ -120,7 +120,8 @@ export function wrapper(
   try {
     fn();
   } catch (e) {
-    logger.error((message ? message + "\n" : "") + displayError(e));
+    const error = e as Error;
+    logger.error((message ? message + "\n" : "") + displayError(error));
   } finally {
     if (final != undefined) final();
   }
