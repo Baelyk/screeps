@@ -49,6 +49,7 @@
     "eslint-plugin-jsdoc": "^31.0.8",
     "eslint-plugin-prefer-arrow": "^1.2.2",
     "eslint-plugin-react": "^7.22.0",
+    "fp-ts": "^2.12.1",
     "lodash": "^3.10.1",
     "mocha": "^8.2.1",
     "prettier": "^2.7.1",
