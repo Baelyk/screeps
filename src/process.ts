@@ -5,7 +5,8 @@ export interface Process {
   name: ProcessName;
   id: ProcessId;
   priority: number;
-  run: () => boolean;
+  display: () => string;
+  run: () => ProcessReturnCode;
 }
 
 const enum ProcessName {
@@ -13,6 +14,12 @@ const enum ProcessName {
   SpawnHarvester = "SpawnHarvester",
   ManageRoom = "ManageRoom",
   Harvester = "Harvester",
+}
+
+const enum ProcessReturnCode {
+  Stop = -1,
+  Done = 0,
+  OkContinue = 1,
 }
 
 declare global {
@@ -32,7 +39,11 @@ export class ForgetDeadCreeps implements Process {
     this.id = id;
   }
 
-  run(): boolean {
+  display(): string {
+    return `${this.id} ${this.name}`;
+  }
+
+  run(): ProcessReturnCode {
     for (const name in Memory.creeps) {
       if (!(name in Game.creeps)) {
         info(`Deleting creep ${name} memory`);
@@ -40,7 +51,7 @@ export class ForgetDeadCreeps implements Process {
       }
     }
 
-    return false;
+    return ProcessReturnCode.OkContinue;
   }
 }
 
@@ -56,7 +67,11 @@ export class SpawnHarvester implements Process {
     this.room = room;
   }
 
-  run(): boolean {
+  display(): string {
+    return `${this.id} ${this.name} ${this.room.name}`;
+  }
+
+  run(): ProcessReturnCode {
     const spawn = this.room
       .find<StructureSpawn>(FIND_MY_STRUCTURES)
       .filter((s) => s.structureType === STRUCTURE_SPAWN)[0];
@@ -74,9 +89,9 @@ export class SpawnHarvester implements Process {
           response,
         )}`,
       );
-      return true;
+      return ProcessReturnCode.Done;
     } else {
-      return false;
+      return ProcessReturnCode.OkContinue;
     }
   }
 }
@@ -93,8 +108,18 @@ export class ManageRoom implements Process {
     this.room = room;
   }
 
-  run(): boolean {
+  display(): string {
+    return `${this.id} ${this.name} ${this.room.name}`;
+  }
+
+  run(): ProcessReturnCode {
     info(`Managing room ${this.room.name}`);
+
+    if (!this.room.controller?.my) {
+      info(`Not my room, stopping ${this.display()}`);
+      return ProcessReturnCode.Stop;
+    }
+
     const spawn = this.room
       .find<StructureSpawn>(FIND_MY_STRUCTURES)
       .filter((s) => s.structureType === STRUCTURE_SPAWN)[0];
@@ -118,7 +143,7 @@ export class ManageRoom implements Process {
       }
     });
 
-    return false;
+    return ProcessReturnCode.OkContinue;
   }
 }
 
@@ -152,6 +177,10 @@ export class Harvester implements Process {
   constructor(creepName: string) {
     this._creepName = creepName;
     this.generator = this._generator();
+  }
+
+  display(): string {
+    return `${this.id} ${this.name} ${this._creepName}`;
   }
 
   *_generator(): Generator {
@@ -195,7 +224,16 @@ export class Harvester implements Process {
     }
   }
 
-  run(): boolean {
-    return this.generator.next().done || false;
+  run(): ProcessReturnCode {
+    const status = this.generator.next();
+    if (status.value != undefined) {
+      return status.value;
+    } else if (status.done) {
+      throw new Error(
+        `Process ${this.display()} generator unexpectedly done: ${status}`,
+      );
+    } else {
+      return ProcessReturnCode.OkContinue;
+    }
   }
 }

@@ -40,11 +40,12 @@ export class Kernel {
         info("All done");
         break;
       }
+
       try {
-        info(`Running process ${process.name} ${process.id}`);
-        const status = process.run();
-        if (status) {
-          info(`Process ${process.name} ${process.id} has finished`);
+        info(`Running process ${process.display()}`);
+        const code = process.run();
+        if (code <= 0) {
+          info(`Process ${process.display()} has stopped with ${code}`);
           this.processTable.removeProcess(process.id);
         }
       } catch (err) {
