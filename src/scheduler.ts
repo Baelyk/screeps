@@ -14,6 +14,10 @@ export class Scheduler {
     this.processes = this.processTable.getAllProcesses();
   }
 
+  addProcess(process: Process): void {
+    this.processes.push(process);
+  }
+
   next(): Process | undefined {
     return this.processes.shift();
   }

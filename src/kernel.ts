@@ -15,15 +15,11 @@ export class Kernel {
     const kernel = new Kernel();
     global.kernel = kernel;
 
-    kernel.processTable.addProcess(
-      new ForgetDeadCreeps(kernel.processTable.getNextId()),
-    );
+    kernel.spawnProcess(new ForgetDeadCreeps());
 
     for (const name in Game.rooms) {
       const room = Game.rooms[name];
-      kernel.processTable.addProcess(
-        new ManageRoom(kernel.processTable.getNextId(), room),
-      );
+      kernel.spawnProcess(new ManageRoom(room));
     }
 
     return kernel;
@@ -58,6 +54,7 @@ export class Kernel {
     const id = this.processTable.getNextId();
     process.id = id;
     this.processTable.addProcess(process);
+    this.scheduler.addProcess(process);
     return id;
   }
 
