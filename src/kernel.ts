@@ -1,6 +1,6 @@
 import { info, error, tick as logTick } from "./utils/logger";
 import { ProcessTable } from "./processTable";
-import { Process, ProcessId, ForgetDeadCreeps, ManageRoom } from "./process";
+import { IProcess, ProcessId, ForgetDeadCreeps, ManageRoom } from "./process";
 import { Scheduler } from "./scheduler";
 
 export class Kernel {
@@ -50,8 +50,12 @@ export class Kernel {
 		}
 	}
 
-	spawnProcess(process: Process): ProcessId {
-		const id = this.processTable.getNextId();
+	getNextId(): ProcessId {
+		return this.processTable.getNextId();
+	}
+
+	spawnProcess(process: IProcess): ProcessId {
+		const id = this.getNextId();
 		process.id = id;
 		this.processTable.addProcess(process);
 		this.scheduler.addProcess(process);

@@ -1,12 +1,14 @@
 import { info, errorConstant, warn } from "./utils/logger";
 import { nextAvailableName } from "./utils";
 
-export interface Process {
+export type ProcessId = number;
+
+export interface IProcess {
 	name: ProcessName;
 	id: ProcessId;
 	priority: number;
 	display: () => string;
-	run: () => ProcessReturnCode;
+	run: () => { code: ProcessReturnCode };
 }
 
 enum ProcessName {
@@ -26,13 +28,57 @@ enum ProcessReturnCode {
 	OkContinue = 1,
 }
 
+interface ProcessReturn<Output> {
+	code: ProcessReturnCode;
+	output?: Output;
+}
+
+class Process<Output, Input> implements IProcess {
+	name: ProcessName;
+	id: ProcessId;
+	priority = 0;
+	generator: Generator<Output, Output, Input> | undefined;
+
+	constructor(
+		name: ProcessName,
+		generator?: Generator<Output, Output, Input>,
+		display?: () => string,
+	) {
+		this.name = name;
+		this.id = global.kernel.getNextId();
+		this.generator = generator;
+
+		if (display != null) {
+			this.display = display;
+		}
+	}
+
+	display(): string {
+		return `${this.id} ${this.name}`;
+	}
+
+	[Symbol.iterator]() {
+		return this.generator;
+	}
+
+	run(): ProcessReturn<Output> {
+		if (this.generator == null) {
+			return { code: ProcessReturnCode.Done };
+		}
+
+		const status = this.generator.next();
+		return {
+			code: status.done ? ProcessReturnCode.Done : ProcessReturnCode.OkContinue,
+			output: status.value,
+		};
+	}
+}
+
 declare global {
 	interface CreepMemory {
 		process?: ProcessId;
 	}
 }
-
-export type ProcessId = number;
 
 function* sleep(duration: number) {
 	let ticks = duration;
@@ -42,16 +88,8 @@ function* sleep(duration: number) {
 	}
 }
 
-export class ForgetDeadCreeps implements Process {
-	name = ProcessName.ForgetDeadCreeps;
-	id = -1;
-	priority = 0;
-
-	display(): string {
-		return `${this.id} ${this.name}`;
-	}
-
-	run(): ProcessReturnCode {
+function* forgetDeadCreeps(): Generator<void, never, never> {
+	while (true) {
 		for (const name in Memory.creeps) {
 			if (!(name in Game.creeps)) {
 				info(`Deleting creep ${name} memory`);
@@ -59,109 +97,64 @@ export class ForgetDeadCreeps implements Process {
 			}
 		}
 
-		return ProcessReturnCode.OkContinue;
+		yield;
 	}
 }
 
-export class SpawnHarvester implements Process {
-	name = ProcessName.SpawnHarvester;
-	id = -1;
-	priority = 0;
-
-	room: Room;
-
-	generator: Generator;
-
-	constructor(room: Room) {
-		this.room = room;
-		this.generator = this._generator();
-		this._spawnId = null;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.room.name}`;
-	}
-
-	_spawnId: Id<StructureSpawn> | null;
-	_spawn?: StructureSpawn;
-	_spawnTick?: number;
-
-	get spawn(): StructureSpawn {
-		if (this._spawn == null || this._spawnTick !== Game.time) {
-			let spawn = null;
-			if (this._spawnId != null) {
-				spawn = Game.getObjectById(this._spawnId);
-				if (spawn == null) {
-					throw new Error(`Unable to get spawn ${this._spawnId}`);
-				}
-			} else {
-				spawn = this.room
-					.find<StructureSpawn>(FIND_MY_STRUCTURES)
-					.filter((s) => s.structureType === STRUCTURE_SPAWN)[0];
-				if (spawn == null) {
-					throw new Error(`Could not find a spawn in room ${this.room.name}`);
-				}
-			}
-			this._spawn = spawn;
-			this._spawnTick = Game.time;
-		}
-		return this._spawn;
-	}
-
-	*_generator(): Generator {
-		let response: ScreepsReturnCode | null = null;
-		let creepName = null;
-		while (response !== OK) {
-			if (this.spawn.spawning == null) {
-				creepName = nextAvailableName("Harvester");
-				response = this.spawn.spawnCreep([WORK, CARRY, MOVE], creepName);
-				info(
-					`Spawning harvester in ${
-						this.room.name
-					} with response ${errorConstant(response)}`,
-				);
-			}
-			yield;
-		}
-
-		if (creepName == null) {
-			throw new Error("Spawn error");
-		}
-		const creep = Game.creeps[creepName];
-		creep.memory.process = global.kernel.spawnProcess(new Harvester(creepName));
-	}
-
-	run(): ProcessReturnCode {
-		const status = this.generator.next();
-		info(`Spawning harvester with status ${JSON.stringify(status)}`);
-		if (status.done) {
-			return ProcessReturnCode.Done;
-		}
-		return ProcessReturnCode.OkContinue;
+export class ForgetDeadCreeps extends Process<void, never> {
+	constructor() {
+		super(ProcessName.ForgetDeadCreeps, forgetDeadCreeps());
 	}
 }
 
-export class ManageRoom implements Process {
-	name = ProcessName.ManageRoom;
-	id = -1;
-	priority = 1;
+function* spawnHarvester(room: Room): Generator<void, void, never> {
+	let response: ScreepsReturnCode | null = null;
+	let creepName = null;
+	while (response !== OK) {
+		const spawn = room.find(FIND_MY_SPAWNS)[0];
+		if (spawn == null) {
+			throw new Error(`Unable to find spawn in room ${room.name}`);
+		}
 
+		if (spawn.spawning == null) {
+			creepName = nextAvailableName("Harvester");
+			response = spawn.spawnCreep([WORK, CARRY, MOVE], creepName);
+			info(
+				`Spawning harvester in ${room.name} with response ${errorConstant(
+					response,
+				)}`,
+			);
+		}
+		yield;
+	}
+
+	if (creepName == null) {
+		throw new Error("Spawn error");
+	}
+	const creep = Game.creeps[creepName];
+	creep.memory.process = global.kernel.spawnProcess(new Harvester(creepName));
+}
+
+export class SpawnHarvester extends Process<void, never> {
 	room: Room;
 
 	constructor(room: Room) {
+		super(ProcessName.SpawnHarvester, spawnHarvester(room));
 		this.room = room;
 	}
 
 	display(): string {
 		return `${this.id} ${this.name} ${this.room.name}`;
 	}
+}
 
-	run(): ProcessReturnCode {
+function* manageRoom(this: ManageRoom): Generator<void, void, never> {
+	while (true) {
 		info(`Managing room ${this.room.name}`);
 
 		if (!this.room.controller?.my) {
 			info(`Not my room, stopping ${this.display()}`);
-			return ProcessReturnCode.Stop;
+			return;
 		}
 
 		const spawn = this.room
@@ -197,245 +190,142 @@ export class ManageRoom implements Process {
 			}
 		});
 
-		return ProcessReturnCode.OkContinue;
+		yield;
 	}
 }
 
-export class Harvester implements Process {
-	name = ProcessName.Harvester;
-	id = -1;
-	priority = 1;
+export class ManageRoom extends Process<void, never> {
+	room: Room;
 
-	generator: Generator;
-
-	_creepName: string;
-	_creep?: Creep;
-	_creepTick?: number;
-
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this._creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this._creepName}`);
-		}
-		return this._creep;
-	}
-
-	constructor(creepName: string) {
-		this._creepName = creepName;
-		this.generator = this._generator();
+	constructor(room: Room) {
+		super(ProcessName.ManageRoom);
+		this.generator = manageRoom.bind(this)();
+		this.room = room;
 	}
 
 	display(): string {
-		return `${this.id} ${this.name} ${this._creepName}`;
+		return `${this.id} ${this.name} ${this.room.name}`;
 	}
+}
 
-	isValid(): boolean {
-		return Game.creeps[this._creepName] != null;
-	}
-
-	*_generator(): Generator {
-		while (true) {
-			while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-				const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-				if (source == null) {
-					throw new Error("No source");
-				}
-
-				let response: ScreepsReturnCode = this.creep.harvest(source);
-				if (response === ERR_NOT_IN_RANGE) {
-					response = this.creep.moveTo(source);
-				}
-
-				yield;
+function* harvester(this: Harvester) {
+	while (true) {
+		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
+			if (source == null) {
+				throw new Error("No source");
 			}
-			while (this.creep.store[RESOURCE_ENERGY] > 0) {
-				const controller = this.creep.room.controller;
-				if (controller == null) {
-					throw new Error("No controller");
-				}
 
-				let response = this.creep.upgradeController(controller);
-				if (response === ERR_NOT_IN_RANGE) {
-					response = this.creep.moveTo(controller);
-				}
-
-				yield;
+			let response: ScreepsReturnCode = this.creep.harvest(source);
+			if (response === ERR_NOT_IN_RANGE) {
+				response = this.creep.moveTo(source);
 			}
-		}
-	}
 
-	run(): ProcessReturnCode {
-		if (!this.isValid()) {
-			warn(`Creep ${this._creepName} no longer exists`);
-			return ProcessReturnCode.Stop;
+			yield;
 		}
+		while (this.creep.store[RESOURCE_ENERGY] > 0) {
+			const controller = this.creep.room.controller;
+			if (controller == null) {
+				throw new Error("No controller");
+			}
 
-		const status = this.generator.next();
-		if (status.value != null) {
-			return status.value;
-		} else if (status.done) {
-			throw new Error(
-				`Process ${this.display()} generator unexpectedly done: ${status}`,
-			);
-		} else {
-			return ProcessReturnCode.OkContinue;
+			let response = this.creep.upgradeController(controller);
+			if (response === ERR_NOT_IN_RANGE) {
+				response = this.creep.moveTo(controller);
+			}
+
+			yield;
 		}
 	}
 }
 
-class Builder implements Process {
-	name = ProcessName.Builder;
-	id = -1;
-	priority = 0;
-
-	generator: Generator;
-
-	_creepName: string;
-	_creep?: Creep;
-	_creepTick?: number;
-
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this._creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this._creepName}`);
-		}
-		return this._creep;
-	}
+export class Harvester extends Process<void, never> {
+	creepName: string;
 
 	constructor(creepName: string) {
-		this._creepName = creepName;
-		this.generator = this._generator();
+		super(ProcessName.Harvester);
+		this.generator = harvester.bind(this)();
+		this.creepName = creepName;
 	}
 
 	display(): string {
-		return `${this.id} ${this.name} ${this._creepName}`;
+		return `${this.id} ${this.name} ${this.creepName}`;
 	}
 
-	isValid(): boolean {
-		return Game.creeps[this._creepName] != null;
-	}
-
-	*_generator(): Generator {
-		let construction: ConstructionSite | null = null;
-		while (true) {
-			while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-				const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-				if (source == null) {
-					throw new Error("No source");
-				}
-
-				let response: ScreepsReturnCode = this.creep.harvest(source);
-				if (response === ERR_NOT_IN_RANGE) {
-					response = this.creep.moveTo(source);
-				}
-
-				yield;
-			}
-			while (this.creep.store[RESOURCE_ENERGY] > 0) {
-				if (construction == null) {
-					construction = this.creep.pos.findClosestByPath(
-						FIND_CONSTRUCTION_SITES,
-					);
-				}
-				if (construction == null) {
-					throw new Error("No construction site found");
-				}
-
-				let response: ScreepsReturnCode = this.creep.build(construction);
-				if (response === ERR_NOT_IN_RANGE) {
-					response = this.creep.moveTo(construction);
-				}
-
-				yield;
-			}
+	_creep?: Creep;
+	_creepTick?: number;
+	get creep(): Creep {
+		if (this._creep == null || this._creepTick !== Game.time) {
+			this._creep = Game.creeps[this.creepName];
+			this._creepTick = Game.time;
 		}
-	}
-
-	run(): ProcessReturnCode {
-		if (!this.isValid()) {
-			warn(`Creep ${this._creepName} no longer exists`);
-			return ProcessReturnCode.Stop;
+		if (this._creep == null) {
+			throw new Error(`Unable to get creep ${this.creepName}`);
 		}
-
-		const status = this.generator.next();
-		if (status.value != null) {
-			return status.value;
-		} else if (status.done) {
-			throw new Error(
-				`Process ${this.display()} generator unexpectedly done: ${status}`,
-			);
-		} else {
-			return ProcessReturnCode.OkContinue;
-		}
+		return this._creep;
 	}
 }
 
-//export class Construct implements Process {
-//name = ProcessName.Construct;
-//id = -1;
-//priority = 1;
+////export class Construct implements Process {
+////name = ProcessName.Construct;
+////id = -1;
+////priority = 1;
 
-//room: Room;
-//builders: string[];
+////room: Room;
+////builders: string[];
 
-//generator: Generator;
+////generator: Generator;
 
-//constructor(room: Room) {
-//this.room = room;
-//this.builders = [];
-//this.generator = this._generator();
-//}
-
-//display(): string {
-//return `${this.id} ${this.name} ${this.room.name}`;
-//}
-
-//*_generator(): Generator {
-//if (!this.room.controller?.my) {
-//info(`Not my room, stopping ${this.display()}`);
-//return ProcessReturnCode.Stop;
-//}
-
-//const sites = this.room.find(FIND_CONSTRUCTION_SITES);
-
-//// If there are sites and *zero* builders, wait on spawning a builder
-//if (sites.length > 0 && this.builders.length === 0) {
-//const spawnBuilderId = global.kernel.spawnProcess(
-//new SpawnBuilder(this.room),
-//);
-//while (global.kernel.hasProcess(spawnBuilderId)) {
-//yield;
-//}
-//}
-
-//// Some future logic about spawning extra builders, idk
-////if (spawn.spawning == null && spawn.store[RESOURCE_ENERGY] > 200) {
-////global.kernel.spawnProcess(new SpawnBuilder(this.room));
+////constructor(room: Room) {
+////this.room = room;
+////this.builders = [];
+////this.generator = this._generator();
 ////}
 
-//const creeps = this.room.find(FIND_MY_CREEPS);
-//creeps.forEach((creep) => {
-//if (
-//creep.memory.process == null ||
-//!global.kernel.hasProcess(creep.memory.process)
-//) {
-//creep.memory.process = global.kernel.spawnProcess(
-//new Harvester(creep.name),
-//);
-//}
-//});
+////display(): string {
+////return `${this.id} ${this.name} ${this.room.name}`;
+////}
 
-//return ProcessReturnCode.OkContinue;
-//}
+///[>_generator(): Generator {
+////if (!this.room.controller?.my) {
+////info(`Not my room, stopping ${this.display()}`);
+////return ProcessReturnCode.Stop;
+////}
 
-//run(): ProcessReturnCode {
-//this.generator.next();
-//return ProcessReturnCode.OkContinue;
-//}
-//}
+////const sites = this.room.find(FIND_CONSTRUCTION_SITES);
+
+////// If there are sites and *zero* builders, wait on spawning a builder
+////if (sites.length > 0 && this.builders.length === 0) {
+////const spawnBuilderId = global.kernel.spawnProcess(
+////new SpawnBuilder(this.room),
+////);
+////while (global.kernel.hasProcess(spawnBuilderId)) {
+////yield;
+////}
+////}
+
+////// Some future logic about spawning extra builders, idk
+//////if (spawn.spawning == null && spawn.store[RESOURCE_ENERGY] > 200) {
+//////global.kernel.spawnProcess(new SpawnBuilder(this.room));
+//////}
+
+////const creeps = this.room.find(FIND_MY_CREEPS);
+////creeps.forEach((creep) => {
+////if (
+////creep.memory.process == null ||
+////!global.kernel.hasProcess(creep.memory.process)
+////) {
+////creep.memory.process = global.kernel.spawnProcess(
+////new Harvester(creep.name),
+////);
+////}
+////});
+
+////return ProcessReturnCode.OkContinue;
+////}
+
+////run(): ProcessReturnCode {
+////this.generator.next();
+////return ProcessReturnCode.OkContinue;
+////}
+////}
