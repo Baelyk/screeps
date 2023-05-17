@@ -471,15 +471,18 @@ export class Construct extends Process<void, never> {
 				// Get current assignment
 				if (assignment != null) {
 					site = Game.getObjectById(assignment);
-					if (
-						site != null &&
-						site.hits > site.hitsMax * 0.8 &&
-						repairs.length > 0
-					) {
-						site = repairs[0];
-					}
 				}
 				// Find new assignment
+				if (site != null && site.hits === site.hitsMax) {
+					site = null;
+				}
+				if (
+					site != null &&
+					site.hits > site.hitsMax * 0.8 &&
+					repairs.length > 0
+				) {
+					site = repairs[0];
+				}
 				if (site == null && repairs.length > 0) {
 					site = repairs[0];
 				}
@@ -487,7 +490,8 @@ export class Construct extends Process<void, never> {
 				// Do something else
 				if (site == null) {
 					if (
-						!global.kernel.hasProcess(Memory.creeps[repairer].process || -1)
+						!global.kernel.hasProcess(Memory.creeps[repairer].process || -1) ||
+						Memory.creeps[repairer].process === this.id
 					) {
 						const oldProcessId = reassignCreep(
 							repairer,
