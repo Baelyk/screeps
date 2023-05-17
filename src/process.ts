@@ -127,9 +127,9 @@ function* spawnCreep(
 			creepName = nextAvailableName(creepNameBase);
 			response = spawn.spawnCreep(body, creepName);
 			info(
-				`Spawning harvester in ${room.name} with response ${errorConstant(
-					response,
-				)}`,
+				`Spawning ${creepNameBase} in ${
+					room.name
+				} with response ${errorConstant(response)}`,
 			);
 		}
 		yield;
@@ -138,14 +138,14 @@ function* spawnCreep(
 	if (creepName == null) {
 		throw new Error("Spawn error");
 	}
-	const creep = Game.creeps[creepName];
-	creep.memory.process = global.kernel.spawnProcess(new Harvester(creepName));
 
 	return creepName;
 }
 
 function* spawnHarvester(room: Room): Generator<void, void, never> {
-	yield* spawnCreep(room, "Harvester", [WORK, MOVE, CARRY]);
+	const creepName = yield* spawnCreep(room, "Harvester", [WORK, MOVE, CARRY]);
+	const creep = Game.creeps[creepName];
+	creep.memory.process = global.kernel.spawnProcess(new Harvester(creepName));
 }
 
 export class SpawnHarvester extends Process<void, never> {
@@ -214,6 +214,9 @@ export class ManageRoom extends Process<void, never> {
 		super(ProcessName.ManageRoom);
 		this.generator = manageRoom.bind(this)();
 		this.room = room;
+
+		// Initial stuff
+		global.kernel.spawnProcess(new Construct(room));
 	}
 
 	display(): string {
@@ -279,73 +282,133 @@ export class Harvester extends Process<void, never> {
 	}
 }
 
-//export class Construct extends Process<void, never> {
-//room: Room;
-//builders: Map<string, Id<ConstructionSite> | undefined>;
+function* builder(this: Builder) {
+	while (true) {
+		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
+			if (source == null) {
+				throw new Error("No source");
+			}
 
-//constructor(room: Room) {
-//super(ProcessName.Construct);
-//this.generator = this._generator();
-//this.room = room;
-//this.builders = new Map();
-//}
+			let response: ScreepsReturnCode = this.creep.harvest(source);
+			if (response === ERR_NOT_IN_RANGE) {
+				response = this.creep.moveTo(source);
+			}
 
-//display(): string {
-//return `${this.id} ${this.name} ${this.room.name}`;
-//}
+			yield;
+		}
+		while (this.creep.store[RESOURCE_ENERGY] > 0) {
+			const site = Game.getObjectById(this.siteId);
+			if (site == null) {
+				throw new Error("No site");
+			}
 
-//*_generator(): Generator<void, void, never> {
-//if (!this.room.controller?.my) {
-//info(`Not my room, stopping ${this.display()}`);
-//return;
-//}
+			let response: ScreepsReturnCode = this.creep.build(site);
+			if (response === ERR_NOT_IN_RANGE) {
+				response = this.creep.moveTo(site);
+			}
 
-//const sites = this.room.find(FIND_CONSTRUCTION_SITES);
+			yield;
+		}
+	}
+}
 
-//// If there are sites and *zero* builders, wait on spawning a builder
-//if (sites.length > 0 && this.builders.size === 0) {
-//const builder = yield* spawnCreep(this.room, "Builder", [
-//WORK,
-//CARRY,
-//MOVE,
-//]);
-//this.builders.push([builder, undefined]);
-//}
+export class Builder extends Process<void, never> {
+	creepName: string;
+	siteId: Id<ConstructionSite>;
 
-//// Some future logic about spawning extra builders, idk
-////if (spawn.spawning == null && spawn.store[RESOURCE_ENERGY] > 200) {
-////global.kernel.spawnProcess(new SpawnBuilder(this.room));
-////}
+	constructor(creepName: string, siteId: Id<ConstructionSite>) {
+		super(ProcessName.Builder);
+		this.generator = builder.bind(this)();
+		this.creepName = creepName;
+		this.siteId = siteId;
+	}
 
-//for (const [builder, assignment] of this.builders) {
-//let site: ConstructionSite | null = null;
-//// Get current assignment
-//if (assignment != null) {
-//site = Game.getObjectById(assignment);
-//}
-//// Find new assignment
-//if (site == null && sites.length > 0) {
-//site = sites[0];
-//}
-//this.builders.set(builder, site?.id);
-//// Move on
-//if (site == null) {
-//continue;
-//}
-//}
+	display(): string {
+		return `${this.id} ${this.name} ${this.creepName}`;
+	}
 
-//const creeps = this.room.find(FIND_MY_CREEPS);
-//creeps.forEach((creep) => {
-//if (
-//creep.memory.process == null ||
-//!global.kernel.hasProcess(creep.memory.process)
-//) {
-//creep.memory.process = global.kernel.spawnProcess(
-//new Harvester(creep.name),
-//);
-//}
-//});
+	_creep?: Creep;
+	_creepTick?: number;
+	get creep(): Creep {
+		if (this._creep == null || this._creepTick !== Game.time) {
+			this._creep = Game.creeps[this.creepName];
+			this._creepTick = Game.time;
+		}
+		if (this._creep == null) {
+			throw new Error(`Unable to get creep ${this.creepName}`);
+		}
+		return this._creep;
+	}
+}
 
-//yield;
-//}
-//}
+export class Construct extends Process<void, never> {
+	room: Room;
+	builders: Map<string, Id<ConstructionSite> | undefined>;
+
+	constructor(room: Room) {
+		super(ProcessName.Construct);
+		this.generator = this._generator();
+		this.room = room;
+		this.builders = new Map();
+	}
+
+	display(): string {
+		return `${this.id} ${this.name} ${this.room.name}`;
+	}
+
+	*_generator(): Generator<void, void, never> {
+		while (true) {
+			if (!this.room.controller?.my) {
+				info(`Not my room, stopping ${this.display()}`);
+				return;
+			}
+
+			const sites = this.room.find(FIND_CONSTRUCTION_SITES);
+
+			// If there are sites and *zero* builders, wait on spawning a builder
+			if (sites.length > 0 && this.builders.size === 0) {
+				const builder = yield* spawnCreep(this.room, "Builder", [
+					WORK,
+					CARRY,
+					MOVE,
+				]);
+				this.builders.set(builder, undefined);
+			}
+
+			// Some future logic about spawning extra builders, idk
+			//if (spawn.spawning == null && spawn.store[RESOURCE_ENERGY] > 200) {
+			//global.kernel.spawnProcess(new SpawnBuilder(this.room));
+			//}
+
+			// Manage building projects
+			for (const [builder, assignment] of this.builders) {
+				let site: ConstructionSite | null = null;
+				// Get current assignment
+				if (assignment != null) {
+					site = Game.getObjectById(assignment);
+				}
+				// Find new assignment
+				if (site == null && sites.length > 0) {
+					site = sites[0];
+				}
+				this.builders.set(builder, site?.id);
+				// Do something else
+				if (site == null) {
+					Memory.creeps[builder].process = global.kernel.spawnProcess(
+						new Harvester(builder),
+					);
+					continue;
+				}
+
+				if (site.id !== assignment) {
+					Memory.creeps[builder].process = global.kernel.spawnProcess(
+						new Builder(builder, site.id),
+					);
+				}
+			}
+
+			yield;
+		}
+	}
+}
