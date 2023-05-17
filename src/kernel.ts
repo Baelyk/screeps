@@ -18,8 +18,7 @@ export class Kernel {
 		kernel.spawnProcess(new ForgetDeadCreeps());
 
 		for (const name in Game.rooms) {
-			const room = Game.rooms[name];
-			kernel.spawnProcess(new ManageRoom(room));
+			kernel.spawnProcess(new ManageRoom(name));
 		}
 
 		return kernel;
@@ -42,10 +41,11 @@ export class Kernel {
 				const { code } = process.run();
 				if (code <= 0) {
 					info(`Process ${process.display()} has stopped with ${code}`);
-					this.processTable.removeProcess(process.id);
+					this.stopProcess(process.id);
 				}
 			} catch (err) {
 				error(`Error while running process:\n${err}`);
+				this.stopProcess(process.id);
 			}
 		}
 	}
@@ -55,11 +55,15 @@ export class Kernel {
 	}
 
 	spawnProcess(process: IProcess): ProcessId {
-		const id = this.getNextId();
+		const id = process.id < 0 ? this.getNextId() : process.id;
 		process.id = id;
 		this.processTable.addProcess(process);
 		this.scheduler.addProcess(process);
 		return id;
+	}
+
+	stopProcess(processId: ProcessId): void {
+		this.processTable.removeProcess(processId);
 	}
 
 	hasProcess(id: ProcessId): boolean {
