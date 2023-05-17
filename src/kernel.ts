@@ -1,9 +1,17 @@
 import { info, error, tick as logTick } from "./utils/logger";
 import { ProcessTable } from "./processTable";
-import { IProcess, ProcessId, ForgetDeadCreeps, ManageRoom } from "./process";
+import {
+	IProcess,
+	ProcessId,
+	IMessage,
+	MessageId,
+	ForgetDeadCreeps,
+	ManageRoom,
+} from "./process";
 import { Scheduler } from "./scheduler";
 
 export class Kernel {
+	nextMessageId = 0;
 	processTable = new ProcessTable();
 	scheduler = new Scheduler(this.processTable);
 
@@ -52,6 +60,20 @@ export class Kernel {
 
 	getNextId(): ProcessId {
 		return this.processTable.getNextId();
+	}
+
+	getNextMessageId(): MessageId {
+		return this.nextMessageId++;
+	}
+
+	sendMessage(message: IMessage): void {
+		const recipient = this.processTable.getProcess(message.to);
+		if (recipient == null) {
+			error(`Unable to send message to ${message.to}`);
+			return;
+		}
+
+		recipient.receiveMessage(message);
 	}
 
 	spawnProcess(process: IProcess): ProcessId {

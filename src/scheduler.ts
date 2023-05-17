@@ -1,24 +1,24 @@
-import { Process } from "./process";
+import { IProcess } from "./process";
 import { ProcessTable } from "./processTable";
 
 export class Scheduler {
-  processTable: ProcessTable;
-  processes: Process[];
+	processTable: ProcessTable;
+	processes: IProcess[];
 
-  constructor(processTable: ProcessTable) {
-    this.processTable = processTable;
-    this.processes = processTable.getAllProcesses();
-  }
+	constructor(processTable: ProcessTable) {
+		this.processTable = processTable;
+		this.processes = processTable.getAllProcesses();
+	}
 
-  update(): void {
-    this.processes = this.processTable.getAllProcesses();
-  }
+	update(): void {
+		this.processes = this.processTable.getAllProcesses();
+	}
 
-  addProcess(process: Process): void {
-    this.processes.push(process);
-  }
+	addProcess(process: IProcess): void {
+		this.processes.push(process);
+	}
 
-  next(): Process | undefined {
-    return this.processes.shift();
-  }
+	next(): IProcess | undefined {
+		return this.processes.shift();
+	}
 }
