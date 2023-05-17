@@ -39,7 +39,7 @@ export class Kernel {
 
 			try {
 				info(`Running process ${process.display()}`);
-				const code = process.run();
+				const { code } = process.run();
 				if (code <= 0) {
 					info(`Process ${process.display()} has stopped with ${code}`);
 					this.processTable.removeProcess(process.id);

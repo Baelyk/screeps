@@ -57,7 +57,10 @@ class Process<Output, Input> implements IProcess {
 		return `${this.id} ${this.name}`;
 	}
 
-	[Symbol.iterator]() {
+	[Symbol.iterator](): Generator<Output, Output, Input> {
+		if (this.generator == null) {
+			throw new Error("Iterating through Generatorless Process");
+		}
 		return this.generator;
 	}
 
@@ -107,7 +110,11 @@ export class ForgetDeadCreeps extends Process<void, never> {
 	}
 }
 
-function* spawnHarvester(room: Room): Generator<void, void, never> {
+function* spawnCreep(
+	room: Room,
+	creepNameBase: string,
+	body: BodyPartConstant[],
+): Generator<void, string, never> {
 	let response: ScreepsReturnCode | null = null;
 	let creepName = null;
 	while (response !== OK) {
@@ -117,8 +124,8 @@ function* spawnHarvester(room: Room): Generator<void, void, never> {
 		}
 
 		if (spawn.spawning == null) {
-			creepName = nextAvailableName("Harvester");
-			response = spawn.spawnCreep([WORK, CARRY, MOVE], creepName);
+			creepName = nextAvailableName(creepNameBase);
+			response = spawn.spawnCreep(body, creepName);
 			info(
 				`Spawning harvester in ${room.name} with response ${errorConstant(
 					response,
@@ -133,6 +140,12 @@ function* spawnHarvester(room: Room): Generator<void, void, never> {
 	}
 	const creep = Game.creeps[creepName];
 	creep.memory.process = global.kernel.spawnProcess(new Harvester(creepName));
+
+	return creepName;
+}
+
+function* spawnHarvester(room: Room): Generator<void, void, never> {
+	yield* spawnCreep(room, "Harvester", [WORK, MOVE, CARRY]);
 }
 
 export class SpawnHarvester extends Process<void, never> {
@@ -266,66 +279,73 @@ export class Harvester extends Process<void, never> {
 	}
 }
 
-////export class Construct implements Process {
-////name = ProcessName.Construct;
-////id = -1;
-////priority = 1;
+//export class Construct extends Process<void, never> {
+//room: Room;
+//builders: Map<string, Id<ConstructionSite> | undefined>;
 
-////room: Room;
-////builders: string[];
+//constructor(room: Room) {
+//super(ProcessName.Construct);
+//this.generator = this._generator();
+//this.room = room;
+//this.builders = new Map();
+//}
 
-////generator: Generator;
+//display(): string {
+//return `${this.id} ${this.name} ${this.room.name}`;
+//}
 
-////constructor(room: Room) {
-////this.room = room;
-////this.builders = [];
-////this.generator = this._generator();
+//*_generator(): Generator<void, void, never> {
+//if (!this.room.controller?.my) {
+//info(`Not my room, stopping ${this.display()}`);
+//return;
+//}
+
+//const sites = this.room.find(FIND_CONSTRUCTION_SITES);
+
+//// If there are sites and *zero* builders, wait on spawning a builder
+//if (sites.length > 0 && this.builders.size === 0) {
+//const builder = yield* spawnCreep(this.room, "Builder", [
+//WORK,
+//CARRY,
+//MOVE,
+//]);
+//this.builders.push([builder, undefined]);
+//}
+
+//// Some future logic about spawning extra builders, idk
+////if (spawn.spawning == null && spawn.store[RESOURCE_ENERGY] > 200) {
+////global.kernel.spawnProcess(new SpawnBuilder(this.room));
 ////}
 
-////display(): string {
-////return `${this.id} ${this.name} ${this.room.name}`;
-////}
+//for (const [builder, assignment] of this.builders) {
+//let site: ConstructionSite | null = null;
+//// Get current assignment
+//if (assignment != null) {
+//site = Game.getObjectById(assignment);
+//}
+//// Find new assignment
+//if (site == null && sites.length > 0) {
+//site = sites[0];
+//}
+//this.builders.set(builder, site?.id);
+//// Move on
+//if (site == null) {
+//continue;
+//}
+//}
 
-///[>_generator(): Generator {
-////if (!this.room.controller?.my) {
-////info(`Not my room, stopping ${this.display()}`);
-////return ProcessReturnCode.Stop;
-////}
+//const creeps = this.room.find(FIND_MY_CREEPS);
+//creeps.forEach((creep) => {
+//if (
+//creep.memory.process == null ||
+//!global.kernel.hasProcess(creep.memory.process)
+//) {
+//creep.memory.process = global.kernel.spawnProcess(
+//new Harvester(creep.name),
+//);
+//}
+//});
 
-////const sites = this.room.find(FIND_CONSTRUCTION_SITES);
-
-////// If there are sites and *zero* builders, wait on spawning a builder
-////if (sites.length > 0 && this.builders.length === 0) {
-////const spawnBuilderId = global.kernel.spawnProcess(
-////new SpawnBuilder(this.room),
-////);
-////while (global.kernel.hasProcess(spawnBuilderId)) {
-////yield;
-////}
-////}
-
-////// Some future logic about spawning extra builders, idk
-//////if (spawn.spawning == null && spawn.store[RESOURCE_ENERGY] > 200) {
-//////global.kernel.spawnProcess(new SpawnBuilder(this.room));
-//////}
-
-////const creeps = this.room.find(FIND_MY_CREEPS);
-////creeps.forEach((creep) => {
-////if (
-////creep.memory.process == null ||
-////!global.kernel.hasProcess(creep.memory.process)
-////) {
-////creep.memory.process = global.kernel.spawnProcess(
-////new Harvester(creep.name),
-////);
-////}
-////});
-
-////return ProcessReturnCode.OkContinue;
-////}
-
-////run(): ProcessReturnCode {
-////this.generator.next();
-////return ProcessReturnCode.OkContinue;
-////}
-////}
+//yield;
+//}
+//}
