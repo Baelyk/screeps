@@ -294,21 +294,27 @@ export class ManageRoom extends Process<void, never> {
 	}
 }
 
+function* harvest(this: { creep: Creep }) {
+	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+		const source = this.creep.pos.findClosestByPath(FIND_SOURCES, {
+			filter: (source) => source.energy > 0,
+		});
+		if (source == null) {
+			throw new Error("No source");
+		}
+
+		let response: ScreepsReturnCode = this.creep.harvest(source);
+		if (response === ERR_NOT_IN_RANGE) {
+			response = this.creep.moveTo(source);
+		}
+
+		yield;
+	}
+}
+
 function* harvester(this: Harvester) {
 	while (true) {
-		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-			if (source == null) {
-				throw new Error("No source");
-			}
-
-			let response: ScreepsReturnCode = this.creep.harvest(source);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(source);
-			}
-
-			yield;
-		}
+		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const controller = this.creep.room.controller;
 			if (controller == null) {
@@ -354,19 +360,7 @@ export class Harvester extends Process<void, never> {
 
 function* builder(this: Builder) {
 	while (true) {
-		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-			if (source == null) {
-				throw new Error("No source");
-			}
-
-			let response: ScreepsReturnCode = this.creep.harvest(source);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(source);
-			}
-
-			yield;
-		}
+		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const site = Game.getObjectById(this.siteId);
 			if (site == null) {
@@ -414,19 +408,7 @@ export class Builder extends Process<void, never> {
 
 function* repairer(this: Repairer) {
 	while (true) {
-		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-			if (source == null) {
-				throw new Error("No source");
-			}
-
-			let response: ScreepsReturnCode = this.creep.harvest(source);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(source);
-			}
-
-			yield;
-		}
+		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const site = Game.getObjectById(this.siteId);
 			if (site == null) {
@@ -677,19 +659,7 @@ export class Construct extends Process<void, never> {
 
 function* tender(this: Tender) {
 	while (true) {
-		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-			if (source == null) {
-				throw new Error("No source");
-			}
-
-			let response: ScreepsReturnCode = this.creep.harvest(source);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(source);
-			}
-
-			yield;
-		}
+		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const target = this.creep.room
 				.find(FIND_MY_STRUCTURES)
@@ -883,19 +853,7 @@ export class ManageSpawns extends Process<void, never> {
 
 function* upgrader(this: Upgrader) {
 	while (true) {
-		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-			const source = this.creep.pos.findClosestByPath(FIND_SOURCES);
-			if (source == null) {
-				throw new Error("No source");
-			}
-
-			let response: ScreepsReturnCode = this.creep.harvest(source);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(source);
-			}
-
-			yield;
-		}
+		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const controller = this.creep.room.controller;
 			if (controller == null) {
