@@ -33,6 +33,7 @@ enum ProcessName {
 	Tender = "Tender",
 	ManageSpawns = "ManageSpawns",
 	Upgrader = "Upgrader",
+	Economy = "Economy",
 }
 
 enum ProcessReturnCode {
@@ -236,7 +237,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 				warn(`Creating process for to ${creep.name}`);
 				reassignCreep(
 					creep.name,
-					global.kernel.spawnProcess(new Harvester(creep.name)),
+					global.kernel.spawnProcess(new Tender(creep.name)),
 				);
 			}
 		});
@@ -270,6 +271,9 @@ export class ManageRoom extends RoomProcess<void, never> {
 		);
 		this.constructId = global.kernel.spawnProcess(
 			new Construct(roomName, this.id, this.manageSpawnsId),
+		);
+		this.constructId = global.kernel.spawnProcess(
+			new Economy(roomName, this.id, this.manageSpawnsId),
 		);
 	}
 
@@ -329,13 +333,40 @@ export class ManageRoom extends RoomProcess<void, never> {
 	}
 }
 
+function* getEnergy(this: { creep: Creep }, allowStorage = true) {
+	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+		const target = this.creep.pos.findClosestByPath(FIND_STRUCTURES, {
+			filter: (s) =>
+				((s.structureType === STRUCTURE_STORAGE && allowStorage) ||
+					s.structureType === STRUCTURE_CONTAINER) &&
+				s.store[RESOURCE_ENERGY] > 0,
+		});
+		if (target == null) {
+			yield* harvest.bind(this)();
+			return;
+		}
+
+		let response: ScreepsReturnCode = this.creep.withdraw(
+			target,
+			RESOURCE_ENERGY,
+		);
+		if (response === ERR_NOT_IN_RANGE) {
+			response = this.creep.moveTo(target);
+		}
+
+		yield;
+	}
+}
+
 function* harvest(this: { creep: Creep }) {
 	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
 		const source = this.creep.pos.findClosestByPath(FIND_SOURCES, {
 			filter: (source) => source.energy > 0,
 		});
 		if (source == null) {
-			throw new Error("No source");
+			// Not sure what the best way to handle being unable to get energy is.
+			yield;
+			return;
 		}
 
 		let response: ScreepsReturnCode = this.creep.harvest(source);
@@ -388,7 +419,7 @@ function* builder(this: Builder) {
 
 			yield;
 		}
-		yield* harvest.bind(this)();
+		yield* getEnergy.bind(this)();
 	}
 }
 
@@ -423,7 +454,7 @@ function* repairer(this: Repairer) {
 
 			yield;
 		}
-		yield* harvest.bind(this)();
+		yield* getEnergy.bind(this)();
 	}
 }
 
@@ -634,16 +665,17 @@ export class Construct extends RoomProcess<void, never> {
 
 function* tender(this: Tender) {
 	while (true) {
-		yield* harvest.bind(this)();
+		yield* getEnergy.bind(this)(false);
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const target = this.creep.room
-				.find(FIND_MY_STRUCTURES)
-				.filter(
-					(s) =>
-						(s.structureType === STRUCTURE_SPAWN ||
-							s.structureType === STRUCTURE_EXTENSION) &&
-						s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
-				)[0];
+			let target =
+				this.creep.room
+					.find(FIND_MY_STRUCTURES)
+					.filter(
+						(s) =>
+							(s.structureType === STRUCTURE_SPAWN ||
+								s.structureType === STRUCTURE_EXTENSION) &&
+							s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
+					)[0] || this.creep.room.storage;
 			if (target == null) {
 				yield;
 			}
@@ -671,11 +703,13 @@ function* manageSpawns(this: ManageSpawns): Generator<void, void, never> {
 		while (this.queue.length === 0) {
 			yield;
 		}
-		const [creepName, body, message] = this.queue[0];
-
 		let response: ScreepsReturnCode | null = null;
 		let spawnedName = null;
+		let message = null;
 		while (response !== OK) {
+			const [creepName, body, queueMessage] = this.queue[0];
+			message = queueMessage;
+
 			const spawn = this.room.find(FIND_MY_SPAWNS)[0];
 			if (spawn == null) {
 				throw new Error(`Unable to find spawn in room ${this.room.name}`);
@@ -803,7 +837,7 @@ export class ManageSpawns extends RoomProcess<void, never> {
 
 function* upgrader(this: Upgrader) {
 	while (true) {
-		yield* harvest.bind(this)();
+		yield* getEnergy.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const controller = this.creep.room.controller;
 			if (controller == null) {
@@ -824,5 +858,196 @@ export class Upgrader extends CreepProcess<void, never> {
 	constructor(creepName: string) {
 		super(ProcessName.Upgrader, creepName);
 		this.generator = upgrader.bind(this)();
+	}
+}
+
+class Economy extends RoomProcess<void, never> {
+	manageRoomId: ProcessId;
+	manageSpawnsId: ProcessId;
+
+	sources: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
+	spawnRequests: Map<MessageId, Id<StructureContainer>>;
+
+	constructor(
+		roomName: string,
+		manageRoomId: ProcessId,
+		manageSpawnsId: ProcessId,
+	) {
+		super(ProcessName.Economy, roomName);
+		this.generator = this.economy();
+		this.manageRoomId = manageRoomId;
+		this.manageSpawnsId = manageSpawnsId;
+
+		this.sources = new Map();
+		this.spawnRequests = new Map();
+	}
+
+	*economy() {
+		while (true) {
+			// Find source containers
+			if (this.sources.size === 0 || Game.time % 100 === 0) {
+				this.room
+					.find(FIND_SOURCES)
+					.map((source) => {
+						const container = source.pos
+							.findInRange(FIND_STRUCTURES, 1)
+							.find((s) => s.structureType === STRUCTURE_CONTAINER) as
+							| StructureContainer
+							| undefined;
+						return [source, container];
+					})
+					.filter(([_, c]) => c != null)
+					.forEach(([s, c]) => {
+						const sourceId = s!.id as Id<Source>;
+						const container = c as StructureContainer;
+						const oldSourceMiner = this.sources.get(container.id);
+						const [oldSource, minerName] =
+							oldSourceMiner != null ? oldSourceMiner : [null, null];
+						if (oldSourceMiner != null && oldSource !== sourceId) {
+							warn(
+								`Sources ${oldSource} and ${sourceId} sharing container ${container.id}`,
+							);
+						}
+						this.sources.set(container.id, [sourceId, minerName]);
+					});
+			}
+
+			// Source mining
+			for (const [containerId, [sourceId, minerName]] of this.sources) {
+				const container = Game.getObjectById(containerId);
+				if (container == null) {
+					warn(`Missing container ${containerId}`);
+					this.sources.delete(containerId);
+					continue;
+				}
+
+				const miner = Game.creeps[minerName || ""];
+				if (miner == null || minerName == null) {
+					if (
+						!Iterators.some(this.spawnRequests, ([_, v]) => v === containerId)
+					) {
+						this.requestSpawn("Miner", containerId);
+					}
+					continue;
+				}
+
+				if (!miner.pos.isEqualTo(container.pos)) {
+					miner.moveTo(container.pos);
+					continue;
+				}
+
+				// Mine the source or, if the source is empty, repair the container
+				const source = Game.getObjectById(sourceId);
+				if (source == null) {
+					error(`Missing source for ${containerId}`);
+					this.sources.delete(containerId);
+					continue;
+				}
+				if (source.energy > 0 && container.store.getFreeCapacity() > 0) {
+					const response = miner.harvest(source);
+					if (response !== OK) {
+						warn(`Miner harvesting with ${errorConstant(response)}`);
+					}
+					continue;
+				}
+
+				if (container.hits < container.hitsMax) {
+					if (miner.store[RESOURCE_ENERGY] > 0) {
+						miner.repair(container);
+						continue;
+					} else if (container.store[RESOURCE_ENERGY] > 0) {
+						miner.withdraw(container, RESOURCE_ENERGY);
+						continue;
+					}
+				}
+
+				const pile = miner.pos
+					.lookFor(LOOK_RESOURCES)
+					.find((pile) => pile.resourceType === RESOURCE_ENERGY);
+				if (pile != null) {
+					if (miner.store.getFreeCapacity() > 0) {
+						miner.pickup(pile);
+						continue;
+					} else if (container.store.getFreeCapacity() > 0) {
+						miner.transfer(container, RESOURCE_ENERGY);
+						continue;
+					}
+				}
+			}
+
+			yield;
+		}
+	}
+	receiveMessage(message: IMessage): void {
+		if (message instanceof CreepSpawned) {
+			const containerId = this.spawnRequests.get(message.requestId);
+			if (containerId == null) {
+				warn(
+					`Unexpectedly received message about unrequested creep: ${JSON.stringify(
+						message,
+					)}`,
+				);
+			}
+
+			if (message.creepName == null) {
+				warn(`Creep request ${message.requestId} went awry`);
+			} else if (containerId != null) {
+				const [sourceId] = this.sources.get(containerId) || [null];
+				if (sourceId == null) {
+					error(
+						`Container ${containerId} doesn't have source for ${message.creepName}`,
+					);
+					return;
+				}
+				this.sources.set(containerId, [sourceId, message.creepName]);
+				reassignCreep(message.creepName, this.id);
+			}
+
+			this.spawnRequests.delete(message.requestId);
+		} else {
+			super.receiveMessage(message);
+		}
+	}
+
+	requestSpawn(creepName: string, containerId: Id<StructureContainer>): void {
+		const request = new SpawnRequest(
+			this.id,
+			this.manageSpawnsId,
+			creepName,
+			this.minerBody(),
+		);
+		this.spawnRequests.set(request.id, containerId);
+		global.kernel.sendMessage(request);
+	}
+
+	minerBody(): BodyPartConstant[] {
+		let energy = this.room.energyCapacityAvailable;
+		if (
+			energy >
+			BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
+		) {
+			// Enough energy to use segmented miner
+			return ([CARRY] as BodyPartConstant[]).concat(
+				bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
+			);
+		} else {
+			// Prioritize work parts over move parts
+			energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
+			const body: BodyPartConstant[] = [CARRY, MOVE];
+			// The capacity minus the carry and move part cost divided by the work part cost
+			const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
+			energy -= workParts * BODYPART_COST[WORK];
+			const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
+			info(
+				`${this.room.energyCapacityAvailable} ${workParts} ${additionalMoves} ${energy}`,
+			);
+			for (let i = 0; i < additionalMoves; i++) {
+				body.push(MOVE);
+			}
+			for (let i = 0; i < workParts; i++) {
+				body.push(WORK);
+			}
+			return body;
+		}
 	}
 }
