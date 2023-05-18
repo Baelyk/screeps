@@ -197,7 +197,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 }
 
 export class ManageRoom extends Process<void, never> {
-	room: Room;
+	roomName: string;
 
 	manageSpawnsId: ProcessId;
 	constructId: ProcessId;
@@ -207,10 +207,19 @@ export class ManageRoom extends Process<void, never> {
 	tenderName: string | null = null;
 	upgraderName: string | null = null;
 
+	get room(): Room {
+		const room = Game.rooms[this.roomName];
+		if (room == null) {
+			throw new Error("Room not visible");
+		}
+
+		return room;
+	}
+
 	constructor(roomName: string) {
 		super(ProcessName.ManageRoom);
 		this.generator = manageRoom.bind(this)();
-		this.room = Game.rooms[roomName];
+		this.roomName = roomName;
 
 		if (this.room == null) {
 			throw new Error("Room not visible");
@@ -466,13 +475,23 @@ export class Repairer extends Process<void, never> {
 }
 
 export class Construct extends Process<void, never> {
-	room: Room;
+	roomName: string;
+
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
 	builders: Map<string, Id<ConstructionSite> | undefined>;
 	repairers: Map<string, Id<Structure> | undefined>;
 	spawnRequests: Map<MessageId, "builder" | "repairer">;
+
+	get room(): Room {
+		const room = Game.rooms[this.roomName];
+		if (room == null) {
+			throw new Error("Room not visible");
+		}
+
+		return room;
+	}
 
 	constructor(
 		roomName: string,
@@ -481,7 +500,7 @@ export class Construct extends Process<void, never> {
 	) {
 		super(ProcessName.Construct);
 		this.generator = this._generator();
-		this.room = Game.rooms[roomName];
+		this.roomName = roomName;
 		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
@@ -650,11 +669,7 @@ export class Construct extends Process<void, never> {
 	}
 
 	requestSpawn(creepName: string, role: "builder" | "repairer"): void {
-		const request = new SpawnRequest(this.id, this.manageSpawnsId, creepName, [
-			WORK,
-			CARRY,
-			MOVE,
-		]);
+		const request = new SpawnRequest(this.id, this.manageSpawnsId, creepName);
 		this.spawnRequests.set(request.id, role);
 		global.kernel.sendMessage(request);
 	}
@@ -767,6 +782,7 @@ function* manageSpawns(this: ManageSpawns): Generator<void, void, never> {
 }
 
 function genericBody(energy: number): BodyPartConstant[] {
+	info(`Generating generic body with ${energy} energy`);
 	return bodyFromSegments([MOVE, WORK, CARRY], energy);
 }
 
@@ -822,14 +838,23 @@ type ManageSpawnsQueueItem = [
 	{ id: MessageId; from: ProcessId } | null,
 ];
 export class ManageSpawns extends Process<void, never> {
-	room: Room;
+	roomName: string;
 
 	queue: ManageSpawnsQueueItem[];
+
+	get room(): Room {
+		const room = Game.rooms[this.roomName];
+		if (room == null) {
+			throw new Error("Room not visible");
+		}
+
+		return room;
+	}
 
 	constructor(roomName: string) {
 		super(ProcessName.ManageSpawns);
 		this.generator = manageSpawns.bind(this)();
-		this.room = Game.rooms[roomName];
+		this.roomName = roomName;
 
 		this.queue = [];
 
