@@ -94,6 +94,54 @@ class Process<Output, Input> implements IProcess {
 	}
 }
 
+export class CreepProcess<Output, Input> extends Process<Output, Input> {
+	creepName: string;
+
+	constructor(name: ProcessName, creepName: string) {
+		super(name);
+		this.creepName = creepName;
+	}
+
+	display(): string {
+		return `${this.id} ${this.name} ${this.creepName}`;
+	}
+
+	_creep?: Creep;
+	_creepTick?: number;
+	get creep(): Creep {
+		if (this._creep == null || this._creepTick !== Game.time) {
+			this._creep = Game.creeps[this.creepName];
+			this._creepTick = Game.time;
+		}
+		if (this._creep == null) {
+			throw new Error(`Unable to get creep ${this.creepName}`);
+		}
+		return this._creep;
+	}
+}
+
+export class RoomProcess<Output, Input> extends Process<Output, Input> {
+	roomName: string;
+
+	constructor(name: ProcessName, roomName: string) {
+		super(name);
+		this.roomName = roomName;
+	}
+
+	get room(): Room {
+		const room = Game.rooms[this.roomName];
+		if (room == null) {
+			throw new Error("Room not visible");
+		}
+
+		return room;
+	}
+
+	display(): string {
+		return `${this.id} ${this.name} ${this.room.name}`;
+	}
+}
+
 declare global {
 	interface CreepMemory {
 		process?: ProcessId;
@@ -197,9 +245,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 	}
 }
 
-export class ManageRoom extends Process<void, never> {
-	roomName: string;
-
+export class ManageRoom extends RoomProcess<void, never> {
 	manageSpawnsId: ProcessId;
 	constructId: ProcessId;
 
@@ -208,19 +254,9 @@ export class ManageRoom extends Process<void, never> {
 	tenderName: string | null = null;
 	upgraderName: string | null = null;
 
-	get room(): Room {
-		const room = Game.rooms[this.roomName];
-		if (room == null) {
-			throw new Error("Room not visible");
-		}
-
-		return room;
-	}
-
 	constructor(roomName: string) {
-		super(ProcessName.ManageRoom);
+		super(ProcessName.ManageRoom, roomName);
 		this.generator = manageRoom.bind(this)();
-		this.roomName = roomName;
 
 		if (this.room == null) {
 			throw new Error("Room not visible");
@@ -235,10 +271,6 @@ export class ManageRoom extends Process<void, never> {
 		this.constructId = global.kernel.spawnProcess(
 			new Construct(roomName, this.id, this.manageSpawnsId),
 		);
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.room.name}`;
 	}
 
 	receiveMessage(message: IMessage): void {
@@ -334,30 +366,10 @@ function* harvester(this: Harvester) {
 	}
 }
 
-export class Harvester extends Process<void, never> {
-	creepName: string;
-
+export class Harvester extends CreepProcess<void, never> {
 	constructor(creepName: string) {
-		super(ProcessName.Harvester);
+		super(ProcessName.Harvester, creepName);
 		this.generator = harvester.bind(this)();
-		this.creepName = creepName;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.creepName}`;
-	}
-
-	_creep?: Creep;
-	_creepTick?: number;
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this.creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
-		}
-		return this._creep;
 	}
 }
 
@@ -380,32 +392,17 @@ function* builder(this: Builder) {
 	}
 }
 
-export class Builder extends Process<void, never> {
-	creepName: string;
+export class Builder extends CreepProcess<void, never> {
 	siteId: Id<ConstructionSite>;
 
 	constructor(creepName: string, siteId: Id<ConstructionSite>) {
-		super(ProcessName.Builder);
+		super(ProcessName.Builder, creepName);
 		this.generator = builder.bind(this)();
-		this.creepName = creepName;
 		this.siteId = siteId;
 	}
 
 	display(): string {
 		return `${this.id} ${this.name} ${this.creepName} ${this.siteId.slice(-4)}`;
-	}
-
-	_creep?: Creep;
-	_creepTick?: number;
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this.creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
-		}
-		return this._creep;
 	}
 }
 
@@ -430,38 +427,21 @@ function* repairer(this: Repairer) {
 	}
 }
 
-export class Repairer extends Process<void, never> {
-	creepName: string;
+export class Repairer extends CreepProcess<void, never> {
 	siteId: Id<Structure>;
 
 	constructor(creepName: string, siteId: Id<Structure>) {
-		super(ProcessName.Repairer);
+		super(ProcessName.Repairer, creepName);
 		this.generator = repairer.bind(this)();
-		this.creepName = creepName;
 		this.siteId = siteId;
 	}
 
 	display(): string {
 		return `${this.id} ${this.name} ${this.creepName} ${this.siteId.slice(-4)}`;
 	}
-
-	_creep?: Creep;
-	_creepTick?: number;
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this.creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
-		}
-		return this._creep;
-	}
 }
 
-export class Construct extends Process<void, never> {
-	roomName: string;
-
+export class Construct extends RoomProcess<void, never> {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
@@ -469,33 +449,19 @@ export class Construct extends Process<void, never> {
 	repairers: Map<string, Id<Structure> | undefined>;
 	spawnRequests: Map<MessageId, "builder" | "repairer">;
 
-	get room(): Room {
-		const room = Game.rooms[this.roomName];
-		if (room == null) {
-			throw new Error("Room not visible");
-		}
-
-		return room;
-	}
-
 	constructor(
 		roomName: string,
 		manageRoomId: ProcessId,
 		manageSpawnsId: ProcessId,
 	) {
-		super(ProcessName.Construct);
+		super(ProcessName.Construct, roomName);
 		this.generator = this._generator();
-		this.roomName = roomName;
 		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
 		this.builders = new Map();
 		this.repairers = new Map();
 		this.spawnRequests = new Map();
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.room.name}`;
 	}
 
 	*_generator(): Generator<void, void, never> {
@@ -692,30 +658,11 @@ function* tender(this: Tender) {
 	}
 }
 
-export class Tender extends Process<void, never> {
-	creepName: string;
-
+export class Tender extends CreepProcess<void, never> {
 	constructor(creepName: string) {
-		super(ProcessName.Tender);
+		super(ProcessName.Tender, creepName);
 		this.generator = tender.bind(this)();
 		this.creepName = creepName;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.creepName}`;
-	}
-
-	_creep?: Creep;
-	_creepTick?: number;
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this.creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
-		}
-		return this._creep;
 	}
 }
 
@@ -819,22 +766,13 @@ type ManageSpawnsQueueItem = [
 	BodyPartConstant[],
 	{ id: MessageId; from: ProcessId } | null,
 ];
-export class ManageSpawns extends Process<void, never> {
+export class ManageSpawns extends RoomProcess<void, never> {
 	roomName: string;
 
 	queue: ManageSpawnsQueueItem[];
 
-	get room(): Room {
-		const room = Game.rooms[this.roomName];
-		if (room == null) {
-			throw new Error("Room not visible");
-		}
-
-		return room;
-	}
-
 	constructor(roomName: string) {
-		super(ProcessName.ManageSpawns);
+		super(ProcessName.ManageSpawns, roomName);
 		this.generator = manageSpawns.bind(this)();
 		this.roomName = roomName;
 
@@ -843,10 +781,6 @@ export class ManageSpawns extends Process<void, never> {
 		if (this.room == null) {
 			throw new Error("Room not visible");
 		}
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.room.name}`;
 	}
 
 	receiveMessage(message: IMessage): void {
@@ -886,29 +820,9 @@ function* upgrader(this: Upgrader) {
 	}
 }
 
-export class Upgrader extends Process<void, never> {
-	creepName: string;
-
+export class Upgrader extends CreepProcess<void, never> {
 	constructor(creepName: string) {
-		super(ProcessName.Upgrader);
+		super(ProcessName.Upgrader, creepName);
 		this.generator = upgrader.bind(this)();
-		this.creepName = creepName;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.creepName}`;
-	}
-
-	_creep?: Creep;
-	_creepTick?: number;
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this.creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
-		}
-		return this._creep;
 	}
 }
