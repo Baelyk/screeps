@@ -144,6 +144,7 @@ function tendRoom(this: ManageRoom): void {
 				"Tender",
 				"tender",
 				genericBody(Math.max(this.room.energyAvailable, 300)),
+				true,
 			);
 		}
 		return;
@@ -282,12 +283,14 @@ export class ManageRoom extends Process<void, never> {
 		creepName: string,
 		role: "harvester" | "tender" | "upgrader",
 		body?: BodyPartConstant[],
+		important?: boolean,
 	): void {
 		const request = new SpawnRequest(
 			this.id,
 			this.manageSpawnsId,
 			creepName,
 			body,
+			important,
 		);
 		this.spawnRequests.set(request.id, role);
 		global.kernel.sendMessage(request);
@@ -502,7 +505,6 @@ export class Construct extends Process<void, never> {
 				return;
 			}
 
-			const sites = this.room.find(FIND_CONSTRUCTION_SITES);
 			const repairs = this.room
 				.find(FIND_STRUCTURES)
 				.filter((s) => s.hits < s.hitsMax * 0.75);
@@ -571,8 +573,15 @@ export class Construct extends Process<void, never> {
 				}
 			}
 
-			// If there are sites and *zero* builders, wait on spawning a builder
-			if (sites.length > 0 && this.builders.size === 0) {
+			const sites = this.room.find(FIND_CONSTRUCTION_SITES);
+			const energy = sites.reduce(
+				(energy, site) => energy + site.progressTotal - site.progress,
+				0,
+			);
+			// Source: I made it up
+			const desiredBuilders = Math.max(1, Math.min(5, energy / 10000));
+			// Spawn more builders if below desired number
+			if (sites.length > 0 && this.builders.size < desiredBuilders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "builder")) {
 					this.requestSpawn("Builder", "builder");
 				}
@@ -786,12 +795,14 @@ export class SpawnRequest implements IMessage {
 
 	creepName: string;
 	body: BodyPartConstant[] | null;
+	important: boolean;
 
 	constructor(
 		from: ProcessId,
 		to: ProcessId,
 		creepName: string,
 		body?: BodyPartConstant[],
+		important?: boolean,
 	) {
 		this.id = global.kernel.getNextMessageId();
 		this.from = from;
@@ -799,6 +810,7 @@ export class SpawnRequest implements IMessage {
 
 		this.creepName = creepName;
 		this.body = body || null;
+		this.important = important || false;
 	}
 }
 
@@ -844,7 +856,11 @@ export class ManageSpawns extends Process<void, never> {
 			if (body == null) {
 				body = genericBody(this.room.energyCapacityAvailable);
 			}
-			this.queue.push([message.creepName, body, message]);
+			if (message.important) {
+				this.queue.unshift([message.creepName, body, message]);
+			} else {
+				this.queue.push([message.creepName, body, message]);
+			}
 		} else {
 			super.receiveMessage(message);
 		}
