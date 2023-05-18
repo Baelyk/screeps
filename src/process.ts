@@ -363,7 +363,6 @@ export class Harvester extends Process<void, never> {
 
 function* builder(this: Builder) {
 	while (true) {
-		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const site = Game.getObjectById(this.siteId);
 			if (site == null) {
@@ -377,6 +376,7 @@ function* builder(this: Builder) {
 
 			yield;
 		}
+		yield* harvest.bind(this)();
 	}
 }
 
@@ -411,7 +411,6 @@ export class Builder extends Process<void, never> {
 
 function* repairer(this: Repairer) {
 	while (true) {
-		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const site = Game.getObjectById(this.siteId);
 			if (site == null) {
@@ -427,6 +426,7 @@ function* repairer(this: Repairer) {
 
 			yield;
 		}
+		yield* harvest.bind(this)();
 	}
 }
 
