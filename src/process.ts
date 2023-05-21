@@ -4,13 +4,17 @@ import * as Iterators from "./utils/iterators";
 
 export type ProcessId = number;
 export type MessageId = number;
+export type ProcessName = string;
+export type ProcessConstructor = new (data: any) => Process;
+
+const ProcessConstructors: Map<ProcessName, ProcessConstructor> = new Map();
 
 export interface IProcess {
 	name: ProcessName;
 	id: ProcessId;
-	priority: number;
 	display: () => string;
 	receiveMessage: (message: IMessage) => void;
+	serialize: () => string;
 	run: () => { code: ProcessReturnCode };
 }
 
@@ -20,58 +24,58 @@ export interface IMessage {
 	to: ProcessId;
 }
 
-enum ProcessName {
-	ForgetDeadCreeps = "ForgetDeadCreeps",
-	SpawnHarvester = "SpawnHarvester",
-	SpawnBuilder = "SpawnBuilder",
-	ManageRoom = "ManageRoom",
-	Harvester = "Harvester",
-	PlanRoom = "PlanRoom",
-	Builder = "Builder",
-	Repairer = "Repairer",
-	Construct = "Construct",
-	Tender = "Tender",
-	ManageSpawns = "ManageSpawns",
-	Upgrader = "Upgrader",
-	Economy = "Economy",
-}
-
 enum ProcessReturnCode {
 	Stop = -1,
 	Done = 0,
 	OkContinue = 1,
 }
 
-interface ProcessReturn<Output> {
+interface ProcessReturn {
 	code: ProcessReturnCode;
-	output?: Output;
 }
 
-class Process<Output, Input> implements IProcess {
+// rome-ignore lint/suspicious/noExplicitAny: This is how TypeScript defines it
+type ProcessData<T extends abstract new (...args: any) => any> =
+	ConstructorParameters<T>[0];
+
+export abstract class Process implements IProcess {
 	name: ProcessName;
 	id: ProcessId;
-	priority = 0;
-	generator: Generator<Output, Output, Input> | undefined;
+	generator: Generator | undefined;
 
-	constructor(
-		name: ProcessName,
-		generator?: Generator<Output, Output, Input>,
-		display?: () => string,
-	) {
-		this.name = name;
-		this.id = global.kernel.getNextId();
-		this.generator = generator;
-
-		if (display != null) {
-			this.display = display;
+	serialize(): string {
+		// Get the process' data
+		// rome-ignore lint/suspicious/noExplicitAny: babes its a mess anyway
+		const data: any = Object.assign({}, this);
+		// Turn Maps into [key, value] tuple arrays
+		for (const prop in data) {
+			if (data[prop] instanceof Map) {
+				data[prop] = Array.from(data[prop]);
+			}
 		}
+		// Use JSON serialization
+		return JSON.stringify(data);
+	}
+
+	constructor({
+		name,
+		id,
+		generator,
+	}: {
+		name: ProcessName;
+		id?: ProcessId;
+		generator?: Generator;
+	}) {
+		this.name = name;
+		this.id = id || global.kernel.getNextId();
+		this.generator = generator;
 	}
 
 	display(): string {
 		return `${this.id} ${this.name}`;
 	}
 
-	[Symbol.iterator](): Generator<Output, Output, Input> {
+	[Symbol.iterator](): Generator {
 		if (this.generator == null) {
 			throw new Error("Iterating through Generatorless Process");
 		}
@@ -82,7 +86,7 @@ class Process<Output, Input> implements IProcess {
 		warn(`Process ${this.display()} received unhandled message:\n${message}`);
 	}
 
-	run(): ProcessReturn<Output> {
+	run(): ProcessReturn {
 		if (this.generator == null) {
 			return { code: ProcessReturnCode.Done };
 		}
@@ -90,17 +94,20 @@ class Process<Output, Input> implements IProcess {
 		const status = this.generator.next();
 		return {
 			code: status.done ? ProcessReturnCode.Done : ProcessReturnCode.OkContinue,
-			output: status.value,
 		};
 	}
 }
 
-export class CreepProcess<Output, Input> extends Process<Output, Input> {
+export class CreepProcess extends Process {
 	creepName: string;
 
-	constructor(name: ProcessName, creepName: string) {
-		super(name);
-		this.creepName = creepName;
+	constructor(
+		data: ProcessData<typeof Process> & {
+			creepName: string;
+		},
+	) {
+		super(data);
+		this.creepName = data.creepName;
 	}
 
 	display(): string {
@@ -121,12 +128,16 @@ export class CreepProcess<Output, Input> extends Process<Output, Input> {
 	}
 }
 
-export class RoomProcess<Output, Input> extends Process<Output, Input> {
+export class RoomProcess extends Process {
 	roomName: string;
 
-	constructor(name: ProcessName, roomName: string) {
-		super(name);
-		this.roomName = roomName;
+	constructor(
+		data: ProcessData<typeof Process> & {
+			roomName: string;
+		},
+	) {
+		super(data);
+		this.roomName = data.roomName;
 	}
 
 	get room(): Room {
@@ -180,11 +191,15 @@ function* forgetDeadCreeps(): Generator<void, never, never> {
 	}
 }
 
-export class ForgetDeadCreeps extends Process<void, never> {
+export class ForgetDeadCreeps extends Process {
 	constructor() {
-		super(ProcessName.ForgetDeadCreeps, forgetDeadCreeps());
+		super({
+			name: "ForgetDeadCreeps",
+			generator: forgetDeadCreeps(),
+		});
 	}
 }
+ProcessConstructors.set("ForgetDeadCreeps", ForgetDeadCreeps);
 
 function tendRoom(this: ManageRoom): void {
 	if (Game.creeps[this.tenderName || ""] == null) {
@@ -237,7 +252,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 				warn(`Creating process for to ${creep.name}`);
 				reassignCreep(
 					creep.name,
-					global.kernel.spawnProcess(new Tender(creep.name)),
+					global.kernel.spawnProcess(new Tender({ creepName: creep.name })),
 				);
 			}
 		});
@@ -246,35 +261,61 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 	}
 }
 
-export class ManageRoom extends RoomProcess<void, never> {
+export class ManageRoom extends RoomProcess {
 	manageSpawnsId: ProcessId;
 	constructId: ProcessId;
+	economyId: ProcessId;
 
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
 
-	tenderName: string | null = null;
-	upgraderName: string | null = null;
+	tenderName: string | null;
+	upgraderName: string | null;
 
-	constructor(roomName: string) {
-		super(ProcessName.ManageRoom, roomName);
+	constructor(
+		data: Omit<
+			ProcessData<typeof RoomProcess> & {
+				manageSpawnsId?: ProcessId;
+				constructId?: ProcessId;
+				economyId?: ProcessId;
+				spawnRequests?: Map<MessageId, "harvester" | "tender" | "upgrader">;
+				tenderName?: string | null;
+				upgraderName?: string | null;
+			},
+			"name"
+		>,
+	) {
+		super({ name: "ManageRoom", ...data });
 		this.generator = manageRoom.bind(this)();
 
 		if (this.room == null) {
 			throw new Error("Room not visible");
 		}
 
-		this.spawnRequests = new Map();
+		this.spawnRequests = data.spawnRequests || new Map();
+		this.tenderName = data.tenderName || null;
+		this.upgraderName = data.upgraderName || null;
 
-		// Initial stuff
-		this.manageSpawnsId = global.kernel.spawnProcess(
-			new ManageSpawns(roomName),
-		);
-		this.constructId = global.kernel.spawnProcess(
-			new Construct(roomName, this.id, this.manageSpawnsId),
-		);
-		this.constructId = global.kernel.spawnProcess(
-			new Economy(roomName, this.id, this.manageSpawnsId),
-		);
+		this.manageSpawnsId =
+			data.manageSpawnsId ||
+			global.kernel.spawnProcess(new ManageSpawns({ roomName: this.roomName }));
+		this.constructId =
+			data.constructId ||
+			global.kernel.spawnProcess(
+				new Construct({
+					roomName: this.roomName,
+					manageRoomId: this.id,
+					manageSpawnsId: this.manageSpawnsId,
+				}),
+			);
+		this.economyId =
+			data.economyId ||
+			global.kernel.spawnProcess(
+				new Economy({
+					roomName: this.roomName,
+					manageRoomId: this.id,
+					manageSpawnsId: this.manageSpawnsId,
+				}),
+			);
 	}
 
 	receiveMessage(message: IMessage): void {
@@ -293,19 +334,25 @@ export class ManageRoom extends RoomProcess<void, never> {
 			} else if (role === "harvester") {
 				reassignCreep(
 					message.creepName,
-					global.kernel.spawnProcess(new Harvester(message.creepName)),
+					global.kernel.spawnProcess(
+						new Harvester({ creepName: message.creepName }),
+					),
 				);
 			} else if (role === "tender") {
 				this.tenderName = message.creepName;
 				reassignCreep(
 					message.creepName,
-					global.kernel.spawnProcess(new Tender(message.creepName)),
+					global.kernel.spawnProcess(
+						new Tender({ creepName: message.creepName }),
+					),
 				);
 			} else if (role === "upgrader") {
 				this.upgraderName = message.creepName;
 				reassignCreep(
 					message.creepName,
-					global.kernel.spawnProcess(new Upgrader(message.creepName)),
+					global.kernel.spawnProcess(
+						new Upgrader({ creepName: message.creepName }),
+					),
 				);
 			}
 
@@ -332,6 +379,7 @@ export class ManageRoom extends RoomProcess<void, never> {
 		global.kernel.sendMessage(request);
 	}
 }
+ProcessConstructors.set("ManageRoom", ManageRoom);
 
 function* getEnergy(this: { creep: Creep }, allowStorage = true) {
 	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
@@ -397,12 +445,13 @@ function* harvester(this: Harvester) {
 	}
 }
 
-export class Harvester extends CreepProcess<void, never> {
-	constructor(creepName: string) {
-		super(ProcessName.Harvester, creepName);
+export class Harvester extends CreepProcess {
+	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
+		super({ name: "Harvester", ...data });
 		this.generator = harvester.bind(this)();
 	}
 }
+ProcessConstructors.set("Harvester", Harvester);
 
 function* builder(this: Builder) {
 	while (true) {
@@ -423,11 +472,16 @@ function* builder(this: Builder) {
 	}
 }
 
-export class Builder extends CreepProcess<void, never> {
+export class Builder extends CreepProcess {
 	siteId: Id<ConstructionSite>;
 
-	constructor(creepName: string, siteId: Id<ConstructionSite>) {
-		super(ProcessName.Builder, creepName);
+	constructor({
+		siteId,
+		...data
+	}: Omit<ProcessData<typeof CreepProcess>, "name"> & {
+		siteId: Id<ConstructionSite>;
+	}) {
+		super({ name: "Builder", ...data });
 		this.generator = builder.bind(this)();
 		this.siteId = siteId;
 	}
@@ -436,6 +490,7 @@ export class Builder extends CreepProcess<void, never> {
 		return `${this.id} ${this.name} ${this.creepName} ${this.siteId.slice(-4)}`;
 	}
 }
+ProcessConstructors.set("Builder", Builder);
 
 function* repairer(this: Repairer) {
 	while (true) {
@@ -458,11 +513,16 @@ function* repairer(this: Repairer) {
 	}
 }
 
-export class Repairer extends CreepProcess<void, never> {
+export class Repairer extends CreepProcess {
 	siteId: Id<Structure>;
 
-	constructor(creepName: string, siteId: Id<Structure>) {
-		super(ProcessName.Repairer, creepName);
+	constructor({
+		siteId,
+		...data
+	}: Omit<ProcessData<typeof CreepProcess>, "name"> & {
+		siteId: Id<Structure>;
+	}) {
+		super({ name: "Repairer", ...data });
 		this.generator = repairer.bind(this)();
 		this.siteId = siteId;
 	}
@@ -471,28 +531,38 @@ export class Repairer extends CreepProcess<void, never> {
 		return `${this.id} ${this.name} ${this.creepName} ${this.siteId.slice(-4)}`;
 	}
 }
+ProcessConstructors.set("Repairer", Repairer);
 
-export class Construct extends RoomProcess<void, never> {
+export class Construct extends RoomProcess {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
-	builders: Map<string, Id<ConstructionSite> | undefined>;
-	repairers: Map<string, Id<Structure> | undefined>;
+	builders: Map<string, Id<ConstructionSite> | null>;
+	repairers: Map<string, Id<Structure> | null>;
 	spawnRequests: Map<MessageId, "builder" | "repairer">;
 
-	constructor(
-		roomName: string,
-		manageRoomId: ProcessId,
-		manageSpawnsId: ProcessId,
-	) {
-		super(ProcessName.Construct, roomName);
+	constructor({
+		manageRoomId,
+		manageSpawnsId,
+		builders,
+		repairers,
+		spawnRequests,
+		...data
+	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		manageRoomId: ProcessId;
+		manageSpawnsId: ProcessId;
+		builders?: Map<string, Id<ConstructionSite> | null>;
+		repairers?: Map<string, Id<Structure> | null>;
+		spawnRequests?: Map<MessageId, "builder" | "repairer">;
+	}) {
+		super({ name: "Construct", ...data });
 		this.generator = this._generator();
 		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
-		this.builders = new Map();
-		this.repairers = new Map();
-		this.spawnRequests = new Map();
+		this.builders = builders || new Map();
+		this.repairers = repairers || new Map();
+		this.spawnRequests = spawnRequests || new Map();
 	}
 
 	*_generator(): Generator<void, void, never> {
@@ -541,7 +611,7 @@ export class Construct extends RoomProcess<void, never> {
 				if (site == null && repairs.length > 0) {
 					site = repairs[0];
 				}
-				this.repairers.set(repairer, site?.id);
+				this.repairers.set(repairer, site?.id || null);
 				// Do something else
 				if (site == null) {
 					if (
@@ -550,7 +620,9 @@ export class Construct extends RoomProcess<void, never> {
 					) {
 						const oldProcessId = reassignCreep(
 							repairer,
-							global.kernel.spawnProcess(new Harvester(repairer)),
+							global.kernel.spawnProcess(
+								new Harvester({ creepName: repairer }),
+							),
 						);
 						if (oldProcessId != null && oldProcessId !== this.id) {
 							global.kernel.stopProcess(oldProcessId);
@@ -562,7 +634,9 @@ export class Construct extends RoomProcess<void, never> {
 				if (site.id !== assignment) {
 					const oldProcessId = reassignCreep(
 						repairer,
-						global.kernel.spawnProcess(new Repairer(repairer, site.id)),
+						global.kernel.spawnProcess(
+							new Repairer({ creepName: repairer, siteId: site.id }),
+						),
 					);
 					if (oldProcessId != null && oldProcessId !== this.id) {
 						global.kernel.stopProcess(oldProcessId);
@@ -599,13 +673,13 @@ export class Construct extends RoomProcess<void, never> {
 				if (site == null && sites.length > 0) {
 					site = sites[0];
 				}
-				this.builders.set(builder, site?.id);
+				this.builders.set(builder, site?.id || null);
 				// Do something else
 				if (site == null) {
 					if (!global.kernel.hasProcess(Memory.creeps[builder].process || -1)) {
 						const oldProcessId = reassignCreep(
 							builder,
-							global.kernel.spawnProcess(new Harvester(builder)),
+							global.kernel.spawnProcess(new Harvester({ creepName: builder })),
 						);
 						if (oldProcessId != null && oldProcessId !== this.id) {
 							global.kernel.stopProcess(oldProcessId);
@@ -617,7 +691,9 @@ export class Construct extends RoomProcess<void, never> {
 				if (site.id !== assignment) {
 					const oldProcessId = reassignCreep(
 						builder,
-						global.kernel.spawnProcess(new Builder(builder, site.id)),
+						global.kernel.spawnProcess(
+							new Builder({ creepName: builder, siteId: site.id }),
+						),
 					);
 					if (oldProcessId != null && oldProcessId !== this.id) {
 						global.kernel.stopProcess(oldProcessId);
@@ -643,10 +719,10 @@ export class Construct extends RoomProcess<void, never> {
 			if (message.creepName == null) {
 				warn(`Creep request ${message.requestId} went awry`);
 			} else if (role === "repairer") {
-				this.repairers.set(message.creepName, undefined);
+				this.repairers.set(message.creepName, null);
 				Memory.creeps[message.creepName].process = this.id;
 			} else if (role === "builder") {
-				this.builders.set(message.creepName, undefined);
+				this.builders.set(message.creepName, null);
 				Memory.creeps[message.creepName].process = this.id;
 			}
 
@@ -662,12 +738,13 @@ export class Construct extends RoomProcess<void, never> {
 		global.kernel.sendMessage(request);
 	}
 }
+ProcessConstructors.set("Construct", Construct);
 
 function* tender(this: Tender) {
 	while (true) {
 		yield* getEnergy.bind(this)(false);
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			let target =
+			const target =
 				this.creep.room
 					.find(FIND_MY_STRUCTURES)
 					.filter(
@@ -690,13 +767,13 @@ function* tender(this: Tender) {
 	}
 }
 
-export class Tender extends CreepProcess<void, never> {
-	constructor(creepName: string) {
-		super(ProcessName.Tender, creepName);
+export class Tender extends CreepProcess {
+	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
+		super({ name: "Tender", ...data });
 		this.generator = tender.bind(this)();
-		this.creepName = creepName;
 	}
 }
+ProcessConstructors.set("Tender", Tender);
 
 function* manageSpawns(this: ManageSpawns): Generator<void, void, never> {
 	while (true) {
@@ -800,15 +877,12 @@ type ManageSpawnsQueueItem = [
 	BodyPartConstant[],
 	{ id: MessageId; from: ProcessId } | null,
 ];
-export class ManageSpawns extends RoomProcess<void, never> {
-	roomName: string;
-
+export class ManageSpawns extends RoomProcess {
 	queue: ManageSpawnsQueueItem[];
 
-	constructor(roomName: string) {
-		super(ProcessName.ManageSpawns, roomName);
+	constructor(data: Omit<ProcessData<typeof RoomProcess>, "name">) {
+		super({ name: "ManageSpawns", ...data });
 		this.generator = manageSpawns.bind(this)();
-		this.roomName = roomName;
 
 		this.queue = [];
 
@@ -834,6 +908,7 @@ export class ManageSpawns extends RoomProcess<void, never> {
 		}
 	}
 }
+ProcessConstructors.set("ManageSpawns", ManageSpawns);
 
 function* upgrader(this: Upgrader) {
 	while (true) {
@@ -854,32 +929,40 @@ function* upgrader(this: Upgrader) {
 	}
 }
 
-export class Upgrader extends CreepProcess<void, never> {
-	constructor(creepName: string) {
-		super(ProcessName.Upgrader, creepName);
+export class Upgrader extends CreepProcess {
+	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
+		super({ name: "Upgrader", ...data });
 		this.generator = upgrader.bind(this)();
 	}
 }
+ProcessConstructors.set("Upgrader", Upgrader);
 
-class Economy extends RoomProcess<void, never> {
+class Economy extends RoomProcess {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
 	sources: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
 	spawnRequests: Map<MessageId, Id<StructureContainer>>;
 
-	constructor(
-		roomName: string,
-		manageRoomId: ProcessId,
-		manageSpawnsId: ProcessId,
-	) {
-		super(ProcessName.Economy, roomName);
+	constructor({
+		manageRoomId,
+		manageSpawnsId,
+		sources,
+		spawnRequests,
+		...data
+	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		manageRoomId: ProcessId;
+		manageSpawnsId: ProcessId;
+		sources?: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
+		spawnRequests?: Map<MessageId, Id<StructureContainer>>;
+	}) {
+		super({ name: "Economy", ...data });
 		this.generator = this.economy();
 		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
-		this.sources = new Map();
-		this.spawnRequests = new Map();
+		this.sources = sources || new Map();
+		this.spawnRequests = spawnRequests || new Map();
 	}
 
 	*economy() {
@@ -898,7 +981,10 @@ class Economy extends RoomProcess<void, never> {
 					})
 					.filter(([_, c]) => c != null)
 					.forEach(([s, c]) => {
-						const sourceId = s!.id as Id<Source>;
+						if (s == null) {
+							return;
+						}
+						const sourceId = s.id as Id<Source>;
 						const container = c as StructureContainer;
 						const oldSourceMiner = this.sources.get(container.id);
 						const [oldSource, minerName] =
@@ -967,10 +1053,8 @@ class Economy extends RoomProcess<void, never> {
 				if (pile != null) {
 					if (miner.store.getFreeCapacity() > 0) {
 						miner.pickup(pile);
-						continue;
 					} else if (container.store.getFreeCapacity() > 0) {
 						miner.transfer(container, RESOURCE_ENERGY);
-						continue;
 					}
 				}
 			}
@@ -1050,4 +1134,18 @@ class Economy extends RoomProcess<void, never> {
 			return body;
 		}
 	}
+}
+ProcessConstructors.set("Economy", Economy);
+
+export function deserializeProcess(serialized: string): Process | undefined {
+	const data = JSON.parse(serialized);
+	const processName = data.name as ProcessName;
+	const process = ProcessConstructors.get(processName);
+	if (process == null) {
+		error(
+			`Unable to get Process constructor for Process ${processName} from serialization ${serialized}`,
+		);
+		return;
+	}
+	return new process(data);
 }

@@ -1,14 +1,23 @@
-import { info, error, tick as logTick } from "./utils/logger";
+import { info, warn, error, tick as logTick } from "./utils/logger";
 import { ProcessTable } from "./processTable";
 import {
+	ProcessConstructor,
+	ProcessName,
 	IProcess,
 	ProcessId,
 	IMessage,
 	MessageId,
 	ForgetDeadCreeps,
 	ManageRoom,
+	deserializeProcess,
 } from "./process";
 import { Scheduler } from "./scheduler";
+
+declare global {
+	interface Memory {
+		processes?: string[];
+	}
+}
 
 export class Kernel {
 	nextMessageId = 0;
@@ -17,19 +26,29 @@ export class Kernel {
 
 	constructor() {
 		info("Rebuilding kernel");
+		global.kernel = this;
+
+		const serializedProcesses = Memory.processes;
+		if (serializedProcesses == null) {
+			warn("Starting from scratch");
+			this.spawnProcess(new ForgetDeadCreeps());
+
+			for (const name in Game.rooms) {
+				this.spawnProcess(new ManageRoom({ roomName: name }));
+			}
+			return;
+		}
+
+		info("Loading processes from Memory");
+		serializedProcesses.map(deserializeProcess).forEach((process) => {
+			if (process != null) {
+				this.spawnProcess(process);
+			}
+		});
 	}
 
 	static init(): Kernel {
-		const kernel = new Kernel();
-		global.kernel = kernel;
-
-		kernel.spawnProcess(new ForgetDeadCreeps());
-
-		for (const name in Game.rooms) {
-			kernel.spawnProcess(new ManageRoom(name));
-		}
-
-		return kernel;
+		return new Kernel();
 	}
 
 	tick(): void {
@@ -55,6 +74,11 @@ export class Kernel {
 				error(`Error while running process:\n${err}`);
 				this.stopProcess(process.id);
 			}
+		}
+
+		if (Game.time % 10 === 0) {
+			info(`Serializing processes...`);
+			this.serializeProcesses();
 		}
 	}
 
@@ -90,6 +114,13 @@ export class Kernel {
 
 	hasProcess(id: ProcessId): boolean {
 		return this.processTable.getProcess(id) != null;
+	}
+
+	serializeProcesses(): void {
+		const serialized = this.processTable
+			.getAllProcesses()
+			.map((process) => process.serialize());
+		Memory.processes = serialized;
 	}
 }
 
