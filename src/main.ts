@@ -5,8 +5,8 @@ import { Kernel } from "./kernel";
 console.log("- - - - RESTARTING - - - -");
 const kernel = Kernel.init();
 export const loop = ErrorMapper.wrapLoop(() => {
-  kernel.tick();
+	kernel.tick();
 
-  // screeps-multimeter watcher
-  watcher();
+	// screeps-multimeter watcher
+	watcher();
 });

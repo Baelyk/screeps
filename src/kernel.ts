@@ -15,7 +15,7 @@ import { Scheduler } from "./scheduler";
 
 declare global {
 	interface Memory {
-		processes?: string[];
+		processes?: [ProcessId, string[]];
 	}
 }
 
@@ -40,7 +40,8 @@ export class Kernel {
 		}
 
 		info("Loading processes from Memory");
-		serializedProcesses.map(deserializeProcess).forEach((process) => {
+		this.processTable.nextId = serializedProcesses[0];
+		serializedProcesses[1].map(deserializeProcess).forEach((process) => {
 			if (process != null) {
 				this.spawnProcess(process);
 			}
@@ -120,7 +121,7 @@ export class Kernel {
 		const serialized = this.processTable
 			.getAllProcesses()
 			.map((process) => process.serialize());
-		Memory.processes = serialized;
+		Memory.processes = [this.processTable.nextId, serialized];
 	}
 }
 

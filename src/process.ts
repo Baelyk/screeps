@@ -743,8 +743,9 @@ export class Construct extends RoomProcess {
 ProcessConstructors.set("Construct", Construct);
 
 function* tender(this: Tender) {
+	let allowTakeFromStorage = true;
 	while (true) {
-		yield* getEnergy.bind(this)(false);
+		yield* getEnergy.bind(this)(allowTakeFromStorage);
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const target =
 				this.creep.room
@@ -755,6 +756,7 @@ function* tender(this: Tender) {
 								s.structureType === STRUCTURE_EXTENSION) &&
 							s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
 					)[0] || this.creep.room.storage;
+			allowTakeFromStorage = target.structureType !== STRUCTURE_STORAGE;
 			if (target == null) {
 				yield;
 			}
@@ -882,11 +884,16 @@ type ManageSpawnsQueueItem = [
 export class ManageSpawns extends RoomProcess {
 	queue: ManageSpawnsQueueItem[];
 
-	constructor(data: Omit<ProcessData<typeof RoomProcess>, "name">) {
+	constructor({
+		queue,
+		...data
+	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		queue?: ManageSpawnsQueueItem[];
+	}) {
 		super({ name: "ManageSpawns", ...data });
 		this.generator = manageSpawns.bind(this)();
 
-		this.queue = [];
+		this.queue = queue || [];
 
 		if (this.room == null) {
 			throw new Error("Room not visible");
