@@ -622,9 +622,7 @@ export class Construct extends RoomProcess {
 					) {
 						const oldProcessId = reassignCreep(
 							repairer,
-							global.kernel.spawnProcess(
-								new Harvester({ creepName: repairer }),
-							),
+							global.kernel.spawnProcess(new Upgrader({ creepName: repairer })),
 						);
 						if (oldProcessId != null && oldProcessId !== this.id) {
 							global.kernel.stopProcess(oldProcessId);
@@ -681,7 +679,7 @@ export class Construct extends RoomProcess {
 					if (!global.kernel.hasProcess(Memory.creeps[builder].process || -1)) {
 						const oldProcessId = reassignCreep(
 							builder,
-							global.kernel.spawnProcess(new Harvester({ creepName: builder })),
+							global.kernel.spawnProcess(new Upgrader({ creepName: builder })),
 						);
 						if (oldProcessId != null && oldProcessId !== this.id) {
 							global.kernel.stopProcess(oldProcessId);
