@@ -277,7 +277,9 @@ export class ManageRoom extends RoomProcess {
 				manageSpawnsId?: ProcessId;
 				constructId?: ProcessId;
 				economyId?: ProcessId;
-				spawnRequests?: Map<MessageId, "harvester" | "tender" | "upgrader">;
+				spawnRequests?: Iterable<
+					[MessageId, "harvester" | "tender" | "upgrader"]
+				>;
 				tenderName?: string | null;
 				upgraderName?: string | null;
 			},
@@ -291,7 +293,7 @@ export class ManageRoom extends RoomProcess {
 			throw new Error("Room not visible");
 		}
 
-		this.spawnRequests = data.spawnRequests || new Map();
+		this.spawnRequests = new Map(data.spawnRequests);
 		this.tenderName = data.tenderName || null;
 		this.upgraderName = data.upgraderName || null;
 
@@ -551,18 +553,18 @@ export class Construct extends RoomProcess {
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
 		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
-		builders?: Map<string, Id<ConstructionSite> | null>;
-		repairers?: Map<string, Id<Structure> | null>;
-		spawnRequests?: Map<MessageId, "builder" | "repairer">;
+		builders?: Iterable<[string, Id<ConstructionSite> | null]>;
+		repairers?: Iterable<[string, Id<Structure> | null]>;
+		spawnRequests?: Iterable<[MessageId, "builder" | "repairer"]>;
 	}) {
 		super({ name: "Construct", ...data });
 		this.generator = this._generator();
 		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
-		this.builders = builders || new Map();
-		this.repairers = repairers || new Map();
-		this.spawnRequests = spawnRequests || new Map();
+		this.builders = new Map(builders);
+		this.repairers = new Map(repairers);
+		this.spawnRequests = new Map(spawnRequests);
 	}
 
 	*_generator(): Generator<void, void, never> {
@@ -953,16 +955,16 @@ class Economy extends RoomProcess {
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
 		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
-		sources?: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
-		spawnRequests?: Map<MessageId, Id<StructureContainer>>;
+		sources?: Iterable<[Id<StructureContainer>, [Id<Source>, string | null]]>;
+		spawnRequests?: Iterable<[MessageId, Id<StructureContainer>]>;
 	}) {
 		super({ name: "Economy", ...data });
 		this.generator = this.economy();
 		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
-		this.sources = sources || new Map();
-		this.spawnRequests = spawnRequests || new Map();
+		this.sources = new Map(sources);
+		this.spawnRequests = new Map(spawnRequests);
 	}
 
 	*economy() {
