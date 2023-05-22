@@ -1214,7 +1214,7 @@ class Economy extends RoomProcess {
 					this.sources.delete(containerId);
 					continue;
 				}
-				if (source.energy > 0 && container.store.getFreeCapacity() > 0) {
+				if (source.energy > 0) {
 					const response = miner.harvest(source);
 					if (response !== OK) {
 						warn(`Miner harvesting with ${errorConstant(response)}`);
@@ -1262,7 +1262,7 @@ class Economy extends RoomProcess {
 			// Maintain desired number of upgraders
 			const desiredUpgraders = Math.min(
 				3,
-				1 + Math.floor(this.energyAvailable / 2000),
+				1 + Math.floor(this.energyAvailable / 50000),
 			);
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
