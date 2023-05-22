@@ -5,6 +5,7 @@ import * as Iterators from "./utils/iterators";
 export type ProcessId = number;
 export type MessageId = number;
 export type ProcessName = string;
+// rome-ignore lint/suspicious/noExplicitAny: Idk leave me alone
 export type ProcessConstructor = new (data: any) => Process;
 
 const ProcessConstructors: Map<ProcessName, ProcessConstructor> = new Map();
@@ -88,6 +89,7 @@ export abstract class Process implements IProcess {
 
 	run(): ProcessReturn {
 		if (this.generator == null) {
+			warn(`Process ${this.display()} has null generator`);
 			return { code: ProcessReturnCode.Done };
 		}
 
@@ -202,6 +204,15 @@ export class ForgetDeadCreeps extends Process {
 ProcessConstructors.set("ForgetDeadCreeps", ForgetDeadCreeps);
 
 function tendRoom(this: ManageRoom): void {
+	// No tender needed if the room lacks a spawn
+	const spawn = this.room
+		.find<StructureSpawn>(FIND_MY_STRUCTURES)
+		.filter((s) => s.structureType === STRUCTURE_SPAWN)[0];
+	if (spawn == null) {
+		warn(`Room ${this.roomName} lacks a spawn`);
+		return;
+	}
+
 	if (Game.creeps[this.tenderName || ""] == null) {
 		if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "tender")) {
 			this.requestSpawn(
@@ -224,6 +235,31 @@ function upgradeRoom(this: ManageRoom): void {
 	}
 }
 
+function expand(this: ManageRoom): void {
+	if (this.expandId != null && !global.kernel.hasProcess(this.expandId)) {
+		warn(`Pruning lost expand process ${this.expandId}`);
+		this.expandId = null;
+	}
+	const ownedRooms = Object.values(Game.rooms).filter(
+		(room) => room.controller != null && room.controller.my,
+	).length;
+	if (
+		this.expandId == null &&
+		ownedRooms < Game.gcl.level &&
+		(this.room.controller?.level || 0) >= 6 &&
+		(this.room.storage?.store[RESOURCE_ENERGY] || 0) > 100000
+	) {
+		info(`Expanding!`);
+		this.expandId = global.kernel.spawnProcess(
+			new Expand({
+				roomName: this.roomName,
+				manageRoomId: this.id,
+				manageSpawnsId: this.manageSpawnsId,
+			}),
+		);
+	}
+}
+
 function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 	while (true) {
 		info(`Managing room ${this.room.name}`);
@@ -235,13 +271,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 
 		tendRoom.bind(this)();
 		upgradeRoom.bind(this)();
-
-		const spawn = this.room
-			.find<StructureSpawn>(FIND_MY_STRUCTURES)
-			.filter((s) => s.structureType === STRUCTURE_SPAWN)[0];
-		if (spawn == null) {
-			throw new Error(`Could not find a spawn in room ${this.room.name}`);
-		}
+		expand.bind(this)();
 
 		const creeps = this.room.find(FIND_MY_CREEPS);
 		creeps.forEach((creep) => {
@@ -249,11 +279,15 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 				creep.memory.process == null ||
 				!global.kernel.hasProcess(creep.memory.process)
 			) {
-				warn(`Creating process for to ${creep.name}`);
-				reassignCreep(
-					creep.name,
-					global.kernel.spawnProcess(new Tender({ creepName: creep.name })),
-				);
+				if (creep.store.getCapacity(RESOURCE_ENERGY) == null) {
+					warn(`Creep ${creep.name} unable to carry energy, has no process`);
+				} else {
+					warn(`Creating process for to ${creep.name}`);
+					reassignCreep(
+						creep.name,
+						global.kernel.spawnProcess(new Tender({ creepName: creep.name })),
+					);
+				}
 			}
 		});
 
@@ -265,6 +299,7 @@ export class ManageRoom extends RoomProcess {
 	manageSpawnsId: ProcessId;
 	constructId: ProcessId;
 	economyId: ProcessId;
+	expandId: ProcessId | null;
 
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
 
@@ -277,6 +312,7 @@ export class ManageRoom extends RoomProcess {
 				manageSpawnsId?: ProcessId;
 				constructId?: ProcessId;
 				economyId?: ProcessId;
+				expandId?: ProcessId | null;
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
 				>;
@@ -318,6 +354,8 @@ export class ManageRoom extends RoomProcess {
 					manageSpawnsId: this.manageSpawnsId,
 				}),
 			);
+
+		this.expandId = data.expandId || null;
 	}
 
 	receiveMessage(message: IMessage): void {
@@ -345,7 +383,10 @@ export class ManageRoom extends RoomProcess {
 				reassignCreep(
 					message.creepName,
 					global.kernel.spawnProcess(
-						new Tender({ creepName: message.creepName }),
+						new Tender({
+							creepName: message.creepName,
+							roomName: this.roomName,
+						}),
 					),
 				);
 			} else if (role === "upgrader") {
@@ -353,12 +394,36 @@ export class ManageRoom extends RoomProcess {
 				reassignCreep(
 					message.creepName,
 					global.kernel.spawnProcess(
-						new Upgrader({ creepName: message.creepName }),
+						new Upgrader({
+							creepName: message.creepName,
+							roomName: this.roomName,
+						}),
 					),
 				);
 			}
 
 			this.spawnRequests.delete(message.requestId);
+		} else if (message instanceof UpdateManageSpawnsId) {
+			// Update this' manageSpawnsId
+			this.manageSpawnsId =
+				message.manageSpawnsId ||
+				global.kernel.spawnProcess(
+					new ManageSpawns({ roomName: this.roomName }),
+				);
+			info(`Updated spawn manager to ${this.manageSpawnsId}`);
+			// Propogate to child processes
+			const updateConstruct = new UpdateManageSpawnsId(
+				this.id,
+				this.constructId,
+				this.manageSpawnsId,
+			);
+			global.kernel.sendMessage(updateConstruct);
+			const updateEconomy = new UpdateManageSpawnsId(
+				this.id,
+				this.economyId,
+				this.manageSpawnsId,
+			);
+			global.kernel.sendMessage(updateEconomy);
 		} else {
 			super.receiveMessage(message);
 		}
@@ -384,6 +449,9 @@ export class ManageRoom extends RoomProcess {
 ProcessConstructors.set("ManageRoom", ManageRoom);
 
 function* getEnergy(this: { creep: Creep }, allowStorage = true) {
+	if (this.creep.store.getCapacity(RESOURCE_ENERGY) == null) {
+		throw new Error(`Creep ${this.creep.name} unable to carry energy`);
+	}
 	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
 		const target = this.creep.pos.findClosestByPath(FIND_STRUCTURES, {
 			filter: (s) =>
@@ -727,6 +795,16 @@ export class Construct extends RoomProcess {
 			}
 
 			this.spawnRequests.delete(message.requestId);
+		} else if (message instanceof UpdateManageSpawnsId) {
+			if (message.manageSpawnsId == null) {
+				error(
+					`Received message to recreate ManageSpawns, but is not ManageRoom`,
+				);
+				return;
+			}
+			// Update this' manageSpawnsId
+			this.manageSpawnsId = message.manageSpawnsId;
+			info(`Updated spawn manager to ${this.manageSpawnsId}`);
 		} else {
 			super.receiveMessage(message);
 		}
@@ -740,24 +818,29 @@ export class Construct extends RoomProcess {
 }
 ProcessConstructors.set("Construct", Construct);
 
-function* tender(this: Tender) {
+function* tender(this: Tender, roomName?: string) {
+	if (roomName != null) {
+		yield* moveToRoom.bind(this)(roomName);
+	}
 	let allowTakeFromStorage = true;
 	while (true) {
 		yield* getEnergy.bind(this)(allowTakeFromStorage);
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
+			const targets = this.creep.room
+				.find(FIND_MY_STRUCTURES)
+				.filter(
+					(s) =>
+						(s.structureType === STRUCTURE_SPAWN ||
+							s.structureType === STRUCTURE_EXTENSION) &&
+						s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
+				);
 			const target =
-				this.creep.room
-					.find(FIND_MY_STRUCTURES)
-					.filter(
-						(s) =>
-							(s.structureType === STRUCTURE_SPAWN ||
-								s.structureType === STRUCTURE_EXTENSION) &&
-							s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
-					)[0] || this.creep.room.storage;
-			allowTakeFromStorage = target.structureType !== STRUCTURE_STORAGE;
+				this.creep.pos.findClosestByPath(targets) || this.creep.room.storage;
 			if (target == null) {
 				yield;
+				continue;
 			}
+			allowTakeFromStorage = target.structureType !== STRUCTURE_STORAGE;
 
 			let response = this.creep.transfer(target, RESOURCE_ENERGY);
 			if (response === ERR_NOT_IN_RANGE) {
@@ -770,9 +853,14 @@ function* tender(this: Tender) {
 }
 
 export class Tender extends CreepProcess {
-	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
+	roomName: string | null;
+	constructor({
+		roomName,
+		...data
+	}: Omit<ProcessData<typeof CreepProcess>, "name"> & { roomName?: string }) {
 		super({ name: "Tender", ...data });
-		this.generator = tender.bind(this)();
+		this.roomName = roomName || null;
+		this.generator = tender.bind(this)(roomName);
 	}
 }
 ProcessConstructors.set("Tender", Tender);
@@ -854,14 +942,14 @@ export class SpawnRequest implements IMessage {
 	to: ProcessId;
 
 	creepName: string;
-	body: BodyPartConstant[] | null;
+	body: BodyPartConstant[] | ((energy: number) => BodyPartConstant[]) | null;
 	important: boolean;
 
 	constructor(
 		from: ProcessId,
 		to: ProcessId,
 		creepName: string,
-		body?: BodyPartConstant[],
+		body?: BodyPartConstant[] | ((energy: number) => BodyPartConstant[]),
 		important?: boolean,
 	) {
 		this.id = global.kernel.getNextMessageId();
@@ -904,6 +992,8 @@ export class ManageSpawns extends RoomProcess {
 			let body = message.body;
 			if (body == null) {
 				body = genericBody(this.room.energyCapacityAvailable);
+			} else if (typeof body === "function") {
+				body = body(this.room.energyCapacityAvailable);
 			}
 			if (message.important) {
 				this.queue.unshift([message.creepName, body, message]);
@@ -917,7 +1007,18 @@ export class ManageSpawns extends RoomProcess {
 }
 ProcessConstructors.set("ManageSpawns", ManageSpawns);
 
-function* upgrader(this: Upgrader) {
+function* moveToRoom(this: CreepProcess, roomName: string) {
+	while (this.creep.room.name !== roomName) {
+		const dummyPosition = new RoomPosition(24, 24, roomName);
+		this.creep.moveTo(dummyPosition, { range: 22 });
+		yield;
+	}
+}
+
+function* upgrader(this: Upgrader, roomName?: string) {
+	if (roomName != null) {
+		yield* moveToRoom.bind(this)(roomName);
+	}
 	while (true) {
 		yield* getEnergy.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
@@ -937,9 +1038,14 @@ function* upgrader(this: Upgrader) {
 }
 
 export class Upgrader extends CreepProcess {
-	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
+	roomName: string | null;
+	constructor({
+		roomName,
+		...data
+	}: Omit<ProcessData<typeof CreepProcess>, "name"> & { roomName?: string }) {
 		super({ name: "Upgrader", ...data });
-		this.generator = upgrader.bind(this)();
+		this.roomName = roomName || null;
+		this.generator = upgrader.bind(this)(roomName);
 	}
 }
 ProcessConstructors.set("Upgrader", Upgrader);
@@ -1095,6 +1201,16 @@ class Economy extends RoomProcess {
 			}
 
 			this.spawnRequests.delete(message.requestId);
+		} else if (message instanceof UpdateManageSpawnsId) {
+			if (message.manageSpawnsId == null) {
+				error(
+					`Received message to recreate ManageSpawns, but is not ManageRoom`,
+				);
+				return;
+			}
+			// Update this' manageSpawnsId
+			this.manageSpawnsId = message.manageSpawnsId;
+			info(`Updated spawn manager to ${this.manageSpawnsId}`);
 		} else {
 			super.receiveMessage(message);
 		}
@@ -1105,44 +1221,41 @@ class Economy extends RoomProcess {
 			this.id,
 			this.manageSpawnsId,
 			creepName,
-			this.minerBody(),
+			minerBody,
 		);
 		this.spawnRequests.set(request.id, containerId);
 		global.kernel.sendMessage(request);
 	}
-
-	minerBody(): BodyPartConstant[] {
-		let energy = this.room.energyCapacityAvailable;
-		if (
-			energy >
-			BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
-		) {
-			// Enough energy to use segmented miner
-			return ([CARRY] as BodyPartConstant[]).concat(
-				bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
-			);
-		} else {
-			// Prioritize work parts over move parts
-			energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
-			const body: BodyPartConstant[] = [CARRY, MOVE];
-			// The capacity minus the carry and move part cost divided by the work part cost
-			const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
-			energy -= workParts * BODYPART_COST[WORK];
-			const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
-			info(
-				`${this.room.energyCapacityAvailable} ${workParts} ${additionalMoves} ${energy}`,
-			);
-			for (let i = 0; i < additionalMoves; i++) {
-				body.push(MOVE);
-			}
-			for (let i = 0; i < workParts; i++) {
-				body.push(WORK);
-			}
-			return body;
-		}
-	}
 }
 ProcessConstructors.set("Economy", Economy);
+
+function minerBody(energyAvailable: number): BodyPartConstant[] {
+	let energy = energyAvailable;
+	if (
+		energy >
+		BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
+	) {
+		// Enough energy to use segmented miner
+		return ([CARRY] as BodyPartConstant[]).concat(
+			bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
+		);
+	} else {
+		// Prioritize work parts over move parts
+		energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
+		const body: BodyPartConstant[] = [CARRY, MOVE];
+		// The capacity minus the carry and move part cost divided by the work part cost
+		const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
+		energy -= workParts * BODYPART_COST[WORK];
+		const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
+		for (let i = 0; i < additionalMoves; i++) {
+			body.push(MOVE);
+		}
+		for (let i = 0; i < workParts; i++) {
+			body.push(WORK);
+		}
+		return body;
+	}
+}
 
 export function deserializeProcess(serialized: string): Process | undefined {
 	const data = JSON.parse(serialized);
@@ -1155,4 +1268,294 @@ export function deserializeProcess(serialized: string): Process | undefined {
 		return;
 	}
 	return new process(data);
+}
+
+export class Expand extends RoomProcess {
+	manageRoomId: ProcessId;
+	manageSpawnsId: ProcessId;
+	destinationManagerId: ProcessId | null;
+	destinationName: string | null;
+	spawnRequests: Map<MessageId, "claimer" | "scout" | "attacker">;
+
+	scoutName: string | null;
+	attackerName: string | null;
+	claimerName: string | null;
+
+	constructor({
+		manageRoomId,
+		manageSpawnsId,
+		destinationManagerId,
+		destinationName,
+		spawnRequests,
+		scoutName,
+		attackerName,
+		claimerName,
+		...data
+	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		manageRoomId: ProcessId;
+		manageSpawnsId: ProcessId;
+		destinationManagerId?: ProcessId | null;
+		destinationName?: string;
+		spawnRequests?: Iterable<[MessageId, "claimer" | "scout" | "attacker"]>;
+		scoutName?: string | null;
+		attackerName?: string | null;
+		claimerName?: string | null;
+	}) {
+		super({ name: "Expand", ...data });
+		this.generator = this.expand();
+
+		this.manageRoomId = manageRoomId;
+		this.manageSpawnsId = manageSpawnsId;
+		this.destinationManagerId = destinationManagerId || null;
+		this.destinationName = destinationName || null;
+		this.spawnRequests = new Map(spawnRequests);
+		this.scoutName = scoutName || null;
+		this.attackerName = attackerName || null;
+		this.claimerName = claimerName || null;
+	}
+
+	display(): string {
+		return `${this.id} ${this.name} ${this.roomName} -> ${
+			this.destinationName || "??"
+		}`;
+	}
+
+	*expand() {
+		while (true) {
+			// Pick a destination
+			if (this.destinationName == null) {
+				const destination = Object.values(
+					Game.map.describeExits(this.roomName),
+				).find((roomName) => {
+					// Assume invisible rooms are expandable
+					const room = Game.rooms[roomName];
+					if (room == null) {
+						return true;
+					}
+
+					const controller = room.controller;
+					if (controller == null) {
+						return false;
+					}
+
+					return !controller.my;
+				});
+
+				if (destination == null) {
+					warn(`Unable to find expansion target from ${this.roomName} :(`);
+					return;
+				}
+
+				this.destinationName = destination;
+			}
+
+			// Scout the destination
+			const scout = Game.creeps[this.scoutName || ""];
+			if (scout == null) {
+				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "scout")) {
+					this.requestSpawn("Scout", "scout");
+				}
+				yield;
+				continue;
+			}
+			const dummyPosition = new RoomPosition(24, 24, this.destinationName);
+			scout.moveTo(dummyPosition, { range: 22 });
+
+			const destination = Game.rooms[this.destinationName];
+			if (destination == null) {
+				yield;
+				continue;
+			}
+			const controller = destination.controller;
+			if (controller == null) {
+				throw new Error(
+					`Expansion destination ${this.destinationName} lacks controller`,
+				);
+			}
+
+			// Clear the destination of hostiles
+			const hostile = (
+				destination.find(FIND_HOSTILE_CREEPS) as (Creep | AnyOwnedStructure)[]
+			).concat(destination.find(FIND_HOSTILE_STRUCTURES))[0];
+			if (hostile != null) {
+				const attacker = Game.creeps[this.attackerName || ""];
+				if (attacker == null) {
+					if (
+						!Iterators.some(this.spawnRequests, ([_, v]) => v === "attacker")
+					) {
+						this.requestSpawn("Attacker", "attacker");
+					}
+					yield;
+					continue;
+				}
+				if (attacker.spawning) {
+					yield;
+					continue;
+				}
+
+				const response = attacker.attack(hostile);
+				if (response === ERR_NOT_IN_RANGE) {
+					attacker.moveTo(hostile);
+				} else if (response !== OK) {
+					warn(`Attacker received response ${errorConstant(response)}`);
+				}
+
+				yield;
+				continue;
+			}
+
+			// Claim the destination
+			if (!controller.my) {
+				const claimer = Game.creeps[this.claimerName || ""];
+				if (claimer == null) {
+					if (
+						!Iterators.some(this.spawnRequests, ([_, v]) => v === "claimer")
+					) {
+						this.requestSpawn("Claimer", "claimer");
+					}
+					yield;
+					continue;
+				}
+				if (claimer.spawning) {
+					yield;
+					continue;
+				}
+				let response: ScreepsReturnCode;
+				// Attack or claim the controller as necessary
+				if (
+					controller.reservation != null &&
+					controller.reservation.username !== global.USERNAME
+				) {
+					response = claimer.attackController(controller);
+				} else {
+					response = claimer.claimController(controller);
+				}
+				if (response === ERR_NOT_IN_RANGE) {
+					claimer.moveTo(controller);
+				} else if (response !== OK) {
+					warn(`Claimer received response ${errorConstant(response)}`);
+				}
+
+				yield;
+				continue;
+			}
+
+			// Spawn a ManageRoom process for the new room
+			if (this.destinationManagerId == null) {
+				this.destinationManagerId = global.kernel.spawnProcess(
+					new ManageRoom({
+						roomName: this.destinationName,
+						manageSpawnsId: this.manageSpawnsId,
+					}),
+				);
+			}
+
+			// Wait until the room has a storage and spawn to detach
+			if (destination.storage == null) {
+				yield;
+				continue;
+			}
+			const spawn = destination
+				.find<StructureSpawn>(FIND_MY_STRUCTURES)
+				.filter((s) => s.structureType === STRUCTURE_SPAWN)[0];
+			if (spawn == null) {
+				yield;
+				continue;
+			}
+
+			// The destination is now self-sufficient
+			info(
+				`Expansion destination ${this.destinationName} is now independent of ${this.roomName}`,
+			);
+			const getYourOwnManageSpawns = new UpdateManageSpawnsId(
+				this.id,
+				this.destinationManagerId,
+				null,
+			);
+			global.kernel.sendMessage(getYourOwnManageSpawns);
+
+			return;
+		}
+	}
+
+	requestSpawn(
+		creepName: string,
+		role: "claimer" | "scout" | "attacker",
+	): void {
+		let body: BodyPartConstant[] = [];
+		if (role === "claimer") {
+			// Copied this from my previous bot, idk about the 9 segment max
+			body = bodyFromSegments(
+				[CLAIM, MOVE],
+				this.room.energyCapacityAvailable,
+				9,
+			);
+		} else if (role === "scout") {
+			body = [MOVE];
+		} else if (role === "attacker") {
+			body = bodyFromSegments(
+				[ATTACK, MOVE],
+				this.room.energyCapacityAvailable,
+			);
+		}
+		const request = new SpawnRequest(
+			this.id,
+			this.manageSpawnsId,
+			creepName,
+			body,
+		);
+		this.spawnRequests.set(request.id, role);
+		global.kernel.sendMessage(request);
+	}
+
+	receiveMessage(message: IMessage): void {
+		if (message instanceof CreepSpawned) {
+			const role = this.spawnRequests.get(message.requestId);
+			if (role == null) {
+				warn(
+					`Unexpectedly received message about unrequested creep: ${JSON.stringify(
+						message,
+					)}`,
+				);
+			}
+
+			if (message.creepName == null) {
+				warn(`Creep request ${message.requestId} went awry`);
+			} else if (role === "scout") {
+				this.scoutName = message.creepName;
+				reassignCreep(message.creepName, this.id);
+			} else if (role === "attacker") {
+				this.attackerName = message.creepName;
+				reassignCreep(message.creepName, this.id);
+			} else if (role === "claimer") {
+				this.claimerName = message.creepName;
+				reassignCreep(message.creepName, this.id);
+			}
+
+			this.spawnRequests.delete(message.requestId);
+		} else {
+			super.receiveMessage(message);
+		}
+	}
+}
+ProcessConstructors.set("Expand", Expand);
+
+export class UpdateManageSpawnsId implements IMessage {
+	id: MessageId;
+	from: ProcessId;
+	to: ProcessId;
+
+	manageSpawnsId: ProcessId | null;
+
+	constructor(
+		from: ProcessId,
+		to: ProcessId,
+		manageSpawnsId: ProcessId | null,
+	) {
+		this.id = global.kernel.getNextMessageId();
+		this.from = from;
+		this.to = to;
+
+		this.manageSpawnsId = manageSpawnsId;
+	}
 }
