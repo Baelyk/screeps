@@ -781,7 +781,7 @@ export class Construct extends RoomProcess {
 				0,
 			);
 			// Source: I made it up
-			const desiredBuilders = Math.max(1, Math.min(5, energy / 10000));
+			const desiredBuilders = Math.max(1, Math.min(5, energy / 25000));
 			// Spawn more builders if below desired number
 			if (sites.length > 0 && this.builders.size < desiredBuilders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "builder")) {
