@@ -246,9 +246,10 @@ function* forgetDeadCreeps(): Generator<void, never, never> {
 }
 
 export class ForgetDeadCreeps extends Process {
-	constructor() {
+	constructor(data: Omit<ProcessData<typeof Process>, "name">) {
 		super({
 			name: "ForgetDeadCreeps",
+			...data,
 			generator: forgetDeadCreeps(),
 		});
 	}
@@ -889,7 +890,7 @@ function* tender(this: Tender, roomName?: string) {
 	while (true) {
 		yield* getEnergy.bind(this)(allowTakeFromStorage);
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const targets = this.creep.room
+			const primaryTargets = this.creep.room
 				.find(FIND_MY_STRUCTURES)
 				.filter(
 					(s) =>
@@ -897,8 +898,17 @@ function* tender(this: Tender, roomName?: string) {
 							s.structureType === STRUCTURE_EXTENSION) &&
 						s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
 				);
-			const target =
-				this.creep.pos.findClosestByPath(targets) || this.creep.room.storage;
+			let target = this.creep.pos.findClosestByPath(primaryTargets);
+			if (target == null) {
+				const secondaryTargets = this.creep.room
+					.find(FIND_MY_STRUCTURES)
+					.filter(
+						(s) =>
+							s.structureType === STRUCTURE_TOWER ||
+							s.structureType === STRUCTURE_STORAGE,
+					);
+				target = this.creep.pos.findClosestByPath(secondaryTargets);
+			}
 			if (target == null) {
 				yield;
 				continue;

@@ -31,7 +31,7 @@ export class Kernel {
 		const serializedProcesses = Memory.processes;
 		if (serializedProcesses == null) {
 			warn("Starting from scratch");
-			this.spawnProcess(new ForgetDeadCreeps());
+			this.spawnProcess(new ForgetDeadCreeps({}));
 
 			for (const name in Game.rooms) {
 				this.spawnProcess(new ManageRoom({ roomName: name }));
