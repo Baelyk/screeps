@@ -151,6 +151,58 @@ export class RoomProcess extends Process {
 		return room;
 	}
 
+	_energyAvailable: number | null = 0;
+	_energyAvailableTick: number | null = 0;
+	get energyAvailable(): number {
+		if (
+			this._energyAvailable == null ||
+			this._energyAvailableTick !== Game.time
+		) {
+			this._energyAvailableTick = Game.time;
+			this._energyAvailable = this.room
+				.find(FIND_STRUCTURES)
+				.filter(
+					(s) =>
+						s.structureType === STRUCTURE_CONTAINER ||
+						s.structureType === STRUCTURE_STORAGE,
+				)
+				.reduce(
+					(energy, s) =>
+						energy +
+						(s as StructureContainer | StructureStorage).store[RESOURCE_ENERGY],
+					0,
+				);
+		}
+		return this._energyAvailable;
+	}
+
+	_energyCapacityAvailable: number | null = 0;
+	_energyCapacityAvailableTick: number | null = 0;
+	get energyCapacityAvailable(): number {
+		if (
+			this._energyCapacityAvailable == null ||
+			this._energyCapacityAvailableTick !== Game.time
+		) {
+			this._energyCapacityAvailableTick = Game.time;
+			this._energyCapacityAvailable = this.room
+				.find(FIND_STRUCTURES)
+				.filter(
+					(s) =>
+						s.structureType === STRUCTURE_CONTAINER ||
+						s.structureType === STRUCTURE_STORAGE,
+				)
+				.reduce(
+					(energyCapacity, s) =>
+						energyCapacity +
+						(s as StructureContainer | StructureStorage).store.getCapacity(
+							RESOURCE_ENERGY,
+						),
+					0,
+				);
+		}
+		return this._energyCapacityAvailable;
+	}
+
 	display(): string {
 		return `${this.id} ${this.name} ${this.room.name}`;
 	}
@@ -1093,58 +1145,6 @@ class Economy extends RoomProcess {
 		this.sources = new Map(sources);
 		this.upgraders = new Map(upgraders);
 		this.spawnRequests = new Map(spawnRequests);
-	}
-
-	_energyAvailable: number | null = 0;
-	_energyAvailableTick: number | null = 0;
-	get energyAvailable(): number {
-		if (
-			this._energyAvailable == null ||
-			this._energyAvailableTick !== Game.time
-		) {
-			this._energyAvailableTick = Game.time;
-			this._energyAvailable = this.room
-				.find(FIND_STRUCTURES)
-				.filter(
-					(s) =>
-						s.structureType === STRUCTURE_CONTAINER ||
-						s.structureType === STRUCTURE_STORAGE,
-				)
-				.reduce(
-					(energy, s) =>
-						energy +
-						(s as StructureContainer | StructureStorage).store[RESOURCE_ENERGY],
-					0,
-				);
-		}
-		return this._energyAvailable;
-	}
-
-	_energyCapacityAvailable: number | null = 0;
-	_energyCapacityAvailableTick: number | null = 0;
-	get energyCapacityAvailable(): number {
-		if (
-			this._energyCapacityAvailable == null ||
-			this._energyCapacityAvailableTick !== Game.time
-		) {
-			this._energyCapacityAvailableTick = Game.time;
-			this._energyCapacityAvailable = this.room
-				.find(FIND_STRUCTURES)
-				.filter(
-					(s) =>
-						s.structureType === STRUCTURE_CONTAINER ||
-						s.structureType === STRUCTURE_STORAGE,
-				)
-				.reduce(
-					(energyCapacity, s) =>
-						energyCapacity +
-						(s as StructureContainer | StructureStorage).store.getCapacity(
-							RESOURCE_ENERGY,
-						),
-					0,
-				);
-		}
-		return this._energyCapacityAvailable;
 	}
 
 	*sourceMining() {
