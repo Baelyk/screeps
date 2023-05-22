@@ -5,22 +5,22 @@ import {
 	ProcessName,
 	IProcess,
 	ProcessId,
-	IMessage,
-	MessageId,
 	ForgetDeadCreeps,
 	ManageRoom,
 	deserializeProcess,
 } from "./process";
+import { IMessage, MessageId, Messenger } from "./messenger";
 import { Scheduler } from "./scheduler";
 
 declare global {
 	interface Memory {
-		processes?: [ProcessId, MessageId, string[]];
+		/** Next ProcessId, Serialized Messenger, Serialized Process Array */
+		processes?: [ProcessId, string, string[]];
 	}
 }
 
 export class Kernel {
-	nextMessageId: MessageId = 0;
+	messenger: Messenger;
 	processTable = new ProcessTable();
 	scheduler = new Scheduler(this.processTable);
 
@@ -31,6 +31,7 @@ export class Kernel {
 		const serializedProcesses = Memory.processes;
 		if (serializedProcesses == null) {
 			warn("Starting from scratch");
+			this.messenger = new Messenger({});
 			this.spawnProcess(new ForgetDeadCreeps({}));
 
 			for (const name in Game.rooms) {
@@ -41,6 +42,7 @@ export class Kernel {
 
 		info("Loading processes from Memory");
 		this.processTable.nextId = serializedProcesses[0];
+		this.messenger = Messenger.fromSerialized(serializedProcesses[1]);
 		serializedProcesses[2].map(deserializeProcess).forEach((process) => {
 			if (process != null) {
 				this.spawnProcess(process);
@@ -83,22 +85,20 @@ export class Kernel {
 		}
 	}
 
-	getNextId(): ProcessId {
-		return this.processTable.getNextId();
+	getNextMessageId(): MessageId {
+		return this.messenger.getNextMessageId();
 	}
 
-	getNextMessageId(): MessageId {
-		return this.nextMessageId++;
+	pollMessages(recipient: ProcessId): IMessage[] | null {
+		return this.messenger.poll(recipient);
 	}
 
 	sendMessage(message: IMessage): void {
-		const recipient = this.processTable.getProcess(message.to);
-		if (recipient == null) {
-			error(`Unable to send message to ${message.to}`);
-			return;
-		}
+		this.messenger.send(message);
+	}
 
-		recipient.receiveMessage(message);
+	getNextId(): ProcessId {
+		return this.processTable.getNextId();
 	}
 
 	spawnProcess(process: IProcess): ProcessId {
@@ -123,7 +123,7 @@ export class Kernel {
 			.map((process) => process.serialize());
 		Memory.processes = [
 			this.processTable.nextId,
-			this.nextMessageId,
+			this.messenger.serialize(),
 			serialized,
 		];
 	}

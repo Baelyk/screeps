@@ -1,9 +1,9 @@
 import { info, errorConstant, warn, error } from "./utils/logger";
+import { IMessage, MessageId } from "./messenger";
 import { nextAvailableName, bodyFromSegments } from "./utils";
 import * as Iterators from "./utils/iterators";
 
 export type ProcessId = number;
-export type MessageId = number;
 export type ProcessName = string;
 // rome-ignore lint/suspicious/noExplicitAny: Idk leave me alone
 export type ProcessConstructor = new (data: any) => Process;
@@ -17,12 +17,6 @@ export interface IProcess {
 	receiveMessage: (message: IMessage) => void;
 	serialize: () => string;
 	run: () => { code: ProcessReturnCode };
-}
-
-export interface IMessage {
-	id: MessageId;
-	from: ProcessId;
-	to: ProcessId;
 }
 
 enum ProcessReturnCode {
@@ -91,6 +85,13 @@ export abstract class Process implements IProcess {
 		if (this.generator == null) {
 			warn(`Process ${this.display()} has null generator`);
 			return { code: ProcessReturnCode.Done };
+		}
+
+		const messages = global.kernel.pollMessages(this.id);
+		if (messages != null) {
+			for (const message of messages) {
+				this.receiveMessage(message);
+			}
 		}
 
 		const status = this.generator.next();
