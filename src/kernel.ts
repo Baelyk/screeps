@@ -15,12 +15,12 @@ import { Scheduler } from "./scheduler";
 
 declare global {
 	interface Memory {
-		processes?: [ProcessId, string[]];
+		processes?: [ProcessId, MessageId, string[]];
 	}
 }
 
 export class Kernel {
-	nextMessageId = 0;
+	nextMessageId: MessageId = 0;
 	processTable = new ProcessTable();
 	scheduler = new Scheduler(this.processTable);
 
@@ -41,7 +41,7 @@ export class Kernel {
 
 		info("Loading processes from Memory");
 		this.processTable.nextId = serializedProcesses[0];
-		serializedProcesses[1].map(deserializeProcess).forEach((process) => {
+		serializedProcesses[2].map(deserializeProcess).forEach((process) => {
 			if (process != null) {
 				this.spawnProcess(process);
 			}
@@ -78,7 +78,7 @@ export class Kernel {
 		}
 
 		if (Game.time % 10 === 0) {
-			info(`Serializing processes...`);
+			info("Serializing processes...");
 			this.serializeProcesses();
 		}
 	}
@@ -121,7 +121,11 @@ export class Kernel {
 		const serialized = this.processTable
 			.getAllProcesses()
 			.map((process) => process.serialize());
-		Memory.processes = [this.processTable.nextId, serialized];
+		Memory.processes = [
+			this.processTable.nextId,
+			this.nextMessageId,
+			serialized,
+		];
 	}
 }
 

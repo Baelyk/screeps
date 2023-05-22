@@ -227,6 +227,17 @@ function tendRoom(this: ManageRoom): void {
 }
 
 function upgradeRoom(this: ManageRoom): void {
+	const controller = this.room.controller;
+	if (controller == null) {
+		return;
+	}
+	// Only upgrade when necessary
+	if (
+		controller.ticksToDowngrade >
+		CONTROLLER_DOWNGRADE[controller.level] * 0.5
+	) {
+		return;
+	}
 	if (Game.creeps[this.upgraderName || ""] == null) {
 		if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
 			this.requestSpawn("Upgrader", "upgrader");
@@ -241,7 +252,7 @@ function expand(this: ManageRoom): void {
 		this.expandId = null;
 	}
 	const ownedRooms = Object.values(Game.rooms).filter(
-		(room) => room.controller != null && room.controller.my,
+		(room) => room.controller?.my,
 	).length;
 	if (
 		this.expandId == null &&
@@ -249,7 +260,7 @@ function expand(this: ManageRoom): void {
 		(this.room.controller?.level || 0) >= 6 &&
 		(this.room.storage?.store[RESOURCE_ENERGY] || 0) > 100000
 	) {
-		info(`Expanding!`);
+		info("Expanding!");
 		this.expandId = global.kernel.spawnProcess(
 			new Expand({
 				roomName: this.roomName,
@@ -798,7 +809,7 @@ export class Construct extends RoomProcess {
 		} else if (message instanceof UpdateManageSpawnsId) {
 			if (message.manageSpawnsId == null) {
 				error(
-					`Received message to recreate ManageSpawns, but is not ManageRoom`,
+					"Received message to recreate ManageSpawns, but is not ManageRoom",
 				);
 				return;
 			}
@@ -1055,19 +1066,24 @@ class Economy extends RoomProcess {
 	manageSpawnsId: ProcessId;
 
 	sources: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
-	spawnRequests: Map<MessageId, Id<StructureContainer>>;
+	upgraders: Map<string, ProcessId | null>;
+	spawnRequests: Map<MessageId, ["miner", Id<StructureContainer>] | "upgrader">;
 
 	constructor({
 		manageRoomId,
 		manageSpawnsId,
 		sources,
+		upgraders,
 		spawnRequests,
 		...data
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
 		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
 		sources?: Iterable<[Id<StructureContainer>, [Id<Source>, string | null]]>;
-		spawnRequests?: Iterable<[MessageId, Id<StructureContainer>]>;
+		upgraders?: Iterable<[string, ProcessId | null]>;
+		spawnRequests?: Iterable<
+			[MessageId, ["miner", Id<StructureContainer>] | "upgrader"]
+		>;
 	}) {
 		super({ name: "Economy", ...data });
 		this.generator = this.economy();
@@ -1075,10 +1091,63 @@ class Economy extends RoomProcess {
 		this.manageSpawnsId = manageSpawnsId;
 
 		this.sources = new Map(sources);
+		this.upgraders = new Map(upgraders);
 		this.spawnRequests = new Map(spawnRequests);
 	}
 
-	*economy() {
+	_energyAvailable: number | null = 0;
+	_energyAvailableTick: number | null = 0;
+	get energyAvailable(): number {
+		if (
+			this._energyAvailable == null ||
+			this._energyAvailableTick !== Game.time
+		) {
+			this._energyAvailableTick = Game.time;
+			this._energyAvailable = this.room
+				.find(FIND_STRUCTURES)
+				.filter(
+					(s) =>
+						s.structureType === STRUCTURE_CONTAINER ||
+						s.structureType === STRUCTURE_STORAGE,
+				)
+				.reduce(
+					(energy, s) =>
+						energy +
+						(s as StructureContainer | StructureStorage).store[RESOURCE_ENERGY],
+					0,
+				);
+		}
+		return this._energyAvailable;
+	}
+
+	_energyCapacityAvailable: number | null = 0;
+	_energyCapacityAvailableTick: number | null = 0;
+	get energyCapacityAvailable(): number {
+		if (
+			this._energyCapacityAvailable == null ||
+			this._energyCapacityAvailableTick !== Game.time
+		) {
+			this._energyCapacityAvailableTick = Game.time;
+			this._energyCapacityAvailable = this.room
+				.find(FIND_STRUCTURES)
+				.filter(
+					(s) =>
+						s.structureType === STRUCTURE_CONTAINER ||
+						s.structureType === STRUCTURE_STORAGE,
+				)
+				.reduce(
+					(energyCapacity, s) =>
+						energyCapacity +
+						(s as StructureContainer | StructureStorage).store.getCapacity(
+							RESOURCE_ENERGY,
+						),
+					0,
+				);
+		}
+		return this._energyCapacityAvailable;
+	}
+
+	*sourceMining() {
 		while (true) {
 			// Find source containers
 			if (this.sources.size === 0 || Game.time % 100 === 0) {
@@ -1123,9 +1192,12 @@ class Economy extends RoomProcess {
 				const miner = Game.creeps[minerName || ""];
 				if (miner == null || minerName == null) {
 					if (
-						!Iterators.some(this.spawnRequests, ([_, v]) => v === containerId)
+						!Iterators.some(
+							this.spawnRequests,
+							([_, v]) => v[0] === "miner" && v[1] === containerId,
+						)
 					) {
-						this.requestSpawn("Miner", containerId);
+						this.requestSpawn("Miner", ["miner", containerId]);
 					}
 					continue;
 				}
@@ -1161,7 +1233,7 @@ class Economy extends RoomProcess {
 				}
 
 				const pile = miner.pos
-					.lookFor(LOOK_RESOURCES)
+					.findInRange(FIND_DROPPED_RESOURCES, 1)
 					.find((pile) => pile.resourceType === RESOURCE_ENERGY);
 				if (pile != null) {
 					if (miner.store.getFreeCapacity() > 0) {
@@ -1175,20 +1247,80 @@ class Economy extends RoomProcess {
 			yield;
 		}
 	}
+
+	*upgradeController() {
+		if (this.room.controller == null || !this.room.controller.my) {
+			warn(
+				`Failed to fine controller owned by ${global.USERNAME} in ${this.roomName}`,
+			);
+			while (true) {
+				yield;
+			}
+		}
+
+		while (true) {
+			// Maintain desired number of upgraders
+			const desiredUpgraders = Math.min(
+				3,
+				1 + Math.floor(this.energyAvailable / 2000),
+			);
+			if (this.upgraders.size < desiredUpgraders) {
+				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
+					this.requestSpawn("Upgrader", "upgrader");
+				}
+			}
+
+			// Manage upgraders
+			for (let [upgraderName, processId] of this.upgraders) {
+				const upgrader = Game.creeps[upgraderName];
+				if (upgrader == null) {
+					this.upgraders.delete(upgraderName);
+					continue;
+				}
+
+				// Ensure upgrader has an Upgrader process
+				if (processId == null || !global.kernel.hasProcess(processId)) {
+					processId = global.kernel.spawnProcess(
+						new Upgrader({ creepName: upgraderName, roomName: this.roomName }),
+					);
+					reassignCreep(upgraderName, processId);
+					this.upgraders.set(upgraderName, processId);
+				}
+			}
+
+			yield;
+		}
+	}
+
+	*economy() {
+		const sourceMining = this.sourceMining();
+		const upgradeController = this.upgradeController();
+		while (true) {
+			sourceMining.next();
+			upgradeController.next();
+			yield;
+		}
+	}
+
 	receiveMessage(message: IMessage): void {
 		if (message instanceof CreepSpawned) {
-			const containerId = this.spawnRequests.get(message.requestId);
-			if (containerId == null) {
+			const role = this.spawnRequests.get(message.requestId);
+			if (role == null) {
 				warn(
 					`Unexpectedly received message about unrequested creep: ${JSON.stringify(
 						message,
 					)}`,
 				);
+				return;
 			}
 
 			if (message.creepName == null) {
 				warn(`Creep request ${message.requestId} went awry`);
-			} else if (containerId != null) {
+			} else if (role === "upgrader") {
+				this.upgraders.set(message.creepName, null);
+				reassignCreep(message.creepName, this.id);
+			} else if (role[0] === "miner") {
+				const containerId = role[1];
 				const [sourceId] = this.sources.get(containerId) || [null];
 				if (sourceId == null) {
 					error(
@@ -1204,7 +1336,7 @@ class Economy extends RoomProcess {
 		} else if (message instanceof UpdateManageSpawnsId) {
 			if (message.manageSpawnsId == null) {
 				error(
-					`Received message to recreate ManageSpawns, but is not ManageRoom`,
+					"Received message to recreate ManageSpawns, but is not ManageRoom",
 				);
 				return;
 			}
@@ -1216,14 +1348,18 @@ class Economy extends RoomProcess {
 		}
 	}
 
-	requestSpawn(creepName: string, containerId: Id<StructureContainer>): void {
+	requestSpawn(
+		creepName: string,
+		role: ["miner", Id<StructureContainer>] | "upgrader",
+	): void {
+		const body = role === "upgrader" ? undefined : minerBody;
 		const request = new SpawnRequest(
 			this.id,
 			this.manageSpawnsId,
 			creepName,
-			minerBody,
+			body,
 		);
-		this.spawnRequests.set(request.id, containerId);
+		this.spawnRequests.set(request.id, role);
 		global.kernel.sendMessage(request);
 	}
 }
