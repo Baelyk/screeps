@@ -905,8 +905,9 @@ function* tender(this: Tender, roomName?: string) {
 					.find(FIND_MY_STRUCTURES)
 					.filter(
 						(s) =>
-							s.structureType === STRUCTURE_TOWER ||
-							s.structureType === STRUCTURE_STORAGE,
+							(s.structureType === STRUCTURE_TOWER ||
+								s.structureType === STRUCTURE_STORAGE) &&
+							s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
 					);
 				target = this.creep.pos.findClosestByPath(secondaryTargets);
 			}
