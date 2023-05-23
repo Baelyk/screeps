@@ -43,11 +43,22 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 export function economyProvider(this: Readonly<Economy>): boolean {
 	const lines = [];
 
-	const efficiency = Math.floor(100 * this.efficiency);
+	const upgradeEfficiency = Math.floor(100 * this.upgradeEfficiency);
 	progressBar(
 		this.room.visual,
-		Math.min(1, efficiency / 100),
-		`Efficiency: ${efficiency < 999 ? efficiency : ">999"}%`,
+		Math.min(1, upgradeEfficiency / 100),
+		`Upgrade Eff: ${upgradeEfficiency < 999 ? upgradeEfficiency : ">999"}%`,
+		0,
+		lines.length + 3,
+		10,
+	);
+	lines.push("");
+
+	const useEfficiency = Math.floor(100 * this.useEfficiency);
+	progressBar(
+		this.room.visual,
+		Math.min(1, useEfficiency / 100),
+		`Use Eff: ${useEfficiency < 999 ? useEfficiency : ">999"}%`,
 		0,
 		lines.length + 3,
 		10,
@@ -89,7 +100,7 @@ export function constructProvider(this: Readonly<Construct>): boolean {
 		});
 	}
 
-	textLines(this.room.visual, lines, 0, 6);
+	textLines(this.room.visual, lines, 0, 7);
 	return true;
 }
 
@@ -116,7 +127,7 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 		this.queue.forEach((item) => lines.push(`\t${item[0]}`));
 	}
 
-	textLines(this.room.visual, lines, 0, 7);
+	textLines(this.room.visual, lines, 0, 8);
 
 	return true;
 }

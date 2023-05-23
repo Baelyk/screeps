@@ -1369,25 +1369,64 @@ export class Economy extends RoomProcess {
 		}
 	}
 
-	efficiency = 0;
+	upgradeEfficiency = 0;
+	useEfficiency = 0;
 	*efficiencyTracking() {
 		const historyLength = CREEP_LIFE_TIME;
+		const built: number[] = [];
+		const repaired: number[] = [];
+		const spawned: number[] = [];
 		const upgraded: number[] = [];
 		const harvested: number[] = [];
 
 		while (true) {
 			const events = this.room.getEventLog();
 
+			let builtNow = 0;
+			let repairedNow = 0;
+			let spawnedNow = 0;
 			let upgradedNow = 0;
 			let harvestedNow = 0;
 			for (const { event, data } of events) {
-				if (event === EVENT_UPGRADE_CONTROLLER) {
+				if (event === EVENT_BUILD) {
+					builtNow += data.energySpent;
+				} else if (event === EVENT_REPAIR) {
+					repairedNow += data.energySpent;
+				} else if (
+					event === EVENT_TRANSFER &&
+					data.resourceType === RESOURCE_ENERGY
+				) {
+					const target = Game.getObjectById(
+						data.targetId as Id<AnyStoreStructure>,
+					);
+					if (
+						target != null &&
+						(target.structureType === STRUCTURE_SPAWN ||
+							target.structureType === STRUCTURE_EXTENSION)
+					) {
+						spawnedNow += data.amount;
+					}
+				} else if (event === EVENT_UPGRADE_CONTROLLER) {
 					upgradedNow += data.energySpent;
-				} else if (event === EVENT_HARVEST) {
+				} else if (
+					event === EVENT_HARVEST &&
+					Game.getObjectById(
+						data.targetId as Id<Source | Mineral | Deposit>,
+					) instanceof Source
+				) {
 					harvestedNow += data.amount;
 				}
 			}
 
+			if (built.unshift(builtNow) > historyLength) {
+				built.pop();
+			}
+			if (repaired.unshift(repairedNow) > historyLength) {
+				repaired.pop();
+			}
+			if (spawned.unshift(spawnedNow) > historyLength) {
+				spawned.pop();
+			}
 			if (upgraded.unshift(upgradedNow) > historyLength) {
 				upgraded.pop();
 			}
@@ -1395,7 +1434,14 @@ export class Economy extends RoomProcess {
 				harvested.pop();
 			}
 
-			this.efficiency = Iterators.sum(upgraded) / Iterators.sum(harvested);
+			this.upgradeEfficiency =
+				Iterators.sum(upgraded) / Iterators.sum(harvested);
+			this.useEfficiency =
+				(Iterators.sum(built) +
+					Iterators.sum(repaired) +
+					Iterators.sum(spawned) +
+					Iterators.sum(upgraded)) /
+				Iterators.sum(harvested);
 
 			yield;
 		}
