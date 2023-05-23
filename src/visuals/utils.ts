@@ -1,3 +1,5 @@
+import { info, warn } from "./../utils/logger";
+
 const GRID_OFFSET = 0.5;
 const TEXT_Y_OFFSET = 0.2;
 const TEXT_SIZE = 0.8;
@@ -69,4 +71,69 @@ export function progressBar(
 			},
 		);
 	}
+}
+
+export function box(
+	visual: RoomVisual,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	color: string,
+	style?: Partial<PolyStyle>,
+): void {
+	const strokeWidth = 0.1;
+	visual.rect(
+		x - 1 + GRID_OFFSET + strokeWidth / 2,
+		y - 1 + GRID_OFFSET + strokeWidth / 2,
+		width - strokeWidth,
+		height - strokeWidth,
+		{
+			...style,
+			fill: "",
+			stroke: color,
+			strokeWidth,
+		},
+	);
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+	return [
+		parseInt(hex.substring(1, 3), 16),
+		parseInt(hex.substring(3, 5), 16),
+		parseInt(hex.substring(5, 7), 16),
+	];
+}
+
+function rgbToHex([r, g, b]: [number, number, number]): string {
+	const rStr = leftPad(r.toString(16), 2, "0");
+	const gStr = leftPad(g.toString(16), 2, "0");
+	const bStr = leftPad(b.toString(16), 2, "0");
+	return `#${rStr}${gStr}${bStr}`;
+}
+
+function interpolate(a: number, b: number, t: number): number {
+	return (1 - t) * a + b * t;
+}
+
+function leftPad(str: string, padTo: number, padFill = " "): string {
+	return `${padFill.repeat(
+		Math.floor((padTo - str.length) / padFill.length),
+	)}${str}`;
+}
+
+export function interpolateColors(
+	color0: string,
+	color1: string,
+	t: number,
+): string {
+	const [r0, g0, b0] = hexToRgb(color0);
+	const [r1, g1, b1] = hexToRgb(color1);
+
+	const r = Math.round(interpolate(r0, r1, t));
+	const g = Math.round(interpolate(g0, g1, t));
+	const b = Math.round(interpolate(b0, b1, t));
+
+	const hex = rgbToHex([r, g, b]);
+	return hex;
 }

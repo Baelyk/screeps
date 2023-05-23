@@ -723,6 +723,19 @@ export class Construct extends RoomProcess {
 		this.spawnRequests = new Map(spawnRequests);
 	}
 
+	_repairables: AnyStructure[] | null = null;
+	_repairablesTick: number | null = null;
+	get repairables(): AnyStructure[] {
+		if (this._repairables == null || this._repairablesTick !== Game.time) {
+			this._repairablesTick = Game.time;
+			this._repairables = this.room
+				.find(FIND_STRUCTURES)
+				.filter((s) => s.hits < s.hitsMax * 0.75);
+			this._repairables.sort((a, b) => a.hits - b.hits);
+		}
+		return this._repairables;
+	}
+
 	*_generator(): Generator<void, void, never> {
 		while (true) {
 			if (!this.room.controller?.my) {
@@ -730,13 +743,16 @@ export class Construct extends RoomProcess {
 				return;
 			}
 
-			const repairs = this.room
-				.find(FIND_STRUCTURES)
-				.filter((s) => s.hits < s.hitsMax * 0.75);
-			repairs.sort((a, b) => a.hits - b.hits);
+			const urgentRepair = this.repairables.some(
+				(s) => s.hits < s.hitsMax * 0.25,
+			);
+			const repairEnergy = this.repairables.reduce(
+				(energy, s) => energy + s.hitsMax - s.hits,
+				0,
+			);
 
 			// If there are sites and *zero* repairer, wait on spawning a builder
-			if (repairs.length > 0 && this.repairers.size === 0) {
+			if (urgentRepair || repairEnergy > (CREEP_LIFE_TIME / 2) * REPAIR_POWER) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "repairer")) {
 					this.requestSpawn("Repairer", "repairer");
 				}
@@ -759,15 +775,8 @@ export class Construct extends RoomProcess {
 					global.kernel.stopProcess(Memory.creeps[repairer].process || -1);
 				}
 				// Find new assignment
-				if (
-					site != null &&
-					site.hits > site.hitsMax * 0.8 &&
-					repairs.length > 0
-				) {
-					site = repairs[0];
-				}
-				if (site == null && repairs.length > 0) {
-					site = repairs[0];
+				if (site == null || site.hits > site.hitsMax * 0.8) {
+					site = this.repairables[0];
 				}
 				this.repairers.set(repairer, site?.id || null);
 				// Do something else
@@ -1297,7 +1306,7 @@ class Economy extends RoomProcess {
 			// Maintain desired number of upgraders
 			const desiredUpgraders = Math.min(
 				3,
-				1 + Math.floor(this.energyAvailable / 50000),
+				Math.min(1, Math.floor(this.energyAvailable / 50000)),
 			);
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {

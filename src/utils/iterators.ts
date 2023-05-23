@@ -22,3 +22,26 @@ export function count<T>(
 	}
 	return num;
 }
+
+export function zip<A, B>(
+	iterableA: Iterable<A>,
+	iterableB: Iterable<B>,
+): Iterator<[A, B]> {
+	const iteratorA = iterableA[Symbol.iterator]();
+	const iteratorB = iterableB[Symbol.iterator]();
+	const iterator = function* () {
+		// Written out so TypeScript knows
+		const nextA = iteratorA.next();
+		if (nextA.done) {
+			return;
+		}
+		const nextB = iteratorB.next();
+		if (nextB.done) {
+			return;
+		}
+		const next: [A, B] = [nextA.value, nextB.value];
+		yield next;
+	};
+
+	return iterator();
+}

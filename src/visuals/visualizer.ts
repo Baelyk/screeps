@@ -45,6 +45,16 @@ export class Visualizer extends Process {
 					),
 				);
 			}
+			const constructId = processes["Construct"];
+			if (constructId != null) {
+				global.kernel.sendMessage(
+					new RequestVisualConnection(
+						this.id,
+						constructId,
+						Providers.constructProvider,
+					),
+				);
+			}
 		}
 	}
 

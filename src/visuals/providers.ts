@@ -1,6 +1,6 @@
-import { ManageRoom, ManageSpawns } from "./../process";
+import { ManageRoom, ManageSpawns, Construct } from "./../process";
 import { info, warn } from "./../utils/logger";
-import { textLines, progressBar } from "./utils";
+import { textLines, progressBar, box, interpolateColors } from "./utils";
 
 export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	const lines = [];
@@ -43,6 +43,38 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	return true;
 }
 
+export function constructProvider(this: Readonly<Construct>): boolean {
+	const lines = [];
+
+	const repairsNeeded = this.repairables.reduce(
+		(energy, s) => energy + s.hitsMax - s.hits,
+		0,
+	);
+	lines.push(`Repairs: ${repairsNeeded}`);
+
+	// Show boxes around
+	this.repairables.forEach((s) => {
+		box(
+			this.room.visual,
+			s.pos.x,
+			s.pos.y,
+			1,
+			1,
+			interpolateColors("#00ff00", "#ff0000", s.hits / s.hitsMax),
+		);
+	});
+
+	if (this.repairers.size > 0 && this.repairables.length > 0) {
+		const target = this.repairables[0];
+		box(this.room.visual, target.pos.x, target.pos.y, 1, 1, "black", {
+			lineStyle: "dashed",
+		});
+	}
+
+	textLines(this.room.visual, lines, 0, 5);
+	return true;
+}
+
 export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 	const lines = [];
 
@@ -66,7 +98,7 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 		this.queue.forEach((item) => lines.push(`\t${item[0]}`));
 	}
 
-	textLines(this.room.visual, lines, 0, 5);
+	textLines(this.room.visual, lines, 0, 10);
 
 	return true;
 }
