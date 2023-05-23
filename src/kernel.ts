@@ -1,8 +1,6 @@
 import { info, warn, error, tick as logTick } from "./utils/logger";
 import { ProcessTable } from "./processTable";
 import {
-	ProcessConstructor,
-	ProcessName,
 	IProcess,
 	ProcessId,
 	ForgetDeadCreeps,
@@ -11,6 +9,7 @@ import {
 } from "./process";
 import { IMessage, MessageId, Messenger } from "./messenger";
 import { Scheduler } from "./scheduler";
+import { Visualizer } from "./visuals/visualizer";
 
 declare global {
 	interface Memory {
@@ -37,6 +36,8 @@ export class Kernel {
 			for (const name in Game.rooms) {
 				this.spawnProcess(new ManageRoom({ roomName: name }));
 			}
+
+			this.spawnProcess(new Visualizer({}));
 			return;
 		}
 

@@ -1,6 +1,7 @@
 import { info, errorConstant, warn, error } from "./utils/logger";
 import { IMessage, MessageId } from "./messenger";
 import { nextAvailableName, bodyFromSegments } from "./utils";
+import { RequestVisualConnection } from "./visuals/connection";
 import * as Iterators from "./utils/iterators";
 
 export type ProcessId = number;
@@ -8,7 +9,8 @@ export type ProcessName = string;
 // rome-ignore lint/suspicious/noExplicitAny: Idk leave me alone
 export type ProcessConstructor = new (data: any) => Process;
 
-const ProcessConstructors: Map<ProcessName, ProcessConstructor> = new Map();
+export const ProcessConstructors: Map<ProcessName, ProcessConstructor> =
+	new Map();
 
 export interface IProcess {
 	name: ProcessName;
@@ -30,7 +32,7 @@ interface ProcessReturn {
 }
 
 // rome-ignore lint/suspicious/noExplicitAny: This is how TypeScript defines it
-type ProcessData<T extends abstract new (...args: any) => any> =
+export type ProcessData<T extends abstract new (...args: any) => any> =
 	ConstructorParameters<T>[0];
 
 export abstract class Process implements IProcess {
@@ -78,6 +80,16 @@ export abstract class Process implements IProcess {
 	}
 
 	receiveMessage(message: IMessage): void {
+		if (message instanceof RequestVisualConnection) {
+			try {
+				message.accept(this);
+			} catch (err) {
+				error(
+					`Failed to accept RequestVisualConnection ${message.id} from ${message.from} to ${this.id}`,
+				);
+			}
+			return;
+		}
 		warn(`Process ${this.display()} received unhandled message:\n${message}`);
 	}
 
@@ -98,6 +110,12 @@ export abstract class Process implements IProcess {
 		return {
 			code: status.done ? ProcessReturnCode.Done : ProcessReturnCode.OkContinue,
 		};
+	}
+}
+
+declare global {
+	interface CreepMemory {
+		process?: ProcessId;
 	}
 }
 
@@ -131,6 +149,12 @@ export class CreepProcess extends Process {
 	}
 }
 
+declare global {
+	interface RoomMemory {
+		processes?: { [processName: string]: ProcessId | undefined };
+	}
+}
+
 export class RoomProcess extends Process {
 	roomName: string;
 
@@ -141,6 +165,11 @@ export class RoomProcess extends Process {
 	) {
 		super(data);
 		this.roomName = data.roomName;
+
+		if (this.room.memory.processes == null) {
+			this.room.memory.processes = {};
+		}
+		this.room.memory.processes[this.name] = this.id;
 	}
 
 	get room(): Room {
@@ -206,12 +235,6 @@ export class RoomProcess extends Process {
 
 	display(): string {
 		return `${this.id} ${this.name} ${this.room.name}`;
-	}
-}
-
-declare global {
-	interface CreepMemory {
-		process?: ProcessId;
 	}
 }
 
