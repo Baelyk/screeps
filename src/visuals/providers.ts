@@ -6,7 +6,6 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	const lines = [];
 	lines.push(`Room ${this.roomName}`);
 
-	const controller = this.room.controller;
 	if (this.room.controller != null) {
 		const progress = Math.floor(
 			(100 * this.room.controller.progress) /
@@ -15,7 +14,7 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 		progressBar(
 			this.room.visual,
 			progress / 100,
-			`Level 5: ${progress}%`,
+			`Level ${this.room.controller.level}: ${progress}%`,
 			0,
 			lines.length,
 			10,
