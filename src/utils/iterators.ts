@@ -23,6 +23,14 @@ export function count<T>(
 	return num;
 }
 
+export function sum(iterable: Iterable<number>): number {
+	let sum = 0;
+	for (const item of iterable) {
+		sum += item;
+	}
+	return sum;
+}
+
 export function zip<A, B>(
 	iterableA: Iterable<A>,
 	iterableB: Iterable<B>,

@@ -35,13 +35,13 @@ export class Visualizer extends Process {
 					),
 				);
 			}
-			const manageSpawnsId = processes["ManageSpawns"];
-			if (manageSpawnsId != null) {
+			const economyId = processes["Economy"];
+			if (economyId != null) {
 				global.kernel.sendMessage(
 					new RequestVisualConnection(
 						this.id,
-						manageSpawnsId,
-						Providers.manageSpawnsProvider,
+						economyId,
+						Providers.economyProvider,
 					),
 				);
 			}
@@ -52,6 +52,16 @@ export class Visualizer extends Process {
 						this.id,
 						constructId,
 						Providers.constructProvider,
+					),
+				);
+			}
+			const manageSpawnsId = processes["ManageSpawns"];
+			if (manageSpawnsId != null) {
+				global.kernel.sendMessage(
+					new RequestVisualConnection(
+						this.id,
+						manageSpawnsId,
+						Providers.manageSpawnsProvider,
 					),
 				);
 			}

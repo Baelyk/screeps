@@ -1190,7 +1190,7 @@ export class Upgrader extends CreepProcess {
 }
 ProcessConstructors.set("Upgrader", Upgrader);
 
-class Economy extends RoomProcess {
+export class Economy extends RoomProcess {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
@@ -1369,12 +1369,46 @@ class Economy extends RoomProcess {
 		}
 	}
 
+	efficiency = 0;
+	*efficiencyTracking() {
+		const historyLength = CREEP_LIFE_TIME;
+		const upgraded: number[] = [];
+		const harvested: number[] = [];
+
+		while (true) {
+			const events = this.room.getEventLog();
+
+			let upgradedNow = 0;
+			let harvestedNow = 0;
+			for (const { event, data } of events) {
+				if (event === EVENT_UPGRADE_CONTROLLER) {
+					upgradedNow += data.energySpent;
+				} else if (event === EVENT_HARVEST) {
+					harvestedNow += data.amount;
+				}
+			}
+
+			if (upgraded.unshift(upgradedNow) > historyLength) {
+				upgraded.pop();
+			}
+			if (harvested.unshift(harvestedNow) > historyLength) {
+				harvested.pop();
+			}
+
+			this.efficiency = Iterators.sum(upgraded) / Iterators.sum(harvested);
+
+			yield;
+		}
+	}
+
 	*economy() {
 		const sourceMining = this.sourceMining();
 		const upgradeController = this.upgradeController();
+		const efficiencyTracking = this.efficiencyTracking();
 		while (true) {
 			sourceMining.next();
 			upgradeController.next();
+			efficiencyTracking.next();
 			yield;
 		}
 	}

@@ -1,4 +1,4 @@
-import { ManageRoom, ManageSpawns, Construct } from "./../process";
+import { ManageRoom, ManageSpawns, Construct, Economy } from "./../process";
 import { info, warn } from "./../utils/logger";
 import { textLines, progressBar, box, interpolateColors } from "./utils";
 
@@ -35,9 +35,28 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	);
 	lines.push("");
 
+	textLines(this.room.visual, lines, 0, 1);
+
+	return true;
+}
+
+export function economyProvider(this: Readonly<Economy>): boolean {
+	const lines = [];
+
+	const efficiency = Math.floor(100 * this.efficiency);
+	progressBar(
+		this.room.visual,
+		Math.min(1, efficiency / 100),
+		`Efficiency: ${efficiency < 999 ? efficiency : ">999"}%`,
+		0,
+		lines.length + 3,
+		10,
+	);
+	lines.push("");
+
 	lines.push(`Energy: ${Math.floor(this.energyAvailable / 1000)}k`);
 
-	textLines(this.room.visual, lines, 0, 1);
+	textLines(this.room.visual, lines, 0, 4);
 
 	return true;
 }
@@ -70,7 +89,7 @@ export function constructProvider(this: Readonly<Construct>): boolean {
 		});
 	}
 
-	textLines(this.room.visual, lines, 0, 5);
+	textLines(this.room.visual, lines, 0, 6);
 	return true;
 }
 
@@ -97,7 +116,7 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 		this.queue.forEach((item) => lines.push(`\t${item[0]}`));
 	}
 
-	textLines(this.room.visual, lines, 0, 6);
+	textLines(this.room.visual, lines, 0, 7);
 
 	return true;
 }
