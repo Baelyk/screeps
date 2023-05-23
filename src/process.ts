@@ -746,13 +746,13 @@ export class Construct extends RoomProcess {
 			const urgentRepair = this.repairables.some(
 				(s) => s.hits < s.hitsMax * 0.25,
 			);
-			const repairEnergy = this.repairables.reduce(
-				(energy, s) => energy + s.hitsMax - s.hits,
+			const repairHits = this.repairables.reduce(
+				(hits, s) => hits + s.hitsMax - s.hits,
 				0,
 			);
 
 			// If there are sites and *zero* repairer, wait on spawning a builder
-			if (urgentRepair || repairEnergy > (CREEP_LIFE_TIME / 2) * REPAIR_POWER) {
+			if (urgentRepair || repairHits > (CREEP_LIFE_TIME / 2) * REPAIR_POWER) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "repairer")) {
 					this.requestSpawn("Repairer", "repairer");
 				}

@@ -50,7 +50,7 @@ export function constructProvider(this: Readonly<Construct>): boolean {
 		(energy, s) => energy + s.hitsMax - s.hits,
 		0,
 	);
-	lines.push(`Repairs: ${repairsNeeded}`);
+	lines.push(`Repairs: ${Math.ceil(repairsNeeded / 1000)}k`);
 
 	// Show boxes around
 	this.repairables.forEach((s) => {
@@ -98,7 +98,7 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 		this.queue.forEach((item) => lines.push(`\t${item[0]}`));
 	}
 
-	textLines(this.room.visual, lines, 0, 10);
+	textLines(this.room.visual, lines, 0, 6);
 
 	return true;
 }
