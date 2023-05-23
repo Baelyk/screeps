@@ -1,6 +1,11 @@
 import { info, errorConstant, warn, error } from "./utils/logger";
 import { IMessage, MessageId } from "./messenger";
-import { nextAvailableName, bodyFromSegments } from "./utils";
+import {
+	nextAvailableName,
+	bodyFromSegments,
+	haulerBody,
+	countBodyPart,
+} from "./utils";
 import { RequestVisualConnection } from "./visuals/connection";
 import * as Iterators from "./utils/iterators";
 
@@ -292,12 +297,14 @@ function tendRoom(this: ManageRoom): void {
 
 	if (Game.creeps[this.tenderName || ""] == null) {
 		if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "tender")) {
-			this.requestSpawn(
-				"Tender",
-				"tender",
-				genericBody(Math.max(this.room.energyAvailable, 300)),
-				true,
-			);
+			const energy = Math.max(this.room.energyAvailable, 300);
+			let body: BodyPartConstant[];
+			if (this.energyAvailable === 0 && this.room.energyAvailable <= 300) {
+				body = genericBody(energy);
+			} else {
+				body = haulerBody(energy);
+			}
+			this.requestSpawn("Tender", "tender", body, true);
 		}
 		return;
 	}
@@ -548,7 +555,12 @@ function* getEnergy(this: { creep: Creep }, allowStorage = true) {
 				s.store[RESOURCE_ENERGY] > 0,
 		});
 		if (target == null) {
-			yield* harvest.bind(this)();
+			// If creep can harvest, do it. Otherwise, stop.
+			if (countBodyPart(this.creep.body, WORK) > 0) {
+				yield* harvest.bind(this)();
+				return;
+			}
+			yield;
 			return;
 		}
 
@@ -565,6 +577,10 @@ function* getEnergy(this: { creep: Creep }, allowStorage = true) {
 }
 
 function* harvest(this: { creep: Creep }) {
+	if (countBodyPart(this.creep.body, WORK) === 0) {
+		warn(`Creep ${this.creep.name} has no work parts, cannot harvest`);
+		return;
+	}
 	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
 		const source = this.creep.pos.findClosestByPath(FIND_SOURCES, {
 			filter: (source) => source.energy > 0,
@@ -658,6 +674,7 @@ function* repairer(this: Repairer) {
 				throw new Error("No site");
 			} else if (site.hits === site.hitsMax) {
 				warn(`Site ${this.siteId.slice(-4)} fully repaired`);
+				return;
 			}
 
 			let response: ScreepsReturnCode = this.creep.repair(site);
@@ -743,25 +760,33 @@ export class Construct extends RoomProcess {
 				return;
 			}
 
-			const urgentRepair = this.repairables.some(
+			const urgentRepairs = this.repairables.filter(
 				(s) => s.hits < s.hitsMax * 0.25,
 			);
+			urgentRepairs.sort((a, b) => a.hits - b.hits);
 			const repairHits = this.repairables.reduce(
 				(hits, s) => hits + s.hitsMax - s.hits,
 				0,
 			);
 
 			// If there are sites and *zero* repairer, wait on spawning a builder
-			if (urgentRepair || repairHits > (CREEP_LIFE_TIME / 2) * REPAIR_POWER) {
+			if (
+				this.repairers.size === 0 &&
+				// Assume repairs actually repair for half their life, and repair with
+				// 10 WORK parts
+				(urgentRepairs.length > 0 ||
+					repairHits > (CREEP_LIFE_TIME / 2) * REPAIR_POWER * 10)
+			) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "repairer")) {
 					this.requestSpawn("Repairer", "repairer");
 				}
 			}
 
 			// Manage repairs
-			for (const [repairer, assignment] of this.repairers) {
-				if (Game.creeps[repairer] == null) {
-					this.repairers.delete(repairer);
+			for (const [repairerName, assignment] of this.repairers) {
+				const repairer = Game.creeps[repairerName || ""];
+				if (repairer == null) {
+					this.repairers.delete(repairerName);
 					continue;
 				}
 				let site: Structure | null = null;
@@ -772,22 +797,30 @@ export class Construct extends RoomProcess {
 				// If site fully repaired, cancel this repair
 				if (site != null && site.hits === site.hitsMax) {
 					site = null;
-					global.kernel.stopProcess(Memory.creeps[repairer].process || -1);
+					global.kernel.stopProcess(Memory.creeps[repairerName].process || -1);
 				}
-				// Find new assignment
+				// Find new assignment, either targeting the lowest hit point urgent
+				// repair, or the closest repairable
 				if (site == null || site.hits > site.hitsMax * 0.8) {
-					site = this.repairables[0];
+					site = urgentRepairs[0];
 				}
-				this.repairers.set(repairer, site?.id || null);
+				if (site == null) {
+					site = repairer.pos.findClosestByPath(this.repairables);
+				}
+				this.repairers.set(repairerName, site?.id || null);
 				// Do something else
 				if (site == null) {
 					if (
-						!global.kernel.hasProcess(Memory.creeps[repairer].process || -1) ||
-						Memory.creeps[repairer].process === this.id
+						!global.kernel.hasProcess(
+							Memory.creeps[repairerName].process || -1,
+						) ||
+						Memory.creeps[repairerName].process === this.id
 					) {
 						const oldProcessId = reassignCreep(
-							repairer,
-							global.kernel.spawnProcess(new Upgrader({ creepName: repairer })),
+							repairerName,
+							global.kernel.spawnProcess(
+								new Upgrader({ creepName: repairerName }),
+							),
 						);
 						if (oldProcessId != null && oldProcessId !== this.id) {
 							global.kernel.stopProcess(oldProcessId);
@@ -798,9 +831,9 @@ export class Construct extends RoomProcess {
 
 				if (site.id !== assignment) {
 					const oldProcessId = reassignCreep(
-						repairer,
+						repairerName,
 						global.kernel.spawnProcess(
-							new Repairer({ creepName: repairer, siteId: site.id }),
+							new Repairer({ creepName: repairerName, siteId: site.id }),
 						),
 					);
 					if (oldProcessId != null && oldProcessId !== this.id) {
@@ -815,7 +848,7 @@ export class Construct extends RoomProcess {
 				0,
 			);
 			// Source: I made it up
-			const desiredBuilders = Math.max(1, Math.min(5, energy / 25000));
+			const desiredBuilders = Math.max(1, Math.min(3, energy / 50000));
 			// Spawn more builders if below desired number
 			if (sites.length > 0 && this.builders.size < desiredBuilders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "builder")) {
@@ -1306,7 +1339,7 @@ class Economy extends RoomProcess {
 			// Maintain desired number of upgraders
 			const desiredUpgraders = Math.min(
 				3,
-				Math.min(1, Math.floor(this.energyAvailable / 50000)),
+				Math.max(1, Math.floor(this.energyAvailable / 50000)),
 			);
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {

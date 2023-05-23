@@ -20,7 +20,7 @@ export function countBodyPart(
 		const partList = body as BodyPartDefinition[];
 
 		partList.forEach((part) => {
-			if (part.type === partType) count++;
+			if (part.type === partType && part.hits > 0) count++;
 		});
 	} else {
 		const partList = body as BodyPartConstant[];
@@ -224,4 +224,24 @@ export function nextAvailableName(name: string): string {
 		index++;
 	}
 	return `${name}_${index}`;
+}
+
+export function haulerBody(energy: number): BodyPartConstant[] {
+	const body: BodyPartConstant[] = [];
+	// Haulers/tenders don't really need more thnat 30 body parts, allowing
+	// them 1000 carry capacity and 1 move speed on roads empty and full.
+	// Energy capacity minus work cost divided by MOVE/CARRY cost
+	//
+	// Also, require at least 2 body units for a move and a carry
+	const bodyUnits = Math.max(2, Math.min(30, Math.floor(energy / 50)));
+	// 1/3 MOVE, rest CARRY
+	for (let i = 0; i < bodyUnits; i++) {
+		// Prioritize MOVE parts so that the creep always moves in 1
+		if (i < Math.ceil(bodyUnits / 3)) {
+			body.push(MOVE);
+		} else {
+			body.push(CARRY);
+		}
+	}
+	return body;
 }

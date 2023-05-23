@@ -59,7 +59,7 @@ export function constructProvider(this: Readonly<Construct>): boolean {
 			s.pos.y,
 			1,
 			1,
-			interpolateColors("#00ff00", "#ff0000", s.hits / s.hitsMax),
+			interpolateColors("#ff0000", "#00ff00", s.hits / s.hitsMax),
 		);
 	});
 
