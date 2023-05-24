@@ -632,7 +632,7 @@ function* builder(this: Builder) {
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const site = Game.getObjectById(this.siteId);
 			if (site == null) {
-				throw new Error("No site");
+				return;
 			}
 
 			let response: ScreepsReturnCode = this.creep.build(site);
@@ -712,8 +712,8 @@ export class Construct extends RoomProcess {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
-	builders: Map<string, Id<ConstructionSite> | null>;
-	repairers: Map<string, Id<Structure> | null>;
+	builders: Map<string, [Id<ConstructionSite> | null, ProcessId | null]>;
+	repairers: Map<string, [Id<Structure> | null, ProcessId | null]>;
 	spawnRequests: Map<MessageId, "builder" | "repairer">;
 
 	constructor({
@@ -726,8 +726,10 @@ export class Construct extends RoomProcess {
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
 		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
-		builders?: Iterable<[string, Id<ConstructionSite> | null]>;
-		repairers?: Iterable<[string, Id<Structure> | null]>;
+		builders?: Iterable<
+			[string, [Id<ConstructionSite> | null, ProcessId | null]]
+		>;
+		repairers?: Iterable<[string, [Id<Structure> | null, ProcessId | null]]>;
 		spawnRequests?: Iterable<[MessageId, "builder" | "repairer"]>;
 	}) {
 		super({ name: "Construct", ...data });
@@ -783,7 +785,7 @@ export class Construct extends RoomProcess {
 			}
 
 			// Manage repairs
-			for (const [repairerName, assignment] of this.repairers) {
+			for (let [repairerName, [siteId, processId]] of this.repairers) {
 				const repairer = Game.creeps[repairerName || ""];
 				if (repairer == null) {
 					this.repairers.delete(repairerName);
@@ -791,13 +793,13 @@ export class Construct extends RoomProcess {
 				}
 				let site: Structure | null = null;
 				// Get current assignment
-				if (assignment != null) {
-					site = Game.getObjectById(assignment);
+				if (siteId != null) {
+					site = Game.getObjectById(siteId);
 				}
 				// If site fully repaired, cancel this repair
 				if (site != null && site.hits === site.hitsMax) {
 					site = null;
-					global.kernel.stopProcess(Memory.creeps[repairerName].process || -1);
+					global.kernel.stopProcess(processId || -1);
 				}
 				// Find new assignment, either targeting the lowest hit point urgent
 				// repair, or the closest repairable
@@ -807,38 +809,35 @@ export class Construct extends RoomProcess {
 				if (site == null) {
 					site = repairer.pos.findClosestByPath(this.repairables);
 				}
-				this.repairers.set(repairerName, site?.id || null);
-				// Do something else
-				if (site == null) {
-					if (
-						!global.kernel.hasProcess(
-							Memory.creeps[repairerName].process || -1,
-						) ||
-						Memory.creeps[repairerName].process === this.id
-					) {
-						const oldProcessId = reassignCreep(
-							repairerName,
-							global.kernel.spawnProcess(
-								new Upgrader({ creepName: repairerName }),
-							),
-						);
-						if (oldProcessId != null && oldProcessId !== this.id) {
-							global.kernel.stopProcess(oldProcessId);
+				// Repair found site
+				if (site != null) {
+					// This is a new site
+					if (site.id !== siteId) {
+						if (processId != null) {
+							global.kernel.stopProcess(processId);
 						}
+						processId = global.kernel.spawnProcess(
+							new Repairer({ creepName: repairerName, siteId: site.id }),
+						);
+						this.repairers.set(repairerName, [site.id, processId]);
 					}
 					continue;
 				}
 
-				if (site.id !== assignment) {
-					const oldProcessId = reassignCreep(
-						repairerName,
-						global.kernel.spawnProcess(
-							new Repairer({ creepName: repairerName, siteId: site.id }),
-						),
-					);
-					if (oldProcessId != null && oldProcessId !== this.id) {
-						global.kernel.stopProcess(oldProcessId);
+				// No site found, do something else (upgrade)
+				if (this.room.controller == null || !this.room.controller.my) {
+					warn(`Creep ${repairerName} has nothing to construct or upgrade`);
+					this.repairers.set(repairerName, [null, null]);
+					continue;
+				}
+				if (!global.kernel.hasProcess(processId || -1)) {
+					if (processId != null) {
+						global.kernel.stopProcess(processId);
 					}
+					processId = global.kernel.spawnProcess(
+						new Upgrader({ creepName: repairerName }),
+					);
+					this.repairers.set(repairerName, [null, processId]);
 				}
 			}
 
@@ -857,45 +856,50 @@ export class Construct extends RoomProcess {
 			}
 
 			// Manage building projects
-			for (const [builder, assignment] of this.builders) {
-				if (Game.creeps[builder] == null) {
-					this.builders.delete(builder);
+			for (let [builderName, [siteId, processId]] of this.builders) {
+				const builder = Game.creeps[builderName];
+				if (builder == null) {
+					this.builders.delete(builderName);
 					continue;
 				}
 				let site: ConstructionSite | null = null;
 				// Get current assignment
-				if (assignment != null) {
-					site = Game.getObjectById(assignment);
+				if (siteId != null) {
+					site = Game.getObjectById(siteId);
 				}
 				// Find new assignment
 				if (site == null && sites.length > 0) {
 					site = sites[0];
 				}
-				this.builders.set(builder, site?.id || null);
-				// Do something else
-				if (site == null) {
-					if (!global.kernel.hasProcess(Memory.creeps[builder].process || -1)) {
-						const oldProcessId = reassignCreep(
-							builder,
-							global.kernel.spawnProcess(new Upgrader({ creepName: builder })),
-						);
-						if (oldProcessId != null && oldProcessId !== this.id) {
-							global.kernel.stopProcess(oldProcessId);
+				// Repair found site
+				if (site != null) {
+					// This is a new site
+					if (site.id !== siteId) {
+						if (processId != null) {
+							global.kernel.stopProcess(processId);
 						}
+						processId = global.kernel.spawnProcess(
+							new Builder({ creepName: builderName, siteId: site.id }),
+						);
+						this.builders.set(builderName, [site.id, processId]);
 					}
 					continue;
 				}
 
-				if (site.id !== assignment) {
-					const oldProcessId = reassignCreep(
-						builder,
-						global.kernel.spawnProcess(
-							new Builder({ creepName: builder, siteId: site.id }),
-						),
-					);
-					if (oldProcessId != null && oldProcessId !== this.id) {
-						global.kernel.stopProcess(oldProcessId);
+				// No site found, do something else (upgrade)
+				if (this.room.controller == null || !this.room.controller.my) {
+					warn(`Creep ${builderName} has nothing to construct or upgrade`);
+					this.repairers.set(builderName, [null, null]);
+					continue;
+				}
+				if (!global.kernel.hasProcess(processId || -1)) {
+					if (processId != null) {
+						global.kernel.stopProcess(processId);
 					}
+					processId = global.kernel.spawnProcess(
+						new Upgrader({ creepName: builderName }),
+					);
+					this.builders.set(builderName, [null, processId]);
 				}
 			}
 
@@ -917,10 +921,10 @@ export class Construct extends RoomProcess {
 			if (message.creepName == null) {
 				warn(`Creep request ${message.requestId} went awry`);
 			} else if (role === "repairer") {
-				this.repairers.set(message.creepName, null);
+				this.repairers.set(message.creepName, [null, null]);
 				Memory.creeps[message.creepName].process = this.id;
 			} else if (role === "builder") {
-				this.builders.set(message.creepName, null);
+				this.builders.set(message.creepName, [null, null]);
 				Memory.creeps[message.creepName].process = this.id;
 			}
 
@@ -1389,9 +1393,11 @@ export class Economy extends RoomProcess {
 			let harvestedNow = 0;
 			for (const { event, data } of events) {
 				if (event === EVENT_BUILD) {
-					builtNow += data.energySpent;
+					info(data.energySpent);
+					// At least this one is actually sometimes undefined
+					builtNow += data.energySpent || 0;
 				} else if (event === EVENT_REPAIR) {
-					repairedNow += data.energySpent;
+					repairedNow += data.energySpent || 0;
 				} else if (
 					event === EVENT_TRANSFER &&
 					data.resourceType === RESOURCE_ENERGY
@@ -1404,17 +1410,17 @@ export class Economy extends RoomProcess {
 						(target.structureType === STRUCTURE_SPAWN ||
 							target.structureType === STRUCTURE_EXTENSION)
 					) {
-						spawnedNow += data.amount;
+						spawnedNow += data.amount || 0;
 					}
 				} else if (event === EVENT_UPGRADE_CONTROLLER) {
-					upgradedNow += data.energySpent;
+					upgradedNow += data.energySpent || 0;
 				} else if (
 					event === EVENT_HARVEST &&
 					Game.getObjectById(
 						data.targetId as Id<Source | Mineral | Deposit>,
 					) instanceof Source
 				) {
-					harvestedNow += data.amount;
+					harvestedNow += data.amount || 0;
 				}
 			}
 
@@ -1436,6 +1442,11 @@ export class Economy extends RoomProcess {
 
 			this.upgradeEfficiency =
 				Iterators.sum(upgraded) / Iterators.sum(harvested);
+			info(
+				`${Iterators.sum(built)}, ${Iterators.sum(repaired)}, ${Iterators.sum(
+					spawned,
+				)}, ${Iterators.sum(upgraded)}, ${Iterators.sum(harvested)}`,
+			);
 			this.useEfficiency =
 				(Iterators.sum(built) +
 					Iterators.sum(repaired) +

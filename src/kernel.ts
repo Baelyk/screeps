@@ -111,6 +111,7 @@ export class Kernel {
 	}
 
 	stopProcess(processId: ProcessId): void {
+		warn(`Stopping ${processId}`);
 		this.processTable.removeProcess(processId);
 	}
 

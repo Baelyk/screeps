@@ -93,11 +93,14 @@ export function constructProvider(this: Readonly<Construct>): boolean {
 		);
 	});
 
+	// Highlight urgent repair
 	if (this.repairers.size > 0 && this.repairables.length > 0) {
 		const target = this.repairables[0];
-		box(this.room.visual, target.pos.x, target.pos.y, 1, 1, "black", {
-			lineStyle: "dashed",
-		});
+		if (target.hits < target.hitsMax * 0.25) {
+			box(this.room.visual, target.pos.x, target.pos.y, 1, 1, "black", {
+				lineStyle: "dashed",
+			});
+		}
 	}
 
 	textLines(this.room.visual, lines, 0, 7);
