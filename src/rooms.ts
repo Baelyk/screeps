@@ -1,289 +1,17 @@
 import { info, errorConstant, warn, error } from "./utils/logger";
 import { IMessage, MessageId } from "./messenger";
-import {
-	nextAvailableName,
-	bodyFromSegments,
-	haulerBody,
-	countBodyPart,
-} from "./utils";
-import { RequestVisualConnection } from "./visuals/connection";
+import { nextAvailableName, bodyFromSegments, haulerBody } from "./utils";
 import * as Iterators from "./utils/iterators";
+import { RoomPlanner } from "./planner";
+import {
+	reassignCreep,
+	ProcessData,
+	ProcessId,
+	RoomProcess,
+	ProcessConstructors,
+} from "./process";
 
-export type ProcessId = number;
-export type ProcessName = string;
-// rome-ignore lint/suspicious/noExplicitAny: Idk leave me alone
-export type ProcessConstructor = new (data: any) => Process;
-
-export const ProcessConstructors: Map<ProcessName, ProcessConstructor> =
-	new Map();
-
-export interface IProcess {
-	name: ProcessName;
-	id: ProcessId;
-	display: () => string;
-	receiveMessage: (message: IMessage) => void;
-	serialize: () => string;
-	run: () => { code: ProcessReturnCode };
-}
-
-enum ProcessReturnCode {
-	Stop = -1,
-	Done = 0,
-	OkContinue = 1,
-}
-
-interface ProcessReturn {
-	code: ProcessReturnCode;
-}
-
-// rome-ignore lint/suspicious/noExplicitAny: This is how TypeScript defines it
-export type ProcessData<T extends abstract new (...args: any) => any> =
-	ConstructorParameters<T>[0];
-
-export abstract class Process implements IProcess {
-	name: ProcessName;
-	id: ProcessId;
-	generator: Generator | undefined;
-
-	serialize(): string {
-		// Get the process' data
-		// rome-ignore lint/suspicious/noExplicitAny: babes its a mess anyway
-		const data: any = Object.assign({}, this);
-		// Turn Maps into [key, value] tuple arrays
-		for (const prop in data) {
-			if (data[prop] instanceof Map) {
-				data[prop] = Array.from(data[prop]);
-			}
-		}
-		// Use JSON serialization
-		return JSON.stringify(data);
-	}
-
-	constructor({
-		name,
-		id,
-		generator,
-	}: {
-		name: ProcessName;
-		id?: ProcessId;
-		generator?: Generator;
-	}) {
-		this.name = name;
-		this.id = id || global.kernel.getNextId();
-		this.generator = generator;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name}`;
-	}
-
-	[Symbol.iterator](): Generator {
-		if (this.generator == null) {
-			throw new Error("Iterating through Generatorless Process");
-		}
-		return this.generator;
-	}
-
-	receiveMessage(message: IMessage): void {
-		if (message instanceof RequestVisualConnection) {
-			try {
-				message.accept(this);
-			} catch (err) {
-				error(
-					`Failed to accept RequestVisualConnection ${message.id} from ${message.from} to ${this.id}`,
-				);
-			}
-			return;
-		}
-		warn(`Process ${this.display()} received unhandled message:\n${message}`);
-	}
-
-	run(): ProcessReturn {
-		if (this.generator == null) {
-			warn(`Process ${this.display()} has null generator`);
-			return { code: ProcessReturnCode.Done };
-		}
-
-		const messages = global.kernel.pollMessages(this.id);
-		if (messages != null) {
-			for (const message of messages) {
-				this.receiveMessage(message);
-			}
-		}
-
-		const status = this.generator.next();
-		return {
-			code: status.done ? ProcessReturnCode.Done : ProcessReturnCode.OkContinue,
-		};
-	}
-}
-
-declare global {
-	interface CreepMemory {
-		process?: ProcessId;
-	}
-}
-
-export class CreepProcess extends Process {
-	creepName: string;
-
-	constructor(
-		data: ProcessData<typeof Process> & {
-			creepName: string;
-		},
-	) {
-		super(data);
-		this.creepName = data.creepName;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.creepName}`;
-	}
-
-	_creep?: Creep;
-	_creepTick?: number;
-	get creep(): Creep {
-		if (this._creep == null || this._creepTick !== Game.time) {
-			this._creep = Game.creeps[this.creepName];
-			this._creepTick = Game.time;
-		}
-		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
-		}
-		return this._creep;
-	}
-}
-
-declare global {
-	interface RoomMemory {
-		processes?: { [processName: string]: ProcessId | undefined };
-	}
-}
-
-export class RoomProcess extends Process {
-	roomName: string;
-
-	constructor(
-		data: ProcessData<typeof Process> & {
-			roomName: string;
-		},
-	) {
-		super(data);
-		this.roomName = data.roomName;
-
-		if (this.room.memory.processes == null) {
-			this.room.memory.processes = {};
-		}
-		this.room.memory.processes[this.name] = this.id;
-	}
-
-	get room(): Room {
-		const room = Game.rooms[this.roomName];
-		if (room == null) {
-			throw new Error("Room not visible");
-		}
-
-		return room;
-	}
-
-	_energyAvailable: number | null = 0;
-	_energyAvailableTick: number | null = 0;
-	get energyAvailable(): number {
-		if (
-			this._energyAvailable == null ||
-			this._energyAvailableTick !== Game.time
-		) {
-			this._energyAvailableTick = Game.time;
-			this._energyAvailable = this.room
-				.find(FIND_STRUCTURES)
-				.filter(
-					(s) =>
-						s.structureType === STRUCTURE_CONTAINER ||
-						s.structureType === STRUCTURE_STORAGE,
-				)
-				.reduce(
-					(energy, s) =>
-						energy +
-						(s as StructureContainer | StructureStorage).store[RESOURCE_ENERGY],
-					0,
-				);
-		}
-		return this._energyAvailable;
-	}
-
-	_energyCapacityAvailable: number | null = 0;
-	_energyCapacityAvailableTick: number | null = 0;
-	get energyCapacityAvailable(): number {
-		if (
-			this._energyCapacityAvailable == null ||
-			this._energyCapacityAvailableTick !== Game.time
-		) {
-			this._energyCapacityAvailableTick = Game.time;
-			this._energyCapacityAvailable = this.room
-				.find(FIND_STRUCTURES)
-				.filter(
-					(s) =>
-						s.structureType === STRUCTURE_CONTAINER ||
-						s.structureType === STRUCTURE_STORAGE,
-				)
-				.reduce(
-					(energyCapacity, s) =>
-						energyCapacity +
-						(s as StructureContainer | StructureStorage).store.getCapacity(
-							RESOURCE_ENERGY,
-						),
-					0,
-				);
-		}
-		return this._energyCapacityAvailable;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.room.name}`;
-	}
-}
-
-function reassignCreep(
-	creepName: string,
-	processId: ProcessId,
-): ProcessId | undefined {
-	const oldId = Memory.creeps[creepName].process;
-	info(`Reassigning ${creepName} from ${oldId || "none"} to ${processId}`);
-	Memory.creeps[creepName].process = processId;
-	return oldId;
-}
-
-function* sleep(duration: number) {
-	let ticks = duration;
-	while (ticks > 0) {
-		ticks--;
-		yield;
-	}
-}
-
-function* forgetDeadCreeps(): Generator<void, never, never> {
-	while (true) {
-		for (const name in Memory.creeps) {
-			if (!(name in Game.creeps)) {
-				info(`Deleting creep ${name} memory`);
-				delete Memory.creeps[name];
-			}
-		}
-
-		yield;
-	}
-}
-
-export class ForgetDeadCreeps extends Process {
-	constructor(data: Omit<ProcessData<typeof Process>, "name">) {
-		super({
-			name: "ForgetDeadCreeps",
-			...data,
-			generator: forgetDeadCreeps(),
-		});
-	}
-}
-ProcessConstructors.set("ForgetDeadCreeps", ForgetDeadCreeps);
+import { Builder, Harvester, Repairer, Tender, Upgrader } from "./creeps";
 
 function tendRoom(this: ManageRoom): void {
 	// No tender needed if the room lacks a spawn
@@ -395,7 +123,9 @@ export class ManageRoom extends RoomProcess {
 	constructId: ProcessId;
 	economyId: ProcessId;
 	expandId: ProcessId | null;
+	roomPlannerId: ProcessId | null;
 
+	roomPlanned: boolean;
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
 
 	tenderName: string | null;
@@ -408,6 +138,8 @@ export class ManageRoom extends RoomProcess {
 				constructId?: ProcessId;
 				economyId?: ProcessId;
 				expandId?: ProcessId | null;
+				roomPlannerId?: ProcessId | null;
+				roomPlanned?: boolean;
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
 				>;
@@ -424,6 +156,7 @@ export class ManageRoom extends RoomProcess {
 			throw new Error("Room not visible");
 		}
 
+		this.roomPlanned = data.roomPlanned || false;
 		this.spawnRequests = new Map(data.spawnRequests);
 		this.tenderName = data.tenderName || null;
 		this.upgraderName = data.upgraderName || null;
@@ -449,6 +182,9 @@ export class ManageRoom extends RoomProcess {
 					manageSpawnsId: this.manageSpawnsId,
 				}),
 			);
+		this.roomPlannerId =
+			data.roomPlannerId ||
+			global.kernel.spawnProcess(new RoomPlanner({ roomName: this.roomName }));
 
 		this.expandId = data.expandId || null;
 	}
@@ -542,171 +278,6 @@ export class ManageRoom extends RoomProcess {
 	}
 }
 ProcessConstructors.set("ManageRoom", ManageRoom);
-
-function* getEnergy(this: { creep: Creep }, allowStorage = true) {
-	if (this.creep.store.getCapacity(RESOURCE_ENERGY) == null) {
-		throw new Error(`Creep ${this.creep.name} unable to carry energy`);
-	}
-	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-		const target = this.creep.pos.findClosestByPath(FIND_STRUCTURES, {
-			filter: (s) =>
-				((s.structureType === STRUCTURE_STORAGE && allowStorage) ||
-					s.structureType === STRUCTURE_CONTAINER) &&
-				s.store[RESOURCE_ENERGY] > 0,
-		});
-		if (target == null) {
-			// If creep can harvest, do it. Otherwise, stop.
-			if (countBodyPart(this.creep.body, WORK) > 0) {
-				yield* harvest.bind(this)();
-				return;
-			}
-			yield;
-			return;
-		}
-
-		let response: ScreepsReturnCode = this.creep.withdraw(
-			target,
-			RESOURCE_ENERGY,
-		);
-		if (response === ERR_NOT_IN_RANGE) {
-			response = this.creep.moveTo(target);
-		}
-
-		yield;
-	}
-}
-
-function* harvest(this: { creep: Creep }) {
-	if (countBodyPart(this.creep.body, WORK) === 0) {
-		warn(`Creep ${this.creep.name} has no work parts, cannot harvest`);
-		return;
-	}
-	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-		const source = this.creep.pos.findClosestByPath(FIND_SOURCES, {
-			filter: (source) => source.energy > 0,
-		});
-		if (source == null) {
-			// Not sure what the best way to handle being unable to get energy is.
-			yield;
-			return;
-		}
-
-		let response: ScreepsReturnCode = this.creep.harvest(source);
-		if (response === ERR_NOT_IN_RANGE) {
-			response = this.creep.moveTo(source);
-		}
-
-		yield;
-	}
-}
-
-function* harvester(this: Harvester) {
-	while (true) {
-		yield* harvest.bind(this)();
-		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const controller = this.creep.room.controller;
-			if (controller == null) {
-				throw new Error("No controller");
-			}
-
-			let response = this.creep.upgradeController(controller);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(controller);
-			}
-
-			yield;
-		}
-	}
-}
-
-export class Harvester extends CreepProcess {
-	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
-		super({ name: "Harvester", ...data });
-		this.generator = harvester.bind(this)();
-	}
-}
-ProcessConstructors.set("Harvester", Harvester);
-
-function* builder(this: Builder) {
-	while (true) {
-		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const site = Game.getObjectById(this.siteId);
-			if (site == null) {
-				return;
-			}
-
-			let response: ScreepsReturnCode = this.creep.build(site);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(site);
-			}
-
-			yield;
-		}
-		yield* getEnergy.bind(this)();
-	}
-}
-
-export class Builder extends CreepProcess {
-	siteId: Id<ConstructionSite>;
-
-	constructor({
-		siteId,
-		...data
-	}: Omit<ProcessData<typeof CreepProcess>, "name"> & {
-		siteId: Id<ConstructionSite>;
-	}) {
-		super({ name: "Builder", ...data });
-		this.generator = builder.bind(this)();
-		this.siteId = siteId;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.creepName} ${this.siteId.slice(-4)}`;
-	}
-}
-ProcessConstructors.set("Builder", Builder);
-
-function* repairer(this: Repairer) {
-	while (true) {
-		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const site = Game.getObjectById(this.siteId);
-			if (site == null) {
-				throw new Error("No site");
-			} else if (site.hits === site.hitsMax) {
-				warn(`Site ${this.siteId.slice(-4)} fully repaired`);
-				return;
-			}
-
-			let response: ScreepsReturnCode = this.creep.repair(site);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(site);
-			}
-
-			yield;
-		}
-		yield* getEnergy.bind(this)();
-	}
-}
-
-export class Repairer extends CreepProcess {
-	siteId: Id<Structure>;
-
-	constructor({
-		siteId,
-		...data
-	}: Omit<ProcessData<typeof CreepProcess>, "name"> & {
-		siteId: Id<Structure>;
-	}) {
-		super({ name: "Repairer", ...data });
-		this.generator = repairer.bind(this)();
-		this.siteId = siteId;
-	}
-
-	display(): string {
-		return `${this.id} ${this.name} ${this.creepName} ${this.siteId.slice(-4)}`;
-	}
-}
-ProcessConstructors.set("Repairer", Repairer);
 
 export class Construct extends RoomProcess {
 	manageRoomId: ProcessId;
@@ -952,63 +523,6 @@ export class Construct extends RoomProcess {
 }
 ProcessConstructors.set("Construct", Construct);
 
-function* tender(this: Tender, roomName?: string) {
-	if (roomName != null) {
-		yield* moveToRoom.bind(this)(roomName);
-	}
-	let allowTakeFromStorage = true;
-	while (true) {
-		yield* getEnergy.bind(this)(allowTakeFromStorage);
-		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const primaryTargets = this.creep.room
-				.find(FIND_MY_STRUCTURES)
-				.filter(
-					(s) =>
-						(s.structureType === STRUCTURE_SPAWN ||
-							s.structureType === STRUCTURE_EXTENSION) &&
-						s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
-				);
-			let target = this.creep.pos.findClosestByPath(primaryTargets);
-			if (target == null) {
-				const secondaryTargets = this.creep.room
-					.find(FIND_MY_STRUCTURES)
-					.filter(
-						(s) =>
-							(s.structureType === STRUCTURE_TOWER ||
-								s.structureType === STRUCTURE_STORAGE) &&
-							s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
-					);
-				target = this.creep.pos.findClosestByPath(secondaryTargets);
-			}
-			if (target == null) {
-				yield;
-				continue;
-			}
-			allowTakeFromStorage = target.structureType !== STRUCTURE_STORAGE;
-
-			let response = this.creep.transfer(target, RESOURCE_ENERGY);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(target);
-			}
-
-			yield;
-		}
-	}
-}
-
-export class Tender extends CreepProcess {
-	roomName: string | null;
-	constructor({
-		roomName,
-		...data
-	}: Omit<ProcessData<typeof CreepProcess>, "name"> & { roomName?: string }) {
-		super({ name: "Tender", ...data });
-		this.roomName = roomName || null;
-		this.generator = tender.bind(this)(roomName);
-	}
-}
-ProcessConstructors.set("Tender", Tender);
-
 function genericBody(energy: number): BodyPartConstant[] {
 	info(`Generating generic body with ${energy} energy`);
 	return bodyFromSegments([MOVE, WORK, CARRY], energy);
@@ -1200,49 +714,6 @@ export class ManageSpawns extends RoomProcess {
 	}
 }
 ProcessConstructors.set("ManageSpawns", ManageSpawns);
-
-function* moveToRoom(this: CreepProcess, roomName: string) {
-	while (this.creep.room.name !== roomName) {
-		const dummyPosition = new RoomPosition(24, 24, roomName);
-		this.creep.moveTo(dummyPosition, { range: 22 });
-		yield;
-	}
-}
-
-function* upgrader(this: Upgrader, roomName?: string) {
-	if (roomName != null) {
-		yield* moveToRoom.bind(this)(roomName);
-	}
-	while (true) {
-		yield* getEnergy.bind(this)();
-		while (this.creep.store[RESOURCE_ENERGY] > 0) {
-			const controller = this.creep.room.controller;
-			if (controller == null) {
-				throw new Error("No controller");
-			}
-
-			let response = this.creep.upgradeController(controller);
-			if (response === ERR_NOT_IN_RANGE) {
-				response = this.creep.moveTo(controller);
-			}
-
-			yield;
-		}
-	}
-}
-
-export class Upgrader extends CreepProcess {
-	roomName: string | null;
-	constructor({
-		roomName,
-		...data
-	}: Omit<ProcessData<typeof CreepProcess>, "name"> & { roomName?: string }) {
-		super({ name: "Upgrader", ...data });
-		this.roomName = roomName || null;
-		this.generator = upgrader.bind(this)(roomName);
-	}
-}
-ProcessConstructors.set("Upgrader", Upgrader);
 
 export class Economy extends RoomProcess {
 	manageRoomId: ProcessId;
@@ -1585,47 +1056,6 @@ export class Economy extends RoomProcess {
 }
 ProcessConstructors.set("Economy", Economy);
 
-function minerBody(energyAvailable: number): BodyPartConstant[] {
-	let energy = energyAvailable;
-	if (
-		energy >
-		BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
-	) {
-		// Enough energy to use segmented miner
-		return ([CARRY] as BodyPartConstant[]).concat(
-			bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
-		);
-	} else {
-		// Prioritize work parts over move parts
-		energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
-		const body: BodyPartConstant[] = [CARRY, MOVE];
-		// The capacity minus the carry and move part cost divided by the work part cost
-		const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
-		energy -= workParts * BODYPART_COST[WORK];
-		const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
-		for (let i = 0; i < additionalMoves; i++) {
-			body.push(MOVE);
-		}
-		for (let i = 0; i < workParts; i++) {
-			body.push(WORK);
-		}
-		return body;
-	}
-}
-
-export function deserializeProcess(serialized: string): Process | undefined {
-	const data = JSON.parse(serialized);
-	const processName = data.name as ProcessName;
-	const process = ProcessConstructors.get(processName);
-	if (process == null) {
-		error(
-			`Unable to get Process constructor for Process ${processName} from serialization ${serialized}`,
-		);
-		return;
-	}
-	return new process(data);
-}
-
 export class Expand extends RoomProcess {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
@@ -1913,5 +1343,33 @@ export class UpdateManageSpawnsId implements IMessage {
 		this.to = to;
 
 		this.manageSpawnsId = manageSpawnsId;
+	}
+}
+
+function minerBody(energyAvailable: number): BodyPartConstant[] {
+	let energy = energyAvailable;
+	if (
+		energy >
+		BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
+	) {
+		// Enough energy to use segmented miner
+		return ([CARRY] as BodyPartConstant[]).concat(
+			bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
+		);
+	} else {
+		// Prioritize work parts over move parts
+		energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
+		const body: BodyPartConstant[] = [CARRY, MOVE];
+		// The capacity minus the carry and move part cost divided by the work part cost
+		const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
+		energy -= workParts * BODYPART_COST[WORK];
+		const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
+		for (let i = 0; i < additionalMoves; i++) {
+			body.push(MOVE);
+		}
+		for (let i = 0; i < workParts; i++) {
+			body.push(WORK);
+		}
+		return body;
 	}
 }

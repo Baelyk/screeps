@@ -1,13 +1,9 @@
 import { info, warn, error, tick as logTick } from "./utils/logger";
 import { wrapper } from "./utils/errors";
 import { ProcessTable } from "./processTable";
-import {
-	IProcess,
-	ProcessId,
-	ForgetDeadCreeps,
-	ManageRoom,
-	deserializeProcess,
-} from "./process";
+import { IProcess, ProcessId, deserializeProcess } from "./process";
+import { ForgetDeadCreeps } from "./misc";
+import { ManageRoom } from "./rooms";
 import { IMessage, MessageId, Messenger } from "./messenger";
 import { Scheduler } from "./scheduler";
 import { Visualizer } from "./visuals/visualizer";

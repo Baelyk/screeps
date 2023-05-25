@@ -1,6 +1,7 @@
-import { ManageRoom, ManageSpawns, Construct, Economy } from "./../process";
+import { ManageRoom, ManageSpawns, Construct, Economy } from "./../rooms";
 import { info, warn } from "./../utils/logger";
 import { textLines, progressBar, box, interpolateColors } from "./utils";
+import { RoomPlanner } from "./../planner";
 
 // Right now, the only provider that actually providing a useful connection to
 // a process is the `manageSpawnsProvider`, providing access to the spawn queue.
@@ -145,6 +146,17 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 	}
 
 	textLines(this.room.visual, lines, 0, 9);
+
+	return true;
+}
+
+export function roomPlannerProvider(this: Readonly<RoomPlanner>): boolean {
+	const lines = [];
+	lines.push(`Planning room ${this.roomName}`);
+
+	this.roads.forEach(({ x, y }) => this.room.visual.circle(x, y));
+
+	textLines(this.room.visual, lines, 10, 1);
 
 	return true;
 }

@@ -65,6 +65,16 @@ export class Visualizer extends Process {
 					),
 				);
 			}
+			const roomPlannerId = processes["RoomPlanner"];
+			if (roomPlannerId != null) {
+				global.kernel.sendMessage(
+					new RequestVisualConnection(
+						this.id,
+						roomPlannerId,
+						Providers.roomPlannerProvider,
+					),
+				);
+			}
 		}
 	}
 
