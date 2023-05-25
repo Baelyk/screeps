@@ -68,6 +68,11 @@ export class Kernel {
 				break;
 			}
 
+			// Process was stopped this tick, after scheduler update
+			if (!this.hasProcess(process.id)) {
+				continue;
+			}
+
 			wrapper(
 				() => {
 					info(`Running process ${process.display()}`);
