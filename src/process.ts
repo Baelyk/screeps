@@ -1373,10 +1373,11 @@ export class Economy extends RoomProcess {
 		}
 	}
 
+	harvestEfficiency = 0;
 	upgradeEfficiency = 0;
 	useEfficiency = 0;
 	*efficiencyTracking() {
-		const historyLength = CREEP_LIFE_TIME;
+		const historyLength = CREEP_LIFE_TIME * 10;
 		const built: number[] = [];
 		const repaired: number[] = [];
 		const spawned: number[] = [];
@@ -1384,6 +1385,7 @@ export class Economy extends RoomProcess {
 		const harvested: number[] = [];
 
 		while (true) {
+			const start = Game.cpu.getUsed();
 			const events = this.room.getEventLog();
 
 			let builtNow = 0;
@@ -1393,7 +1395,6 @@ export class Economy extends RoomProcess {
 			let harvestedNow = 0;
 			for (const { event, data } of events) {
 				if (event === EVENT_BUILD) {
-					info(data.energySpent);
 					// At least this one is actually sometimes undefined
 					builtNow += data.energySpent || 0;
 				} else if (event === EVENT_REPAIR) {
@@ -1440,13 +1441,11 @@ export class Economy extends RoomProcess {
 				harvested.pop();
 			}
 
+			// Sources provied 10 energy/tick each
+			this.harvestEfficiency =
+				Iterators.sum(harvested) / (20 * harvested.length);
 			this.upgradeEfficiency =
 				Iterators.sum(upgraded) / Iterators.sum(harvested);
-			info(
-				`${Iterators.sum(built)}, ${Iterators.sum(repaired)}, ${Iterators.sum(
-					spawned,
-				)}, ${Iterators.sum(upgraded)}, ${Iterators.sum(harvested)}`,
-			);
 			this.useEfficiency =
 				(Iterators.sum(built) +
 					Iterators.sum(repaired) +
@@ -1454,6 +1453,12 @@ export class Economy extends RoomProcess {
 					Iterators.sum(upgraded)) /
 				Iterators.sum(harvested);
 
+			const elapsed = Game.cpu.getUsed() - start;
+			info(
+				`Used ${
+					Math.round(100 * elapsed) / 100
+				} CPU calculating efficiencies (over ${harvested.length})`,
+			);
 			yield;
 		}
 	}

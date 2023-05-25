@@ -2,6 +2,9 @@ import { ManageRoom, ManageSpawns, Construct, Economy } from "./../process";
 import { info, warn } from "./../utils/logger";
 import { textLines, progressBar, box, interpolateColors } from "./utils";
 
+// Right now, the only provider that actually providing a useful connection to
+// a process is the `manageSpawnsProvider`, providing access to the spawn queue.
+
 export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	const lines = [];
 	lines.push(`Room ${this.roomName}`);
@@ -65,6 +68,17 @@ export function economyProvider(this: Readonly<Economy>): boolean {
 	);
 	lines.push("");
 
+	const harvestEfficiency = Math.floor(100 * this.harvestEfficiency);
+	progressBar(
+		this.room.visual,
+		Math.min(1, harvestEfficiency / 100),
+		`Harvest Eff: ${harvestEfficiency < 999 ? harvestEfficiency : ">999"}%`,
+		0,
+		lines.length + 3,
+		10,
+	);
+	lines.push("");
+
 	lines.push(`Energy: ${Math.floor(this.energyAvailable / 1000)}k`);
 
 	textLines(this.room.visual, lines, 0, 4);
@@ -103,7 +117,7 @@ export function constructProvider(this: Readonly<Construct>): boolean {
 		}
 	}
 
-	textLines(this.room.visual, lines, 0, 7);
+	textLines(this.room.visual, lines, 0, 8);
 	return true;
 }
 
@@ -130,7 +144,7 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 		this.queue.forEach((item) => lines.push(`\t${item[0]}`));
 	}
 
-	textLines(this.room.visual, lines, 0, 8);
+	textLines(this.room.visual, lines, 0, 9);
 
 	return true;
 }
