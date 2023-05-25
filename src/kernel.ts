@@ -1,4 +1,5 @@
 import { info, warn, error, tick as logTick } from "./utils/logger";
+import { wrapper } from "./utils/errors";
 import { ProcessTable } from "./processTable";
 import {
 	IProcess,
@@ -67,17 +68,20 @@ export class Kernel {
 				break;
 			}
 
-			try {
-				info(`Running process ${process.display()}`);
-				const { code } = process.run();
-				if (code <= 0) {
-					info(`Process ${process.display()} has stopped with ${code}`);
+			wrapper(
+				() => {
+					info(`Running process ${process.display()}`);
+					const { code } = process.run();
+					if (code <= 0) {
+						info(`Process ${process.display()} has stopped with ${code}`);
+						this.stopProcess(process.id);
+					}
+				},
+				`Error running process ${process.display()}`,
+				() => {
 					this.stopProcess(process.id);
-				}
-			} catch (err) {
-				error(`Error while running process:\n${err}`);
-				this.stopProcess(process.id);
-			}
+				},
+			);
 		}
 
 		if (Game.time % 10 === 0) {

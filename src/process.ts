@@ -1009,59 +1009,23 @@ export class Tender extends CreepProcess {
 }
 ProcessConstructors.set("Tender", Tender);
 
-function* manageSpawns(this: ManageSpawns): Generator<void, void, never> {
-	while (true) {
-		while (this.queue.length === 0) {
-			yield;
-		}
-		let response: ScreepsReturnCode | null = null;
-		let spawnedName = null;
-		let message = null;
-		while (response !== OK) {
-			const [creepName, body, queueMessage] = this.queue[0];
-			message = queueMessage;
-
-			const spawn = this.room.find(FIND_MY_SPAWNS)[0];
-			if (spawn == null) {
-				throw new Error(`Unable to find spawn in room ${this.room.name}`);
-			}
-
-			if (spawn.spawning == null) {
-				spawnedName = nextAvailableName(creepName);
-				response = spawn.spawnCreep(body, spawnedName);
-				info(
-					`Spawning ${creepName} in ${
-						this.room.name
-					} with response ${errorConstant(response)}`,
-				);
-			}
-
-			yield;
-		}
-		this.queue.shift();
-
-		if (Game.creeps[spawnedName || ""] == null) {
-			error(`Error spawning ${spawnedName}`);
-		}
-
-		if (message != null) {
-			global.kernel.sendMessage(
-				new CreepSpawned(this.id, message.from, spawnedName, message.id),
-			);
-		}
-	}
-}
-
 function genericBody(energy: number): BodyPartConstant[] {
 	info(`Generating generic body with ${energy} energy`);
 	return bodyFromSegments([MOVE, WORK, CARRY], energy);
 }
 
-export class CreepSpawned implements IMessage {
+interface ICreepSpawned {
+	requester: MessageId;
+	creepName: string | null;
+	requestId: MessageId;
+}
+
+export class CreepSpawned implements IMessage, ICreepSpawned {
 	id: MessageId;
 	from: ProcessId;
 	to: ProcessId;
 
+	requester: MessageId;
 	creepName: string | null;
 	requestId: MessageId;
 
@@ -1075,6 +1039,7 @@ export class CreepSpawned implements IMessage {
 		this.from = from;
 		this.to = to;
 
+		this.requester = to;
 		this.creepName = creepName;
 		this.requestId = requestId;
 	}
@@ -1112,21 +1077,106 @@ type ManageSpawnsQueueItem = [
 	{ id: MessageId; from: ProcessId } | null,
 ];
 export class ManageSpawns extends RoomProcess {
+	outbox: ICreepSpawned[];
 	queue: ManageSpawnsQueueItem[];
 
 	constructor({
+		outbox,
 		queue,
 		...data
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		outbox?: ICreepSpawned[];
 		queue?: ManageSpawnsQueueItem[];
 	}) {
 		super({ name: "ManageSpawns", ...data });
-		this.generator = manageSpawns.bind(this)();
+		this.generator = this.manageSpawns();
 
+		this.outbox = outbox || [];
 		this.queue = queue || [];
 
 		if (this.room == null) {
 			throw new Error("Room not visible");
+		}
+	}
+
+	*manageSpawns() {
+		const processOutbox = this.processOutbox();
+		const spawnCreeps = this.spawnCreeps();
+		while (true) {
+			processOutbox.next();
+			spawnCreeps.next();
+			yield;
+		}
+	}
+
+	*processOutbox() {
+		while (true) {
+			if (this.outbox.length === 0) {
+				yield;
+				continue;
+			}
+
+			for (const { requester, creepName, requestId } of this.outbox) {
+				const message = new CreepSpawned(
+					this.id,
+					requester,
+					creepName,
+					requestId,
+				);
+				info(JSON.stringify(message));
+				global.kernel.sendMessage(message);
+			}
+
+			this.outbox = [];
+		}
+	}
+
+	*spawnCreeps() {
+		while (true) {
+			while (this.queue.length === 0) {
+				// Nothing to do
+				yield;
+			}
+
+			const spawns = this.room.find(FIND_MY_SPAWNS);
+			for (const spawn of spawns) {
+				if (this.queue.length === 0) {
+					break;
+				}
+				if (spawn.spawning != null) {
+					continue;
+				}
+
+				// Get the first queue item. Get again from the top, in case priorities
+				// have changed.
+				const [creepName, body, message] = this.queue[0];
+				const spawnedName = nextAvailableName(creepName);
+				const response = spawn.spawnCreep(body, spawnedName);
+				info(
+					`Spawn ${spawn.name} spawning ${creepName} in ${
+						this.room.name
+					} with response ${errorConstant(response)}`,
+				);
+
+				// Unable to spawn this creep, done for this tick.
+				// TODO: Consider moving on the next in the queue?
+				if (response !== OK) {
+					break;
+				}
+
+				// Creep spawning, message requester and remove from queue.
+				if (message != null) {
+					// TODO: Send message on delay?
+					this.outbox.push({
+						requester: message.from,
+						creepName: spawnedName,
+						requestId: message.id,
+					});
+				}
+				this.queue.shift();
+			}
+
+			yield;
 		}
 	}
 
