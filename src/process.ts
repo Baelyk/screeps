@@ -1367,11 +1367,8 @@ export class Economy extends RoomProcess {
 					.findInRange(FIND_DROPPED_RESOURCES, 1)
 					.find((pile) => pile.resourceType === RESOURCE_ENERGY);
 				if (pile != null) {
-					if (miner.store.getFreeCapacity() > 0) {
-						miner.pickup(pile);
-					} else if (container.store.getFreeCapacity() > 0) {
-						miner.transfer(container, RESOURCE_ENERGY);
-					}
+					miner.transfer(container, RESOURCE_ENERGY);
+					miner.pickup(pile);
 				}
 			}
 
