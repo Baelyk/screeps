@@ -83,6 +83,68 @@ function expand(this: ManageRoom): void {
 	}
 }
 
+function build(this: ManageRoom): void {
+	if (this.blueprint == null) {
+		return;
+	}
+	// TODO: Temporary for my pre-existing manually planned rooms
+	// Storage, extractor
+	const doNotAutoBuild = Iterators.some(
+		this.room.find(FIND_MY_STRUCTURES),
+		(s) => s.structureType === STRUCTURE_EXTRACTOR,
+	);
+	if (doNotAutoBuild) {
+		return;
+	}
+	info(`Room ${this.roomName} building`);
+
+	// Build all containers right away (first to get miners going)
+	(this.blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(({ x, y }) =>
+		this.room.createConstructionSite(x, y, STRUCTURE_CONTAINER),
+	);
+
+	// Build all the roads right away
+	(this.blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
+		this.room.createConstructionSite(x, y, STRUCTURE_ROAD),
+	);
+
+	const controller = this.room.controller;
+	if (controller == null) {
+		warn(`Room ${this.roomName} lacks a controller, not building further`);
+		return;
+	}
+
+	// Build the maximum possible number of spawns
+	(this.blueprint.structures[STRUCTURE_SPAWN] || [])
+		.filter(
+			(_, num) =>
+				num < CONTROLLER_STRUCTURES[STRUCTURE_SPAWN][controller.level],
+		)
+		.forEach(({ x, y }) =>
+			this.room.createConstructionSite(x, y, STRUCTURE_SPAWN),
+		);
+
+	// Build the maximum possible number of extensions
+	(this.blueprint.structures[STRUCTURE_EXTENSION] || [])
+		.filter(
+			(_, num) =>
+				num < CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][controller.level],
+		)
+		.forEach(({ x, y }) =>
+			this.room.createConstructionSite(x, y, STRUCTURE_EXTENSION),
+		);
+
+	// Build a storage, if possible
+	(this.blueprint.structures[STRUCTURE_STORAGE] || [])
+		.filter(
+			(_, num) =>
+				num < CONTROLLER_STRUCTURES[STRUCTURE_STORAGE][controller.level],
+		)
+		.forEach(({ x, y }) =>
+			this.room.createConstructionSite(x, y, STRUCTURE_STORAGE),
+		);
+}
+
 function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 	while (true) {
 		info(`Managing room ${this.room.name}`);
@@ -95,6 +157,10 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 		tendRoom.bind(this)();
 		upgradeRoom.bind(this)();
 		expand.bind(this)();
+
+		if (Game.time % 100 === 0) {
+			build.bind(this)();
+		}
 
 		const creeps = this.room.find(FIND_MY_CREEPS);
 		creeps.forEach((creep) => {
