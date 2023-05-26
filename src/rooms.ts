@@ -2,7 +2,7 @@ import { info, errorConstant, warn, error } from "./utils/logger";
 import { IMessage, MessageId } from "./messenger";
 import { nextAvailableName, bodyFromSegments, haulerBody } from "./utils";
 import * as Iterators from "./utils/iterators";
-import { RoomPlanner } from "./planner";
+import { Blueprint, RoomPlanner, SendBlueprint } from "./planner";
 import {
 	reassignCreep,
 	ProcessData,
@@ -127,6 +127,7 @@ export class ManageRoom extends RoomProcess {
 
 	roomPlanned: boolean;
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
+	blueprint: Blueprint | null;
 
 	tenderName: string | null;
 	upgraderName: string | null;
@@ -143,6 +144,7 @@ export class ManageRoom extends RoomProcess {
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
 				>;
+				blueprint?: Blueprint | null;
 				tenderName?: string | null;
 				upgraderName?: string | null;
 			},
@@ -158,6 +160,7 @@ export class ManageRoom extends RoomProcess {
 
 		this.roomPlanned = data.roomPlanned || false;
 		this.spawnRequests = new Map(data.spawnRequests);
+		this.blueprint = data.blueprint || null;
 		this.tenderName = data.tenderName || null;
 		this.upgraderName = data.upgraderName || null;
 
@@ -182,11 +185,20 @@ export class ManageRoom extends RoomProcess {
 					manageSpawnsId: this.manageSpawnsId,
 				}),
 			);
-		this.roomPlannerId =
-			data.roomPlannerId ||
-			global.kernel.spawnProcess(new RoomPlanner({ roomName: this.roomName }));
+		this.roomPlannerId = data.roomPlannerId || null;
 
 		this.expandId = data.expandId || null;
+	}
+
+	init(): void {
+		if (
+			this.roomPlannerId == null ||
+			(this.blueprint == null && !global.kernel.hasProcess(this.roomPlannerId))
+		) {
+			global.kernel.spawnProcess(
+				new RoomPlanner({ roomName: this.roomName, manageRoomId: this.id }),
+			);
+		}
 	}
 
 	receiveMessage(message: IMessage): void {
@@ -255,6 +267,8 @@ export class ManageRoom extends RoomProcess {
 				this.manageSpawnsId,
 			);
 			global.kernel.sendMessage(updateEconomy);
+		} else if (message instanceof SendBlueprint) {
+			this.blueprint = message.blueprint;
 		} else {
 			super.receiveMessage(message);
 		}

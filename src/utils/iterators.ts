@@ -53,3 +53,15 @@ export function zip<A, B>(
 
 	return iterator();
 }
+
+export function all<T>(
+	iterable: Iterable<T>,
+	fn: (item: T) => boolean,
+): boolean {
+	for (const item of iterable) {
+		if (!fn(item)) {
+			return false;
+		}
+	}
+	return true;
+}

@@ -15,11 +15,9 @@ export class Visualizer extends Process {
 		super({ name: "Visualizer", ...data });
 		this.providers = new Map();
 		this.generator = this.visualizer();
-
-		this.init();
 	}
 
-	init() {
+	init(): void {
 		for (const roomName in Memory.rooms) {
 			const processes = Memory.rooms[roomName].processes;
 			if (processes == null) {

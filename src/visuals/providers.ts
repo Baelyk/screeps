@@ -6,6 +6,12 @@ import { RoomPlanner } from "./../planner";
 // Right now, the only provider that actually providing a useful connection to
 // a process is the `manageSpawnsProvider`, providing access to the spawn queue.
 
+declare global {
+	interface Memory {
+		settings?: { showBlueprint?: boolean };
+	}
+}
+
 export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	const lines = [];
 	lines.push(`Room ${this.roomName}`);
@@ -40,6 +46,26 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	lines.push("");
 
 	textLines(this.room.visual, lines, 0, 1);
+
+	// Show plan
+	const blueprint = this.blueprint;
+	if (Memory.settings?.showBlueprint && blueprint != null) {
+		(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y),
+		);
+		(blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y, { fill: "yellow" }),
+		);
+		(blueprint.structures[STRUCTURE_SPAWN] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y, { fill: "red" }),
+		);
+		(blueprint.structures[STRUCTURE_STORAGE] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y, { fill: "orange" }),
+		);
+		(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y, { fill: "green" }),
+		);
+	}
 
 	return true;
 }
@@ -153,8 +179,6 @@ export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
 export function roomPlannerProvider(this: Readonly<RoomPlanner>): boolean {
 	const lines = [];
 	lines.push(`Planning room ${this.roomName}`);
-
-	this.roads.forEach(({ x, y }) => this.room.visual.circle(x, y));
 
 	textLines(this.room.visual, lines, 10, 1);
 

@@ -98,7 +98,15 @@ export abstract class Process implements IProcess {
 		warn(`Process ${this.display()} received unhandled message:\n${message}`);
 	}
 
+	_initialized = false;
+	init(): void {}
+
 	run(): ProcessReturn {
+		if (!this._initialized) {
+			this.init();
+		}
+		this._initialized = true;
+
 		if (this.generator == null) {
 			warn(`Process ${this.display()} has null generator`);
 			return { code: ProcessReturnCode.Done };
