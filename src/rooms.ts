@@ -856,10 +856,7 @@ export class Economy extends RoomProcess {
 				yield;
 				continue;
 			}
-			if (this.energyAvailable > 1000) {
-				info(`Room ${this.roomName} energy crisis over`);
-				break;
-			}
+
 			yield;
 		}
 	}
@@ -1101,6 +1098,7 @@ export class Economy extends RoomProcess {
 		const sourceMining = this.sourceMining();
 		const upgradeController = this.upgradeController();
 		const efficiencyTracking = this.efficiencyTracking();
+		const energyCrisis = this.energyCrisis();
 		while (true) {
 			// Energy crisis if no miners, no energy
 			if (
@@ -1111,8 +1109,7 @@ export class Economy extends RoomProcess {
 				)
 			) {
 				warn(`Energy crisis in ${this.roomName}`);
-				yield* this.energyCrisis();
-				continue;
+				energyCrisis.next();
 			}
 			sourceMining.next();
 			upgradeController.next();
