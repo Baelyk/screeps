@@ -418,9 +418,17 @@ export class Construct extends RoomProcess {
 	get repairables(): AnyStructure[] {
 		if (this._repairables == null || this._repairablesTick !== Game.time) {
 			this._repairablesTick = Game.time;
-			this._repairables = this.room
-				.find(FIND_STRUCTURES)
-				.filter((s) => s.hits < s.hitsMax * 0.75);
+			this._repairables = this.room.find(FIND_STRUCTURES).filter(
+				(s) =>
+					// Heal normal structures below 75%
+					(s.structureType !== STRUCTURE_WALL &&
+						s.structureType !== STRUCTURE_RAMPART &&
+						s.hits < s.hitsMax * 0.75) ||
+					// Heal walls and ramparts below 100k hits
+					((s.structureType === STRUCTURE_WALL ||
+						s.structureType === STRUCTURE_RAMPART) &&
+						s.hits < 100000),
+			);
 			this._repairables.sort((a, b) => a.hits - b.hits);
 		}
 		return this._repairables;
@@ -1573,6 +1581,12 @@ export class Defence extends RoomProcess {
 		}
 
 		return this._hostiles;
+	}
+
+	init(): void {
+		if (this.room.controller == null || !this.room.controller.my) {
+			throw new Error(`Room ${this.roomName} is not my room, will not defend`);
+		}
 	}
 
 	*manageTowers() {

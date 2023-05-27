@@ -49,17 +49,7 @@ function tupleToCoord([x, y]: [number, number]): Coord {
 }
 
 function getNeighbors({ x, y }: Coord): Coord[] {
-	const neighbors: [number, number][] = [
-		[x - 1, y - 1],
-		[x, y - 1],
-		[x + 1, y - 1],
-		[x - 1, y],
-		[x + 1, y],
-		[x - 1, y + 1],
-		[x, y + 1],
-		[x + 1, y + 1],
-	];
-	return neighbors.map(tupleToCoord);
+	return getTilesInRange({ x, y }, 1);
 }
 
 function getTilesInRange({ x, y }: Coord, range: number): Coord[] {
@@ -69,7 +59,7 @@ function getTilesInRange({ x, y }: Coord, range: number): Coord[] {
 			neighbors.push({ x: x + dx, y: y + dy });
 		}
 	}
-	return neighbors;
+	return neighbors.filter(({ x, y }) => x >= 0 && x <= 49 && y >= 0 && y <= 49);
 }
 
 function coordToRoomPosition({ x, y }: Coord, roomName: string): RoomPosition {
@@ -235,7 +225,7 @@ export class RoomPlanner extends RoomProcess {
 		const roadCounter = new Counter<Index>();
 		const containers: RoomPosition[] = [];
 		for (const source of sources) {
-			const path = this.findPath(source.pos, controller.pos, 3);
+			const path = this.findPath(source.pos, controller.pos, 2);
 			if (path.incomplete) {
 				warn(`Unable to complete path ${source.pos} to ${controller.pos}`);
 				continue;
