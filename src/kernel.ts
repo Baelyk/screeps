@@ -12,6 +12,7 @@ declare global {
 	interface Memory {
 		/** Next ProcessId, Serialized Messenger, Serialized Process Array */
 		processes?: [ProcessId, string, string[]];
+		processesBackup?: [ProcessId, string, string[]];
 	}
 }
 
@@ -41,11 +42,18 @@ export class Kernel {
 		info("Loading processes from Memory");
 		this.processTable.nextId = serializedProcesses[0];
 		this.messenger = Messenger.fromSerialized(serializedProcesses[1]);
-		serializedProcesses[2].map(deserializeProcess).forEach((process) => {
-			if (process != null) {
-				this.spawnProcess(process);
-			}
-		});
+		wrapper(
+			() =>
+				serializedProcesses[2].map(deserializeProcess).forEach((process) => {
+					if (process != null) {
+						this.spawnProcess(process);
+					}
+				}),
+			"Error deserializing processes",
+			() => {
+				Memory.processesBackup = Memory.processes;
+			},
+		);
 	}
 
 	static init(): Kernel {
