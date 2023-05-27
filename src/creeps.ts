@@ -59,7 +59,10 @@ function* harvest(this: { creep: Creep }) {
 	}
 }
 
-function* harvester(this: Harvester) {
+function* harvester(this: Harvester, roomName?: string) {
+	if (roomName != null) {
+		yield* moveToRoom.bind(this)(roomName);
+	}
 	while (true) {
 		yield* harvest.bind(this)();
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
@@ -79,9 +82,12 @@ function* harvester(this: Harvester) {
 }
 
 export class Harvester extends CreepProcess {
-	constructor(data: Omit<ProcessData<typeof CreepProcess>, "name">) {
+	constructor({
+		roomName,
+		...data
+	}: Omit<ProcessData<typeof CreepProcess>, "name"> & { roomName?: string }) {
 		super({ name: "Harvester", ...data });
-		this.generator = harvester.bind(this)();
+		this.generator = harvester.bind(this)(roomName);
 	}
 }
 ProcessConstructors.set("Harvester", Harvester);

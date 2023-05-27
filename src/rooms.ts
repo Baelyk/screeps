@@ -801,7 +801,11 @@ export class Economy extends RoomProcess {
 
 	sources: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
 	upgraders: Map<string, ProcessId | null>;
-	spawnRequests: Map<MessageId, ["miner", Id<StructureContainer>] | "upgrader">;
+	spawnRequests: Map<
+		MessageId,
+		["miner", Id<StructureContainer>] | "upgrader" | "tender"
+	>;
+	emergencyTenders: Map<string, ProcessId>;
 
 	constructor({
 		manageRoomId,
@@ -809,6 +813,7 @@ export class Economy extends RoomProcess {
 		sources,
 		upgraders,
 		spawnRequests,
+		emergencyTenders,
 		...data
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
 		manageRoomId: ProcessId;
@@ -816,8 +821,9 @@ export class Economy extends RoomProcess {
 		sources?: Iterable<[Id<StructureContainer>, [Id<Source>, string | null]]>;
 		upgraders?: Iterable<[string, ProcessId | null]>;
 		spawnRequests?: Iterable<
-			[MessageId, ["miner", Id<StructureContainer>] | "upgrader"]
+			[MessageId, ["miner", Id<StructureContainer>] | "upgrader" | "tender"]
 		>;
+		emergencyTenders?: Iterable<[string, ProcessId]>;
 	}) {
 		super({ name: "Economy", ...data });
 		this.generator = this.economy();
@@ -827,6 +833,35 @@ export class Economy extends RoomProcess {
 		this.sources = new Map(sources);
 		this.upgraders = new Map(upgraders);
 		this.spawnRequests = new Map(spawnRequests);
+		this.emergencyTenders = new Map(emergencyTenders);
+	}
+
+	*energyCrisis() {
+		while (true) {
+			warn(`Room ${this.roomName} energy crisis`);
+			for (const [emergencyTenderName, processId] of this.emergencyTenders) {
+				const emergencyTender = Game.creeps[emergencyTenderName];
+				if (emergencyTender == null) {
+					this.emergencyTenders.delete(emergencyTenderName);
+					global.kernel.stopProcess(processId);
+				}
+			}
+			if (this.emergencyTenders.size === 0) {
+				if (
+					this.room.energyAvailable >= 300 &&
+					!Iterators.some(this.spawnRequests, ([_, role]) => role === "tender")
+				) {
+					this.requestSpawn("EmergencyTender", "tender");
+				}
+				yield;
+				continue;
+			}
+			if (this.energyAvailable > 1000) {
+				info(`Room ${this.roomName} energy crisis over`);
+				break;
+			}
+			yield;
+		}
 	}
 
 	*sourceMining() {
@@ -873,6 +908,7 @@ export class Economy extends RoomProcess {
 
 				const miner = Game.creeps[minerName || ""];
 				if (miner == null || minerName == null) {
+					this.sources.set(containerId, [sourceId, null]);
 					if (
 						!Iterators.some(
 							this.spawnRequests,
@@ -1066,6 +1102,18 @@ export class Economy extends RoomProcess {
 		const upgradeController = this.upgradeController();
 		const efficiencyTracking = this.efficiencyTracking();
 		while (true) {
+			// Energy crisis if no miners, no energy
+			if (
+				this.energyAvailable === 0 &&
+				Iterators.all(
+					this.sources,
+					([_, [__, minerName]]) => Game.creeps[minerName || ""] == null,
+				)
+			) {
+				warn(`Energy crisis in ${this.roomName}`);
+				yield* this.energyCrisis();
+				continue;
+			}
 			sourceMining.next();
 			upgradeController.next();
 			efficiencyTracking.next();
@@ -1090,6 +1138,15 @@ export class Economy extends RoomProcess {
 			} else if (role === "upgrader") {
 				this.upgraders.set(message.creepName, null);
 				reassignCreep(message.creepName, this.id);
+			} else if (role === "tender") {
+				const processId = global.kernel.spawnProcess(
+					new Tender({
+						creepName: message.creepName,
+						roomName: this.roomName,
+					}),
+				);
+				this.emergencyTenders.set(message.creepName, processId);
+				reassignCreep(message.creepName, processId);
 			} else if (role[0] === "miner") {
 				const containerId = role[1];
 				const [sourceId] = this.sources.get(containerId) || [null];
@@ -1121,14 +1178,20 @@ export class Economy extends RoomProcess {
 
 	requestSpawn(
 		creepName: string,
-		role: ["miner", Id<StructureContainer>] | "upgrader",
+		role: ["miner", Id<StructureContainer>] | "upgrader" | "tender",
 	): void {
-		const body = role === "upgrader" ? undefined : minerBody;
+		let body = undefined;
+		if (role === "tender") {
+			body = genericBody(this.room.energyAvailable);
+		} else if (Array.isArray(role)) {
+			body = minerBody;
+		}
 		const request = new SpawnRequest(
 			this.id,
 			this.manageSpawnsId,
 			creepName,
 			body,
+			role === "tender",
 		);
 		this.spawnRequests.set(request.id, role);
 		global.kernel.sendMessage(request);
