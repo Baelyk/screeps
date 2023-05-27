@@ -156,6 +156,7 @@ export class RoomPlanner extends RoomProcess {
 	containers: RoomPosition[] = [];
 	extensions: RoomPosition[] = [];
 	spawns: RoomPosition[] = [];
+	towers: RoomPosition[] = [];
 	extractor: RoomPosition | null = null;
 	storage: RoomPosition | null = null;
 
@@ -299,7 +300,7 @@ export class RoomPlanner extends RoomProcess {
 
 	spawnStamp(
 		spawnSpot: RoomPosition,
-	): [RoomPosition[], RoomPosition[], RoomPosition] {
+	): [RoomPosition[], RoomPosition[], RoomPosition, RoomPosition] {
 		const area = getTilesInRange(spawnSpot, 2);
 		this.occupy(area);
 		const spawns = [area[6], area[8], area[18]];
@@ -318,13 +319,16 @@ export class RoomPlanner extends RoomProcess {
 			area[23],
 		];
 		const storage = area[16];
+		const tower = area[2];
 		this.updateCostMatrix(roads, ROAD_COST);
 		this.updateCostMatrix(spawns, UNWALKABLE_COST);
 		this.updateCostMatrix(storage, UNWALKABLE_COST);
+		this.updateCostMatrix(tower, UNWALKABLE_COST);
 		return [
 			spawns.map(coordToRoomPositionMapper(this.roomName)),
 			roads.map(coordToRoomPositionMapper(this.roomName)),
 			coordToRoomPosition(storage, this.roomName),
+			coordToRoomPosition(tower, this.roomName),
 		];
 	}
 
@@ -459,6 +463,9 @@ export class RoomPlanner extends RoomProcess {
 		}
 		structures[STRUCTURE_STORAGE] = [bareCoord(this.storage)];
 
+		// Towers
+		structures[STRUCTURE_TOWER] = this.towers.map(bareCoord);
+
 		return { structures };
 	}
 
@@ -471,10 +478,11 @@ export class RoomPlanner extends RoomProcess {
 			throw new Error("Unable to find spawn starting spot");
 		}
 		const spawnSpot = this.findSpawnSpot(spawnStart);
-		const [spawns, spawnRoads, storage] = this.spawnStamp(spawnSpot);
+		const [spawns, spawnRoads, storage, tower] = this.spawnStamp(spawnSpot);
 		this.roads.push(...spawnRoads);
 		this.spawns = spawns;
 		this.storage = storage;
+		this.towers = [tower];
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
 		this.roads.push(...extractorRoad);

@@ -195,11 +195,13 @@ function* tender(this: Tender, roomName?: string) {
 					.find(FIND_MY_STRUCTURES)
 					.filter(
 						(s) =>
-							(s.structureType === STRUCTURE_TOWER ||
-								s.structureType === STRUCTURE_STORAGE) &&
+							s.structureType === STRUCTURE_TOWER &&
 							s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
 					);
-				target = this.creep.pos.findClosestByPath(secondaryTargets);
+				target =
+					this.creep.pos.findClosestByPath(secondaryTargets) ||
+					this.creep.room.storage ||
+					null;
 			}
 			if (target == null) {
 				yield;

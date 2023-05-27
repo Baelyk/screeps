@@ -50,11 +50,14 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 	// Show plan
 	const blueprint = this.blueprint;
 	if (Memory.settings?.showBlueprint && blueprint != null) {
-		(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y),
-		);
 		(blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(({ x, y }) =>
 			this.room.visual.circle(x, y, { fill: "yellow" }),
+		);
+		(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y, { fill: "green" }),
+		);
+		(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y),
 		);
 		(blueprint.structures[STRUCTURE_SPAWN] || []).forEach(({ x, y }) =>
 			this.room.visual.circle(x, y, { fill: "red" }),
@@ -62,8 +65,8 @@ export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
 		(blueprint.structures[STRUCTURE_STORAGE] || []).forEach(({ x, y }) =>
 			this.room.visual.circle(x, y, { fill: "orange" }),
 		);
-		(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y, { fill: "green" }),
+		(blueprint.structures[STRUCTURE_TOWER] || []).forEach(({ x, y }) =>
+			this.room.visual.circle(x, y, { fill: "purple" }),
 		);
 	}
 

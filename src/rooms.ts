@@ -134,6 +134,16 @@ function build(this: ManageRoom): void {
 			this.room.createConstructionSite(x, y, STRUCTURE_EXTENSION),
 		);
 
+	// Build the maximum possible number of towers
+	(this.blueprint.structures[STRUCTURE_TOWER] || [])
+		.filter(
+			(_, num) =>
+				num < CONTROLLER_STRUCTURES[STRUCTURE_TOWER][controller.level],
+		)
+		.forEach(({ x, y }) =>
+			this.room.createConstructionSite(x, y, STRUCTURE_TOWER),
+		);
+
 	// Build a storage, if possible
 	(this.blueprint.structures[STRUCTURE_STORAGE] || [])
 		.filter(
@@ -190,6 +200,7 @@ export class ManageRoom extends RoomProcess {
 	economyId: ProcessId;
 	expandId: ProcessId | null;
 	roomPlannerId: ProcessId | null;
+	defenceId: ProcessId | null;
 
 	roomPlanned: boolean;
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
@@ -206,6 +217,7 @@ export class ManageRoom extends RoomProcess {
 				economyId?: ProcessId;
 				expandId?: ProcessId | null;
 				roomPlannerId?: ProcessId | null;
+				defenceId?: ProcessId | null;
 				roomPlanned?: boolean;
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
@@ -252,6 +264,14 @@ export class ManageRoom extends RoomProcess {
 				}),
 			);
 		this.roomPlannerId = data.roomPlannerId || null;
+		this.defenceId =
+			data.defenceId ||
+			global.kernel.spawnProcess(
+				new Defence({
+					roomName: this.roomName,
+					manageSpawnsId: this.manageSpawnsId,
+				}),
+			);
 
 		this.expandId = data.expandId || null;
 	}
@@ -1513,3 +1533,216 @@ function minerBody(energyAvailable: number): BodyPartConstant[] {
 		return body;
 	}
 }
+
+export class Defence extends RoomProcess {
+	manageSpawnsId: ProcessId;
+	spawnRequests: Map<MessageId, "defender">;
+
+	defenders: Map<string, null>;
+	trackedHostiles: Map<Id<Creep | AnyOwnedStructure>, number>;
+
+	constructor({
+		manageSpawnsId,
+		spawnRequests,
+		defenders,
+		trackedHostiles,
+		...data
+	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		manageSpawnsId: ProcessId;
+		spawnRequests?: Iterable<[MessageId, "defender"]>;
+		defenders?: Iterable<[string, null]>;
+		trackedHostiles?: Iterable<[Id<Creep | AnyOwnedStructure>, number]>;
+	}) {
+		super({ name: "Defence", ...data });
+		this.generator = this.defence();
+
+		this.manageSpawnsId = manageSpawnsId;
+		this.spawnRequests = new Map(spawnRequests);
+		this.defenders = new Map(defenders);
+		this.trackedHostiles = new Map(trackedHostiles);
+	}
+
+	_hostiles: (Creep | AnyOwnedStructure)[] = [];
+	_hostilesTick: number | null = null;
+	get hostiles(): (Creep | AnyOwnedStructure)[] {
+		if (this._hostilesTick !== Game.time) {
+			this._hostiles = (
+				this.room.find(FIND_HOSTILE_CREEPS) as (Creep | AnyOwnedStructure)[]
+			).concat(this.room.find(FIND_HOSTILE_STRUCTURES));
+			this._hostilesTick = Game.time;
+		}
+
+		return this._hostiles;
+	}
+
+	*manageTowers() {
+		while (true) {
+			const towers = this.room
+				.find(FIND_MY_STRUCTURES)
+				.filter(
+					(s): s is StructureTower => s.structureType === STRUCTURE_TOWER,
+				);
+			if (towers.length === 0) {
+				yield;
+				continue;
+			}
+
+			// Attack hostiles
+			if (this.hostiles.length > 0) {
+				for (const tower of towers) {
+					// For now, all attack the same one
+					tower.attack(this.hostiles[0]);
+				}
+
+				yield;
+				continue;
+			}
+
+			// If no hostiles, heal friendlies
+			const injured = this.room
+				.find(FIND_MY_CREEPS)
+				.find((c) => c.hits < c.hitsMax);
+			if (injured != null) {
+				for (const tower of towers) {
+					tower.heal(injured);
+				}
+
+				yield;
+				continue;
+			}
+
+			yield;
+		}
+	}
+
+	*manageDefenders() {
+		while (true) {
+			if (this.hostiles.length === 0) {
+				yield;
+				continue;
+			}
+
+			const towers = this.room
+				.find(FIND_MY_STRUCTURES)
+				.filter(
+					(s): s is StructureTower => s.structureType === STRUCTURE_TOWER,
+				);
+			// Only check damage to previously tracked hostiles
+			const hostileHits = Iterators.sum(
+				this.hostiles
+					.filter((h) => this.trackedHostiles.has(h.id))
+					.map((h) => h.hits),
+			);
+			const trackedHits = Iterators.sum(this.trackedHostiles.values());
+
+			info(
+				`Hostile hits: ${hostileHits} tracked: ${trackedHits} !!${
+					hostileHits - trackedHits
+				}!!`,
+			);
+
+			// If there are no operational towers or we are not doing at least 100
+			// damage per tick, spawn a defender
+			if (
+				this.defenders.size === 0 &&
+				(towers.filter((s) => s.store[RESOURCE_ENERGY] > 0).length === 0 ||
+					hostileHits - trackedHits < 100)
+			) {
+				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "defender")) {
+					this.requestSpawn("Defender", "defender");
+				}
+			}
+
+			for (const [defenderName, _] of this.defenders) {
+				const defender = Game.creeps[defenderName];
+				if (defender == null) {
+					this.defenders.delete(defenderName);
+					continue;
+				}
+				const target = defender.pos.findClosestByPath(this.hostiles);
+				if (target == null) {
+					error(`Creep ${defenderName} unable to find closest hostile`);
+					continue;
+				}
+
+				const response = defender.attack(target);
+				if (response === ERR_NOT_IN_RANGE) {
+					defender.moveTo(target);
+				} else if (response !== OK) {
+					info(
+						`Creep ${defenderName} attacking ${
+							target.pos
+						} with response ${errorConstant(response)}`,
+					);
+				}
+			}
+
+			yield;
+		}
+	}
+
+	*trackHostiles() {
+		while (true) {
+			this.trackedHostiles.clear();
+			for (const hostile of this.hostiles) {
+				this.trackedHostiles.set(hostile.id, hostile.hits);
+			}
+
+			yield;
+		}
+	}
+
+	*defence() {
+		const manageTowers = this.manageTowers();
+		const manageDefenders = this.manageDefenders();
+		const trackHostiles = this.trackHostiles();
+		while (true) {
+			manageTowers.next();
+			manageDefenders.next();
+
+			trackHostiles.next();
+			yield;
+		}
+	}
+
+	requestSpawn(creepName: string, role: "defender"): void {
+		let body: BodyPartConstant[] = [];
+		if (role === "defender") {
+			body = bodyFromSegments([ATTACK, MOVE], this.room.energyAvailable);
+		}
+		const request = new SpawnRequest(
+			this.id,
+			this.manageSpawnsId,
+			creepName,
+			body,
+			role === "defender",
+		);
+		this.spawnRequests.set(request.id, role);
+		global.kernel.sendMessage(request);
+	}
+
+	receiveMessage(message: IMessage): void {
+		if (message instanceof CreepSpawned) {
+			const role = this.spawnRequests.get(message.requestId);
+			if (role == null) {
+				warn(
+					`Unexpectedly received message about unrequested creep: ${JSON.stringify(
+						message,
+					)}`,
+				);
+			}
+
+			if (message.creepName == null) {
+				warn(`Creep request ${message.requestId} went awry`);
+			} else if (role === "defender") {
+				this.defenders.set(message.creepName, null);
+				reassignCreep(message.creepName, this.id);
+			}
+
+			this.spawnRequests.delete(message.requestId);
+		} else {
+			super.receiveMessage(message);
+		}
+	}
+}
+ProcessConstructors.set("Defence", Defence);
