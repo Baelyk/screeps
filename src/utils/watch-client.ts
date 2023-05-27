@@ -1,4 +1,17 @@
-export function watcher (): void {
+declare global {
+  interface Memory {
+    watch: ScreepsMultimeterWatch;
+  }
+
+  interface ScreepsMultimeterWatch {
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    expressions?: object | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    values?: { [index: string]: any };
+  }
+}
+
+export function watcher(): void {
   if (typeof Memory.watch !== "object") {
     Memory.watch = {};
   }
@@ -14,7 +27,8 @@ export function watcher (): void {
     let result;
     try {
       result = eval(expr);
-    } catch (ex) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (ex: any) {
       result = "Error: " + ex.message;
     }
     if (name == "console") {
@@ -24,4 +38,4 @@ export function watcher (): void {
         typeof result !== "undefined" ? result.toString() : result;
     }
   }
-};
+}
