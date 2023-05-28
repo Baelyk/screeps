@@ -35,6 +35,7 @@ export function progressBar(
 	x: number,
 	y: number,
 	width: number,
+	showProgress = true,
 ) {
 	const height = 0.95;
 	const strokeWidth = 0.1;
@@ -52,7 +53,7 @@ export function progressBar(
 	visual.rect(
 		x + GRID_OFFSET,
 		y + GRID_OFFSET + (1 - height) / 2,
-		progress * width,
+		Math.min(1, progress) * width,
 		height,
 		{
 			fill: "#ffffff",
@@ -63,11 +64,22 @@ export function progressBar(
 	if (text != null) {
 		visual.text(
 			text,
-			x + GRID_OFFSET, // + width / 2,
+			x + GRID_OFFSET + strokeWidth,
 			y + 1 + GRID_OFFSET - TEXT_Y_OFFSET,
 			{
 				...TEXT_STYLE,
-				//align: "center",
+			},
+		);
+	}
+
+	if (showProgress) {
+		visual.text(
+			displayPercent(progress),
+			x + GRID_OFFSET + width - strokeWidth,
+			y + 1 + GRID_OFFSET - TEXT_Y_OFFSET,
+			{
+				...TEXT_STYLE,
+				align: "right",
 			},
 		);
 	}
@@ -136,4 +148,13 @@ export function interpolateColors(
 
 	const hex = rgbToHex([r, g, b]);
 	return hex;
+}
+
+export function displayPercent(percent: number): string {
+	const percentage = Math.round(percent * 100);
+	return `${percentage < 999 ? percentage : ">999"}%`;
+}
+
+export function displayPerTick(perTick: number): string {
+	return `${Math.round(perTick)}/t`;
 }

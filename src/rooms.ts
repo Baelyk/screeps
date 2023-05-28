@@ -1030,100 +1030,9 @@ export class Economy extends RoomProcess {
 		}
 	}
 
-	harvestEfficiency = 0;
-	upgradeEfficiency = 0;
-	useEfficiency = 0;
-	*efficiencyTracking() {
-		const historyLength = CREEP_LIFE_TIME * 10;
-		const built: number[] = [];
-		const repaired: number[] = [];
-		const spawned: number[] = [];
-		const upgraded: number[] = [];
-		const harvested: number[] = [];
-
-		while (true) {
-			const start = Game.cpu.getUsed();
-			const events = this.room.getEventLog();
-
-			let builtNow = 0;
-			let repairedNow = 0;
-			let spawnedNow = 0;
-			let upgradedNow = 0;
-			let harvestedNow = 0;
-			for (const { event, data } of events) {
-				if (event === EVENT_BUILD) {
-					// At least this one is actually sometimes undefined
-					builtNow += data.energySpent || 0;
-				} else if (event === EVENT_REPAIR) {
-					repairedNow += data.energySpent || 0;
-				} else if (
-					event === EVENT_TRANSFER &&
-					data.resourceType === RESOURCE_ENERGY
-				) {
-					const target = Game.getObjectById(
-						data.targetId as Id<AnyStoreStructure>,
-					);
-					if (
-						target != null &&
-						(target.structureType === STRUCTURE_SPAWN ||
-							target.structureType === STRUCTURE_EXTENSION)
-					) {
-						spawnedNow += data.amount || 0;
-					}
-				} else if (event === EVENT_UPGRADE_CONTROLLER) {
-					upgradedNow += data.energySpent || 0;
-				} else if (
-					event === EVENT_HARVEST &&
-					Game.getObjectById(
-						data.targetId as Id<Source | Mineral | Deposit>,
-					) instanceof Source
-				) {
-					harvestedNow += data.amount || 0;
-				}
-			}
-
-			if (built.unshift(builtNow) > historyLength) {
-				built.pop();
-			}
-			if (repaired.unshift(repairedNow) > historyLength) {
-				repaired.pop();
-			}
-			if (spawned.unshift(spawnedNow) > historyLength) {
-				spawned.pop();
-			}
-			if (upgraded.unshift(upgradedNow) > historyLength) {
-				upgraded.pop();
-			}
-			if (harvested.unshift(harvestedNow) > historyLength) {
-				harvested.pop();
-			}
-
-			// Sources provied 10 energy/tick each
-			this.harvestEfficiency =
-				Iterators.sum(harvested) / (20 * harvested.length);
-			this.upgradeEfficiency =
-				Iterators.sum(upgraded) / Iterators.sum(harvested);
-			this.useEfficiency =
-				(Iterators.sum(built) +
-					Iterators.sum(repaired) +
-					Iterators.sum(spawned) +
-					Iterators.sum(upgraded)) /
-				Iterators.sum(harvested);
-
-			const elapsed = Game.cpu.getUsed() - start;
-			info(
-				`Used ${
-					Math.round(100 * elapsed) / 100
-				} CPU calculating efficiencies (over ${harvested.length})`,
-			);
-			yield;
-		}
-	}
-
 	*economy() {
 		const sourceMining = this.sourceMining();
 		const upgradeController = this.upgradeController();
-		const efficiencyTracking = this.efficiencyTracking();
 		const energyCrisis = this.energyCrisis();
 		while (true) {
 			// Energy crisis if no miners, no energy
@@ -1139,7 +1048,6 @@ export class Economy extends RoomProcess {
 			}
 			sourceMining.next();
 			upgradeController.next();
-			efficiencyTracking.next();
 			yield;
 		}
 	}

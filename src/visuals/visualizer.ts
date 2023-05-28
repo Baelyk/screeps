@@ -1,15 +1,21 @@
 import { IMessage } from "./../messenger";
-import { Process, ProcessData, ProcessConstructors } from "./../process";
+import {
+	Process,
+	ProcessData,
+	ProcessConstructors,
+	RoomProcess,
+} from "./../process";
 import { info, warn } from "./../utils/logger";
 import {
 	BoundVisualProvider,
 	RequestVisualConnection,
+	UnboundVisualProvider,
 	VisualConnection,
 } from "./connection";
 import * as Providers from "./providers";
 
 export class Visualizer extends Process {
-	providers: Map<BoundVisualProvider, true>;
+	providers: Map<BoundVisualProvider, null>;
 
 	constructor(data: Omit<ProcessData<typeof Process>, "name">) {
 		super({ name: "Visualizer", ...data });
@@ -18,60 +24,25 @@ export class Visualizer extends Process {
 	}
 
 	init(): void {
-		for (const roomName in Memory.rooms) {
-			const processes = Memory.rooms[roomName].processes;
-			if (processes == null) {
-				continue;
+		for (const roomName in Game.rooms) {
+			if (Game.rooms[roomName].controller?.my) {
+				this.providers.set(Providers.roomStats(roomName), null);
 			}
-			const manageRoomId = processes["ManageRoom"];
-			if (manageRoomId != null) {
-				global.kernel.sendMessage(
-					new RequestVisualConnection(
-						this.id,
-						manageRoomId,
-						Providers.manageRoomProvider,
-					),
-				);
-			}
-			const economyId = processes["Economy"];
-			if (economyId != null) {
-				global.kernel.sendMessage(
-					new RequestVisualConnection(
-						this.id,
-						economyId,
-						Providers.economyProvider,
-					),
-				);
-			}
-			const constructId = processes["Construct"];
-			if (constructId != null) {
-				global.kernel.sendMessage(
-					new RequestVisualConnection(
-						this.id,
-						constructId,
-						Providers.constructProvider,
-					),
-				);
-			}
-			const manageSpawnsId = processes["ManageSpawns"];
-			if (manageSpawnsId != null) {
-				global.kernel.sendMessage(
-					new RequestVisualConnection(
-						this.id,
-						manageSpawnsId,
-						Providers.manageSpawnsProvider,
-					),
-				);
-			}
-			const roomPlannerId = processes["RoomPlanner"];
-			if (roomPlannerId != null) {
-				global.kernel.sendMessage(
-					new RequestVisualConnection(
-						this.id,
-						roomPlannerId,
-						Providers.roomPlannerProvider,
-					),
-				);
+
+			// Get saved RoomProcesses
+			const processes = Memory.rooms[roomName].processes || {};
+			for (const processName in processes) {
+				const processId = processes[processName];
+				const provider = Providers.RoomProcessProviders.get(processName);
+				if (processId != null && provider != null) {
+					global.kernel.sendMessage(
+						new RequestVisualConnection(
+							this.id,
+							processId,
+							provider as UnboundVisualProvider<RoomProcess>,
+						),
+					);
+				}
 			}
 		}
 	}
@@ -79,8 +50,9 @@ export class Visualizer extends Process {
 	*visualizer() {
 		while (true) {
 			for (const [provider, _] of this.providers) {
-				const shouldContinue = provider();
-				if (!shouldContinue) {
+				const status = provider.next();
+				if (status.done) {
+					info(`A provider has finished with ${JSON.stringify(status)}`);
 					this.providers.delete(provider);
 				}
 			}
@@ -93,7 +65,7 @@ export class Visualizer extends Process {
 			warn("Received erroneous visual connection request");
 			return;
 		} else if (message instanceof VisualConnection) {
-			this.providers.set(message.provider, true);
+			this.providers.set(message.provider, null);
 			return;
 		}
 		super.receiveMessage(message);

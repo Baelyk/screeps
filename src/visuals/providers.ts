@@ -1,189 +1,370 @@
 import { ManageRoom, ManageSpawns, Construct, Economy } from "./../rooms";
 import { info, warn } from "./../utils/logger";
-import { textLines, progressBar, box, interpolateColors } from "./utils";
+import {
+	textLines,
+	progressBar,
+	box,
+	interpolateColors,
+	displayPerTick,
+} from "./utils";
 import { RoomPlanner } from "./../planner";
+import { BoundVisualProvider, UnboundVisualProvider } from "./connection";
+import { ProcessName, RoomProcess } from "./../process";
+import * as Iterators from "./../utils/iterators";
 
 // Right now, the only provider that actually providing a useful connection to
 // a process is the `manageSpawnsProvider`, providing access to the spawn queue.
 
 declare global {
 	interface Memory {
-		settings?: { showBlueprint?: boolean };
+		settings?: {
+			/** Whether to visualize the RoomPlanner blueprint */
+			showBlueprint?: boolean;
+			/** How often room stats should be updated in ticks */
+			statsUpdateRate?: number;
+		};
 	}
 }
 
-export function manageRoomProvider(this: Readonly<ManageRoom>): boolean {
-	const lines = [];
-	lines.push(`Room ${this.roomName}`);
+export const RoomProcessProviders: Map<
+	ProcessName,
+	| UnboundVisualProvider<ManageRoom>
+	| UnboundVisualProvider<ManageSpawns>
+	| UnboundVisualProvider<Construct>
+	| UnboundVisualProvider<Economy>
+	| UnboundVisualProvider<RoomPlanner>
+> = new Map();
 
-	if (this.room.controller != null) {
-		const progress = Math.floor(
-			(100 * this.room.controller.progress) /
-				this.room.controller.progressTotal,
+RoomProcessProviders.set("ManageRoom", manageRoomProvider);
+function* manageRoomProvider(manageRoom: Readonly<ManageRoom>) {
+	while (global.kernel.hasProcess(manageRoom.id)) {
+		const lines = [];
+		lines.push(`Room ${manageRoom.roomName}`);
+
+		if (manageRoom.room.controller != null) {
+			const progress = Math.floor(
+				(100 * manageRoom.room.controller.progress) /
+					manageRoom.room.controller.progressTotal,
+			);
+			progressBar(
+				manageRoom.room.visual,
+				progress / 100,
+				`Level ${manageRoom.room.controller.level}`,
+				0,
+				lines.length,
+				10,
+			);
+			lines.push("");
+		}
+
+		const spawnEnergy = Math.floor(
+			(100 * manageRoom.room.energyAvailable) /
+				manageRoom.room.energyCapacityAvailable,
 		);
 		progressBar(
-			this.room.visual,
-			progress / 100,
-			`Level ${this.room.controller.level}: ${progress}%`,
+			manageRoom.room.visual,
+			spawnEnergy / 100,
+			"Spawn energy:",
 			0,
 			lines.length,
 			10,
 		);
 		lines.push("");
-	}
 
-	const spawnEnergy = Math.floor(
-		(100 * this.room.energyAvailable) / this.room.energyCapacityAvailable,
-	);
-	progressBar(
-		this.room.visual,
-		spawnEnergy / 100,
-		`Spawn energy: ${spawnEnergy}%`,
-		0,
-		lines.length,
-		10,
-	);
-	lines.push("");
+		textLines(manageRoom.room.visual, lines, 0, 1);
 
-	textLines(this.room.visual, lines, 0, 1);
-
-	// Show plan
-	const blueprint = this.blueprint;
-	if (Memory.settings?.showBlueprint && blueprint != null) {
-		(blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y, { fill: "yellow" }),
-		);
-		(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y, { fill: "green" }),
-		);
-		(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y),
-		);
-		(blueprint.structures[STRUCTURE_SPAWN] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y, { fill: "red" }),
-		);
-		(blueprint.structures[STRUCTURE_STORAGE] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y, { fill: "orange" }),
-		);
-		(blueprint.structures[STRUCTURE_TOWER] || []).forEach(({ x, y }) =>
-			this.room.visual.circle(x, y, { fill: "purple" }),
-		);
-	}
-
-	return true;
-}
-
-export function economyProvider(this: Readonly<Economy>): boolean {
-	const lines = [];
-
-	const upgradeEfficiency = Math.floor(100 * this.upgradeEfficiency);
-	progressBar(
-		this.room.visual,
-		Math.min(1, upgradeEfficiency / 100),
-		`Upgrade Eff: ${upgradeEfficiency < 999 ? upgradeEfficiency : ">999"}%`,
-		0,
-		lines.length + 3,
-		10,
-	);
-	lines.push("");
-
-	const useEfficiency = Math.floor(100 * this.useEfficiency);
-	progressBar(
-		this.room.visual,
-		Math.min(1, useEfficiency / 100),
-		`Use Eff: ${useEfficiency < 999 ? useEfficiency : ">999"}%`,
-		0,
-		lines.length + 3,
-		10,
-	);
-	lines.push("");
-
-	const harvestEfficiency = Math.floor(100 * this.harvestEfficiency);
-	progressBar(
-		this.room.visual,
-		Math.min(1, harvestEfficiency / 100),
-		`Harvest Eff: ${harvestEfficiency < 999 ? harvestEfficiency : ">999"}%`,
-		0,
-		lines.length + 3,
-		10,
-	);
-	lines.push("");
-
-	lines.push(`Energy: ${Math.floor(this.energyAvailable / 1000)}k`);
-
-	textLines(this.room.visual, lines, 0, 4);
-
-	return true;
-}
-
-export function constructProvider(this: Readonly<Construct>): boolean {
-	const lines = [];
-
-	const repairsNeeded = this.repairables.reduce(
-		(energy, s) => energy + s.hitsMax - s.hits,
-		0,
-	);
-	lines.push(`Repairs: ${Math.ceil(repairsNeeded / 1000)}k`);
-
-	// Show boxes around
-	this.repairables.forEach((s) => {
-		box(
-			this.room.visual,
-			s.pos.x,
-			s.pos.y,
-			1,
-			1,
-			interpolateColors("#ff0000", "#00ff00", s.hits / s.hitsMax),
-		);
-	});
-
-	// Highlight urgent repair
-	if (this.repairers.size > 0 && this.repairables.length > 0) {
-		const target = this.repairables[0];
-		if (target.hits < target.hitsMax * 0.25) {
-			box(this.room.visual, target.pos.x, target.pos.y, 1, 1, "black", {
-				lineStyle: "dashed",
-			});
+		// Show plan
+		const blueprint = manageRoom.blueprint;
+		if (Memory.settings?.showBlueprint && blueprint != null) {
+			(blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y, { fill: "yellow" }),
+			);
+			(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y, { fill: "green" }),
+			);
+			(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y),
+			);
+			(blueprint.structures[STRUCTURE_SPAWN] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y, { fill: "red" }),
+			);
+			(blueprint.structures[STRUCTURE_STORAGE] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y, { fill: "orange" }),
+			);
+			(blueprint.structures[STRUCTURE_TOWER] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y, { fill: "purple" }),
+			);
 		}
-	}
 
-	textLines(this.room.visual, lines, 0, 8);
-	return true;
+		yield;
+	}
 }
 
-export function manageSpawnsProvider(this: Readonly<ManageSpawns>): boolean {
-	const lines = [];
+export function* roomStats(roomName: string) {
+	const room = Game.rooms[roomName];
+	if (room == null) {
+		return;
+	}
 
-	const spawning: Spawning[] = [];
-	this.room.find(FIND_STRUCTURES).forEach((s) => {
-		if (s.structureType === STRUCTURE_SPAWN && s.spawning != null) {
-			spawning.push(s.spawning);
+	const numSources = room.find(FIND_SOURCES).length;
+	let ticksSoFar = 0;
+	const historyLength = CREEP_LIFE_TIME * 10;
+	const built: number[] = [];
+	const repaired: number[] = [];
+	const spawned: number[] = [];
+	const upgraded: number[] = [];
+	const harvested: number[] = [];
+	let builtTotal = 0;
+	let repairedTotal = 0;
+	let spawnedTotal = 0;
+	let upgradedTotal = 0;
+	let harvestedTotal = 0;
+	let usedTotal = 0;
+	let builtPerTick = 0;
+	let repairedPerTick = 0;
+	let spawnedPerTick = 0;
+	let upgradedPerTick = 0;
+	let harvestedPerTick = 0;
+	let harvestedEfficiency = 0;
+	let usedPerTick = 0;
+
+	while (true) {
+		const start = Game.cpu.getUsed();
+		const events = room.getEventLog();
+		ticksSoFar = Math.min(historyLength, ticksSoFar + 1);
+
+		// Track energy usage this tick
+		let builtNow = 0;
+		let repairedNow = 0;
+		let spawnedNow = 0;
+		let upgradedNow = 0;
+		let harvestedNow = 0;
+		for (const { event, data } of events) {
+			if (event === EVENT_BUILD) {
+				// At least this one is actually sometimes undefined
+				builtNow += data.energySpent || 0;
+			} else if (event === EVENT_REPAIR) {
+				repairedNow += data.energySpent || 0;
+			} else if (
+				event === EVENT_TRANSFER &&
+				data.resourceType === RESOURCE_ENERGY
+			) {
+				const target = Game.getObjectById(
+					data.targetId as Id<AnyStoreStructure>,
+				);
+				if (
+					target != null &&
+					(target.structureType === STRUCTURE_SPAWN ||
+						target.structureType === STRUCTURE_EXTENSION)
+				) {
+					spawnedNow += data.amount || 0;
+				}
+			} else if (event === EVENT_UPGRADE_CONTROLLER) {
+				upgradedNow += data.energySpent || 0;
+			} else if (
+				event === EVENT_HARVEST &&
+				Game.getObjectById(
+					data.targetId as Id<Source | Mineral | Deposit>,
+				) instanceof Source
+			) {
+				harvestedNow += data.amount || 0;
+			}
 		}
-	});
-	if (spawning.length > 0) {
-		lines.push("Spawning");
-		spawning.forEach(({ name, remainingTime }) =>
-			lines.push(`\t${name} ${remainingTime}`),
+
+		// Throw out old usage data
+		if (built.unshift(builtNow) > historyLength) {
+			built.pop();
+		}
+		if (repaired.unshift(repairedNow) > historyLength) {
+			repaired.pop();
+		}
+		if (spawned.unshift(spawnedNow) > historyLength) {
+			spawned.pop();
+		}
+		if (upgraded.unshift(upgradedNow) > historyLength) {
+			upgraded.pop();
+		}
+		if (harvested.unshift(harvestedNow) > historyLength) {
+			harvested.pop();
+		}
+
+		// Update stats
+		const statsUpdateRate = Memory.settings?.statsUpdateRate || 1;
+		if (Game.time % statsUpdateRate === 0) {
+			// Update totals
+			builtTotal = Iterators.sum(built);
+			repairedTotal = Iterators.sum(repaired);
+			spawnedTotal = Iterators.sum(spawned);
+			upgradedTotal = Iterators.sum(upgraded);
+			harvestedTotal = Iterators.sum(harvested);
+			usedTotal = builtTotal + repairedTotal + spawnedTotal + upgradedTotal;
+
+			// Update tick counts
+			builtPerTick = builtTotal / ticksSoFar;
+			repairedPerTick = repairedTotal / ticksSoFar;
+			spawnedPerTick = spawnedTotal / ticksSoFar;
+			upgradedPerTick = upgradedTotal / ticksSoFar;
+			harvestedPerTick = harvestedTotal / ticksSoFar;
+			usedPerTick = usedTotal / ticksSoFar;
+
+			// Update efficiencies
+			harvestedEfficiency =
+				harvestedTotal / (10 * numSources * harvested.length);
+		}
+
+		// Visualize stats
+		const x = 0;
+		const y = 3;
+		progressBar(
+			room.visual,
+			builtTotal / usedTotal,
+			`Built: ${displayPerTick(builtPerTick)}`,
+			x,
+			y,
+			10,
 		);
+		progressBar(
+			room.visual,
+			repairedTotal / usedTotal,
+			`Repaired: ${displayPerTick(repairedPerTick)}`,
+			x,
+			y + 1,
+			10,
+		);
+		progressBar(
+			room.visual,
+			spawnedTotal / usedTotal,
+			`Spawned: ${displayPerTick(spawnedPerTick)}`,
+			x,
+			y + 2,
+			10,
+		);
+		progressBar(
+			room.visual,
+			upgradedTotal / usedTotal,
+			`Upgraded: ${displayPerTick(upgradedPerTick)}`,
+			x,
+			y + 3,
+			10,
+		);
+		progressBar(
+			room.visual,
+			usedTotal / harvestedTotal,
+			`Usage: ${displayPerTick(usedPerTick)}`,
+			x,
+			y + 4,
+			10,
+		);
+		progressBar(
+			room.visual,
+			harvestedEfficiency,
+			`Harvested: ${displayPerTick(harvestedPerTick)}`,
+			x,
+			y + 5,
+			10,
+		);
+
+		const elapsed = Game.cpu.getUsed() - start;
+		info(
+			`Used ${
+				Math.round(100 * elapsed) / 100
+			} CPU calculating efficiencies (over ${harvested.length})`,
+		);
+		yield;
 	}
-
-	if (this.queue.length === 0) {
-		lines.push("Spawn queue empty");
-	} else {
-		lines.push("Spawn queue:");
-		this.queue.forEach((item) => lines.push(`\t${item[0]}`));
-	}
-
-	textLines(this.room.visual, lines, 0, 9);
-
-	return true;
 }
 
-export function roomPlannerProvider(this: Readonly<RoomPlanner>): boolean {
-	const lines = [];
-	lines.push(`Planning room ${this.roomName}`);
+RoomProcessProviders.set("Economy", economyProvider);
+function* economyProvider(economy: Readonly<Economy>) {
+	while (global.kernel.hasProcess(economy.id)) {
+		const lines = [];
 
-	textLines(this.room.visual, lines, 10, 1);
+		lines.push(`Energy: ${Math.floor(economy.energyAvailable / 1000)}k`);
 
-	return true;
+		textLines(economy.room.visual, lines, 0, 10);
+
+		yield;
+	}
+}
+
+RoomProcessProviders.set("Construct", constructProvider);
+function* constructProvider(construct: Readonly<Construct>) {
+	while (global.kernel.hasProcess(construct.id)) {
+		const lines = [];
+
+		const repairsNeeded = construct.repairables.reduce(
+			(energy, s) => energy + s.hitsMax - s.hits,
+			0,
+		);
+		lines.push(`Repairs: ${Math.ceil(repairsNeeded / 1000)}k`);
+
+		// Show boxes around
+		construct.repairables.forEach((s) => {
+			box(
+				construct.room.visual,
+				s.pos.x,
+				s.pos.y,
+				1,
+				1,
+				interpolateColors("#ff0000", "#00ff00", s.hits / s.hitsMax),
+			);
+		});
+
+		// Highlight urgent repair
+		if (construct.repairers.size > 0 && construct.repairables.length > 0) {
+			const target = construct.repairables[0];
+			if (target.hits < target.hitsMax * 0.25) {
+				box(construct.room.visual, target.pos.x, target.pos.y, 1, 1, "black", {
+					lineStyle: "dashed",
+				});
+			}
+		}
+
+		textLines(construct.room.visual, lines, 0, 11);
+
+		yield;
+	}
+}
+
+RoomProcessProviders.set("ManageSpawns", manageSpawnsProvider);
+function* manageSpawnsProvider(manageSpawns: Readonly<ManageSpawns>) {
+	while (global.kernel.hasProcess(manageSpawns.id)) {
+		const lines = [];
+
+		const spawning: Spawning[] = [];
+		manageSpawns.room.find(FIND_STRUCTURES).forEach((s) => {
+			if (s.structureType === STRUCTURE_SPAWN && s.spawning != null) {
+				spawning.push(s.spawning);
+			}
+		});
+		if (spawning.length > 0) {
+			lines.push("Spawning");
+			spawning.forEach(({ name, remainingTime }) =>
+				lines.push(`\t${name} ${remainingTime}`),
+			);
+		}
+
+		if (manageSpawns.queue.length === 0) {
+			lines.push("Spawn queue empty");
+		} else {
+			lines.push("Spawn queue:");
+			manageSpawns.queue.forEach((item) => lines.push(`\t${item[0]}`));
+		}
+
+		textLines(manageSpawns.room.visual, lines, 0, 12);
+
+		yield;
+	}
+}
+
+RoomProcessProviders.set("RoomPlanner", roomPlannerProvider);
+function* roomPlannerProvider(roomPlanner: Readonly<RoomPlanner>) {
+	while (global.kernel.hasProcess(roomPlanner.id)) {
+		const lines = [];
+		lines.push(`Planning room ${roomPlanner.roomName}`);
+
+		textLines(roomPlanner.room.visual, lines, 10, 1);
+
+		yield;
+	}
 }

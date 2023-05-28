@@ -2,9 +2,9 @@ import { IMessage, MessageId } from "./../messenger";
 import { ProcessId, Process } from "./../process";
 
 export type UnboundVisualProvider<T extends Process> = (
-	this: Readonly<T>,
-) => boolean;
-export type BoundVisualProvider = () => boolean;
+	process: Readonly<T>,
+) => Generator;
+export type BoundVisualProvider = Generator;
 
 export class RequestVisualConnection<T extends Process> implements IMessage {
 	id: MessageId;
@@ -28,7 +28,7 @@ export class RequestVisualConnection<T extends Process> implements IMessage {
 		const connection = new VisualConnection(
 			this.to,
 			this.from,
-			this.provider.bind(process),
+			this.provider(process),
 		);
 		global.kernel.sendMessage(connection);
 	}
