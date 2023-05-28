@@ -202,7 +202,6 @@ export class ManageRoom extends RoomProcess {
 	roomPlannerId: ProcessId | null;
 	defenceId: ProcessId | null;
 
-	roomPlanned: boolean;
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
 	blueprint: Blueprint | null;
 
@@ -236,7 +235,6 @@ export class ManageRoom extends RoomProcess {
 			throw new Error("Room not visible");
 		}
 
-		this.roomPlanned = data.roomPlanned || false;
 		this.spawnRequests = new Map(data.spawnRequests);
 		this.blueprint = data.blueprint || null;
 		this.tenderName = data.tenderName || null;

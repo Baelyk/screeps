@@ -428,16 +428,16 @@ export class RoomPlanner extends RoomProcess {
 		const structures: Partial<Record<StructureConstant, Coord[]>> = {};
 
 		// Containers
-		structures[STRUCTURE_CONTAINER] = this.containers;
+		structures[STRUCTURE_CONTAINER] = this.containers.map(bareCoord);
 
 		// Extensions
-		structures[STRUCTURE_EXTENSION] = this.extensions;
+		structures[STRUCTURE_EXTENSION] = this.extensions.map(bareCoord);
 
 		// Extractor
 		if (this.extractor == null) {
 			throw new Error(`Room ${this.roomName} lacks an extractor plan`);
 		}
-		structures[STRUCTURE_EXTRACTOR] = [this.extractor];
+		structures[STRUCTURE_EXTRACTOR] = [bareCoord(this.extractor)];
 
 		// Roads
 		structures[STRUCTURE_ROAD] = Array.from(
