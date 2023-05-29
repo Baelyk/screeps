@@ -5,7 +5,6 @@ import {
 	ProcessId,
 } from "./../process";
 import { IMessage, MessageId } from "./../messenger";
-import { info, warn, error } from "./../utils/logger";
 import { Counter } from "./../utils/counter";
 import * as Iterators from "./../utils/iterators";
 import * as LZString from "lz-string";
@@ -235,7 +234,7 @@ export class RoomPlanner extends RoomProcess {
 		for (const source of sources) {
 			const path = this.findPath(source.pos, controller.pos, 2);
 			if (path.incomplete) {
-				warn(`Unable to complete path ${source.pos} to ${controller.pos}`);
+				this.warn(`Unable to complete path ${source.pos} to ${controller.pos}`);
 				continue;
 			}
 
@@ -391,7 +390,7 @@ export class RoomPlanner extends RoomProcess {
 			const pos = new RoomPosition(24, 24, roomName);
 			const path = this.findPath(spawnSpot, pos, 22, { allowOtherRooms: true });
 			if (path.incomplete) {
-				error(`Unable to find path from ${this.roomName} to ${roomName}`);
+				this.error(`Unable to find path from ${this.roomName} to ${roomName}`);
 				continue;
 			}
 			this.occupy(path.path);
@@ -445,7 +444,7 @@ export class RoomPlanner extends RoomProcess {
 					extensions.push(...openNeighbors);
 					this.occupy(path.path);
 					this.occupy(openNeighbors);
-					info(`Extensions: ${extensions.length}`);
+					this.debug(`Extensions: ${extensions.length}`);
 				}
 				unoccupyTiles(temporarilyOccupied, path.path);
 			}
@@ -510,7 +509,7 @@ export class RoomPlanner extends RoomProcess {
 	}
 
 	*roomPlanner() {
-		info(`Planning room ${this.roomName}`);
+		this.info(`Planning room ${this.roomName}`);
 		const [roads, containers, links, spawnStart] = this.economyRoads();
 		roads.forEach((road) => this.roads.add(coordToIndex(road)));
 		this.containers = containers;

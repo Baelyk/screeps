@@ -1,14 +1,7 @@
-import { info, errorConstant, warn, error } from "./../utils/logger";
-import { IMessage, MessageId } from "./../messenger";
-import {
-	nextAvailableName,
-	bodyFromSegments,
-	haulerBody,
-	countBodyPart,
-} from "./../utils";
+import { info, warn, error, debug } from "./../utils/logger";
+import { IMessage } from "./../messenger";
 import { RequestVisualConnection } from "./../visuals/connection";
-import * as Iterators from "./../utils/iterators";
-import { wrapper } from "utils/errors";
+import { ScriptError, wrapper } from "utils/errors";
 
 export type ProcessId = number;
 export type ProcessName = string;
@@ -96,11 +89,17 @@ export abstract class Process implements IProcess {
 			}
 			return;
 		}
-		warn(`Process ${this.display()} received unhandled message:\n${message}`);
+		this.warn(
+			`Process ${this.display()} received unhandled message:\n${message}`,
+		);
 	}
 
 	_initialized = false;
 	init(): void {}
+
+	errorHandler(error: Error): ProcessReturn {
+		throw error;
+	}
 
 	run(): ProcessReturn {
 		if (!this._initialized) {
@@ -109,7 +108,7 @@ export abstract class Process implements IProcess {
 		this._initialized = true;
 
 		if (this.generator == null) {
-			warn(`Process ${this.display()} has null generator`);
+			this.warn(`Process ${this.display()} has null generator`);
 			return { code: ProcessReturnCode.Done };
 		}
 
@@ -120,16 +119,55 @@ export abstract class Process implements IProcess {
 			}
 		}
 
-		const status = this.generator.next();
-		return {
-			code: status.done ? ProcessReturnCode.Done : ProcessReturnCode.OkContinue,
-		};
+		try {
+			const status = this.generator.next();
+			return {
+				code: status.done
+					? ProcessReturnCode.Done
+					: ProcessReturnCode.OkContinue,
+			};
+		} catch (err) {
+			if (err instanceof Error) {
+				return this.errorHandler(err);
+			}
+			throw err;
+		}
+	}
+
+	// rome-ignore lint/suspicious/noExplicitAny: for logging
+	info(msg: any): void {
+		info(`[${this.display()}] ${msg}`);
+	}
+
+	// rome-ignore lint/suspicious/noExplicitAny: for logging
+	debug(msg: any): void {
+		debug(`[${this.display()}] ${msg}`);
+	}
+
+	// rome-ignore lint/suspicious/noExplicitAny: for logging
+	warn(msg: any): void {
+		warn(`[${this.display()}] ${msg}`);
+	}
+
+	// rome-ignore lint/suspicious/noExplicitAny: for logging
+	error(msg: any): void {
+		error(`[${this.display()}] ${msg}`);
 	}
 }
 
 declare global {
 	interface CreepMemory {
 		process?: ProcessId;
+	}
+}
+
+class CreepMissingError extends ScriptError {
+	constructor(creepName: string, message?: string) {
+		let msg = `Creep ${creepName} does not exist`;
+		// If a message was supplied, add that to the end of the new message
+		if (message != null) msg += "\n" + message;
+
+		super(msg);
 	}
 }
 
@@ -157,9 +195,18 @@ export class CreepProcess extends Process {
 			this._creepTick = Game.time;
 		}
 		if (this._creep == null) {
-			throw new Error(`Unable to get creep ${this.creepName}`);
+			throw new CreepMissingError(`${this.creepName}`, this.display());
 		}
 		return this._creep;
+	}
+
+	errorHandler(error: Error): ProcessReturn {
+		if (error instanceof CreepMissingError) {
+			this.warn(`Creep ${this.creepName} missing, stopping`);
+			return { code: ProcessReturnCode.Done };
+		}
+
+		return super.errorHandler(error);
 	}
 }
 
@@ -257,7 +304,7 @@ export function reassignCreep(
 	processId: ProcessId,
 ): ProcessId | undefined {
 	const oldId = Memory.creeps[creepName].process;
-	info(`Reassigning ${creepName} from ${oldId || "none"} to ${processId}`);
+	debug(`Reassigning ${creepName} from ${oldId || "none"} to ${processId}`);
 	Memory.creeps[creepName].process = processId;
 	return oldId;
 }

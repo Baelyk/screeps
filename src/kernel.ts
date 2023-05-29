@@ -13,10 +13,20 @@ declare global {
 		/** Next ProcessId, Serialized Messenger, Serialized Process Array */
 		processes?: [ProcessId, string, string[]];
 		processesBackup?: [ProcessId, string, string[]];
+		/** Various settings useful for debugging and visualization */
+		settings?: SettingsMemory;
+	}
+}
+
+declare global {
+	interface SettingsMemory {
+		/** Whether to print debug logs */
+		debug?: boolean;
 	}
 }
 
 export class Kernel {
+	bootTick = Game.time;
 	messenger: Messenger;
 	processTable = new ProcessTable();
 	scheduler = new Scheduler(this.processTable);
@@ -61,14 +71,15 @@ export class Kernel {
 	}
 
 	tick(): void {
+		const start = Game.cpu.getUsed();
 		logTick();
+		info(`${Game.time - this.bootTick} ticks since last restart`);
 
 		this.scheduler.update();
 
 		while (true) {
 			const process = this.scheduler.next();
 			if (process == null) {
-				info("All done");
 				break;
 			}
 
@@ -79,10 +90,12 @@ export class Kernel {
 
 			wrapper(
 				() => {
-					info(`Running process ${process.display()}`);
+					if (Memory.settings?.debug)
+						info(`Running process ${process.display()}`);
 					const { code } = process.run();
 					if (code <= 0) {
-						info(`Process ${process.display()} has stopped with ${code}`);
+						if (Memory.settings?.debug)
+							info(`Process ${process.display()} has stopped with ${code}`);
 						this.stopProcess(process.id);
 					}
 				},
@@ -97,6 +110,9 @@ export class Kernel {
 			info("Serializing processes...");
 			this.serializeProcesses();
 		}
+
+		const elapsed = Game.cpu.getUsed() - start;
+		info(`Used ${Math.floor(elapsed * 100) / 100} CPU`);
 	}
 
 	getNextMessageId(): MessageId {
@@ -124,7 +140,12 @@ export class Kernel {
 	}
 
 	stopProcess(processId: ProcessId): void {
-		warn(`Stopping ${processId}`);
+		const process = this.processTable.getProcess(processId);
+		if (process == null) {
+			warn("Received request to stop nonexistant process");
+			return;
+		}
+		warn(`Stopping ${process.display()}`);
 		this.processTable.removeProcess(processId);
 	}
 

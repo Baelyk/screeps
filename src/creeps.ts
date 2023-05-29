@@ -1,9 +1,8 @@
-import { info, errorConstant, warn, error } from "./utils/logger";
 import { countBodyPart } from "./utils";
 import { ProcessData, CreepProcess, ProcessConstructors } from "./process";
 
 function* getEnergy(
-	this: { creep: Creep },
+	this: CreepProcess,
 	opts?: Partial<{
 		allowStorage: boolean;
 		allowControllerLink: boolean;
@@ -53,9 +52,9 @@ function* getEnergy(
 	}
 }
 
-function* harvest(this: { creep: Creep }) {
+function* harvest(this: CreepProcess) {
 	if (countBodyPart(this.creep.body, WORK) === 0) {
-		warn(`Creep ${this.creep.name} has no work parts, cannot harvest`);
+		this.warn(`Creep ${this.creep.name} has no work parts, cannot harvest`);
 		return;
 	}
 	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
@@ -156,7 +155,7 @@ function* repairer(this: Repairer) {
 			if (site == null) {
 				throw new Error("No site");
 			} else if (site.hits === site.hitsMax) {
-				warn(`Site ${this.siteId.slice(-4)} fully repaired`);
+				this.warn(`Site ${this.siteId.slice(-4)} fully repaired`);
 				return;
 			}
 

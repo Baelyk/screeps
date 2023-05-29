@@ -8,44 +8,44 @@
  *   error code does not exist
  */
 export function errorConstant(error: ScreepsReturnCode): string {
-  switch (error) {
-    case OK:
-      return "OK";
-    case ERR_NOT_OWNER:
-      return "ERR_NOT_OWNER";
-    case ERR_NO_PATH:
-      return "ERR_NO_PATH";
-    case ERR_NAME_EXISTS:
-      return "ERR_NAME_EXISTS";
-    case ERR_BUSY:
-      return "ERR_BUSY";
-    case ERR_NOT_FOUND:
-      return "ERR_NOT_FOUND ";
-    case ERR_NOT_ENOUGH_RESOURCES:
-      return "ERR_NOT_ENOUGH_RESOURCES";
-    case ERR_NOT_ENOUGH_ENERGY:
-      return "ERR_NOT_ENOUGH_ENERGY";
-    case ERR_INVALID_TARGET:
-      return "ERR_INVALID_TARGET";
-    case ERR_FULL:
-      return "ERR_FULL";
-    case ERR_NOT_IN_RANGE:
-      return "ERR_NOT_IN_RANGE";
-    case ERR_INVALID_ARGS:
-      return "ERR_INVALID_ARGS";
-    case ERR_TIRED:
-      return "ERR_TIRED";
-    case ERR_NO_BODYPART:
-      return "ERR_NO_BODYPART";
-    case ERR_NOT_ENOUGH_EXTENSIONS:
-      return "ERR_NOT_ENOUGH_EXTENSIONS";
-    case ERR_RCL_NOT_ENOUGH:
-      return "ERR_RCL_NOT_ENOUGH";
-    case ERR_GCL_NOT_ENOUGH:
-      return "ERR_GCL_NOT_ENOUGH";
-    default:
-      return "";
-  }
+	switch (error) {
+		case OK:
+			return "OK";
+		case ERR_NOT_OWNER:
+			return "ERR_NOT_OWNER";
+		case ERR_NO_PATH:
+			return "ERR_NO_PATH";
+		case ERR_NAME_EXISTS:
+			return "ERR_NAME_EXISTS";
+		case ERR_BUSY:
+			return "ERR_BUSY";
+		case ERR_NOT_FOUND:
+			return "ERR_NOT_FOUND ";
+		case ERR_NOT_ENOUGH_RESOURCES:
+			return "ERR_NOT_ENOUGH_RESOURCES";
+		case ERR_NOT_ENOUGH_ENERGY:
+			return "ERR_NOT_ENOUGH_ENERGY";
+		case ERR_INVALID_TARGET:
+			return "ERR_INVALID_TARGET";
+		case ERR_FULL:
+			return "ERR_FULL";
+		case ERR_NOT_IN_RANGE:
+			return "ERR_NOT_IN_RANGE";
+		case ERR_INVALID_ARGS:
+			return "ERR_INVALID_ARGS";
+		case ERR_TIRED:
+			return "ERR_TIRED";
+		case ERR_NO_BODYPART:
+			return "ERR_NO_BODYPART";
+		case ERR_NOT_ENOUGH_EXTENSIONS:
+			return "ERR_NOT_ENOUGH_EXTENSIONS";
+		case ERR_RCL_NOT_ENOUGH:
+			return "ERR_RCL_NOT_ENOUGH";
+		case ERR_GCL_NOT_ENOUGH:
+			return "ERR_GCL_NOT_ENOUGH";
+		default:
+			return "";
+	}
 }
 
 const ERROR_COLOR = "red";
@@ -57,7 +57,7 @@ const TICK_COLOR = "#FFD700";
 const WARN_COLOR = "#FFD700";
 
 function withColor(color: string, msg?: any): string {
-  return `<span style="color: ${color}">${msg}</span>`;
+	return `<span style="color: ${color}">${msg}</span>`;
 }
 
 /**
@@ -66,7 +66,16 @@ function withColor(color: string, msg?: any): string {
  * @param msg The message
  */
 export function info(msg?: any) {
-  console.log(withColor(INFO_COLOR, ` ${msg}`));
+	console.log(withColor(INFO_COLOR, ` ${msg}`));
+}
+
+/**
+ * Like info, but only prints the message if `Memory.settings.debug` is set
+ *
+ * @param msg The message
+ */
+export function debug(msg?: any) {
+	if (Memory.settings?.debug) console.log(withColor(INFO_COLOR, ` ${msg}`));
 }
 
 /**
@@ -75,7 +84,7 @@ export function info(msg?: any) {
  * @param msg The message
  */
 export function error(msg?: any) {
-  console.log(withColor(ERROR_COLOR, ` ${msg}`));
+	console.log(withColor(ERROR_COLOR, ` ${msg}`));
 }
 
 /**
@@ -84,7 +93,7 @@ export function error(msg?: any) {
  * @param msg The message
  */
 export function warn(msg?: any) {
-  console.log(withColor(WARN_COLOR, ` ${msg}`));
+	console.log(withColor(WARN_COLOR, ` ${msg}`));
 }
 
 /**
@@ -94,41 +103,41 @@ export function warn(msg?: any) {
  * @returns A string representing the body
  */
 export function stringifyBody(body: BodyPartConstant[]): string {
-  let string = "";
-  body.forEach((part) => {
-    switch (part) {
-      case WORK:
-        string += "W";
-        break;
-      case CARRY:
-        string += "C";
-        break;
-      case MOVE:
-        string += "M";
-        break;
-      case CLAIM:
-        string += "L";
-        break;
-      case ATTACK:
-        string += "A";
-        break;
-      case RANGED_ATTACK:
-        string += "R";
-        break;
-      case TOUGH:
-        string += "T";
-        break;
-      default:
-        error(`stringifyBody unexpected body part ${part}`);
-    }
-  });
-  return string;
+	let string = "";
+	body.forEach((part) => {
+		switch (part) {
+			case WORK:
+				string += "W";
+				break;
+			case CARRY:
+				string += "C";
+				break;
+			case MOVE:
+				string += "M";
+				break;
+			case CLAIM:
+				string += "L";
+				break;
+			case ATTACK:
+				string += "A";
+				break;
+			case RANGED_ATTACK:
+				string += "R";
+				break;
+			case TOUGH:
+				string += "T";
+				break;
+			default:
+				error(`stringifyBody unexpected body part ${part}`);
+		}
+	});
+	return string;
 }
 
 /** Log the current tick */
 export function tick(format?: string): void {
-  if (format == undefined) {
-    format = `color: black; background: ${TICK_COLOR}; font-weight: bold`;
-  }
-  console.log(`<span style="${format}">[ ${Game.time} ]</span>`);
+	if (format == undefined) {
+		format = `color: black; background: ${TICK_COLOR}; font-weight: bold`;
+	}
+	console.log(`<span style="${format}">[ ${Game.time} ]</span>`);
 }

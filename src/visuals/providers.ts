@@ -1,5 +1,5 @@
 import { ManageRoom, ManageSpawns, Construct, Economy } from "./../rooms";
-import { info, warn } from "./../utils/logger";
+import { debug } from "./../utils/logger";
 import {
 	textLines,
 	progressBar,
@@ -8,21 +8,16 @@ import {
 	displayPerTick,
 } from "./utils";
 import { RoomPlanner } from "./../planner";
-import { BoundVisualProvider, UnboundVisualProvider } from "./connection";
-import { ProcessName, RoomProcess } from "./../process";
+import { UnboundVisualProvider } from "./connection";
+import { ProcessName } from "./../process";
 import * as Iterators from "./../utils/iterators";
 
-// Right now, the only provider that actually providing a useful connection to
-// a process is the `manageSpawnsProvider`, providing access to the spawn queue.
-
 declare global {
-	interface Memory {
-		settings?: {
-			/** Whether to visualize the RoomPlanner blueprint */
-			showBlueprint?: boolean;
-			/** How often room stats should be updated in ticks */
-			statsUpdateRate?: number;
-		};
+	interface SettingsMemory {
+		/** Whether to visualize the RoomPlanner blueprint */
+		showBlueprint?: boolean;
+		/** How often room stats should be updated in ticks */
+		statsUpdateRate?: number;
 	}
 }
 
@@ -268,7 +263,7 @@ export function* roomStats(roomName: string) {
 		);
 
 		const elapsed = Game.cpu.getUsed() - start;
-		info(
+		debug(
 			`Used ${
 				Math.round(100 * elapsed) / 100
 			} CPU calculating efficiencies (over ${harvested.length})`,

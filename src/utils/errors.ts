@@ -1,26 +1,16 @@
 import { ErrorMapper } from "utils/ErrorMapper";
 import * as logger from "utils/logger";
 
-declare const enum ErrorType {
-	default = "",
-}
-
 export class ScriptError extends Error {
-	type: ErrorType = ErrorType.default;
 	displayName = "Error";
 
-	constructor(message: string, type?: ErrorType) {
+	constructor(message: string) {
 		super(message);
-		if (type != undefined) {
-			this.type = type;
-		}
 		this.displayName = this.constructor.name;
 	}
 
 	toString(): string {
-		const typeDisplay =
-			this.type !== ErrorType.default ? `[${this.type}] ` : "";
-		return `[${this.displayName}] ${typeDisplay}${this.message}`;
+		return `[${this.displayName}] ${this.message}`;
 	}
 }
 
@@ -57,7 +47,7 @@ export class GetByIdError extends ScriptError {
 
 export class MemoryError extends ScriptError {
 	constructor(message: string) {
-		let msg = `Invalid memory entry`;
+		let msg = "Invalid memory entry";
 		// If a message was supplied, add that to the end of the new message
 		if (message !== undefined) msg += "\n" + message;
 
