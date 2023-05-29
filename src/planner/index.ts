@@ -142,7 +142,7 @@ export class RoomPlanner extends RoomProcess {
 	terrain: RoomTerrain;
 	occupied: Set<Index>;
 
-	roads: RoomPosition[];
+	roads: Set<Index>;
 	containers: RoomPosition[] = [];
 	extensions: RoomPosition[] = [];
 	spawns: RoomPosition[] = [];
@@ -166,7 +166,7 @@ export class RoomPlanner extends RoomProcess {
 		this.terrain = Game.map.getRoomTerrain(this.roomName);
 		this.occupied = new Set();
 
-		this.roads = [];
+		this.roads = new Set();
 	}
 
 	occupy(pos: Index | Coord | Index[] | Coord[]): void {
@@ -441,6 +441,12 @@ export class RoomPlanner extends RoomProcess {
 			this.updateCostMatrix(extensions, UNWALKABLE_COST);
 
 			getNeighbors(current)
+				// Only traverse along unoccupied or road neighbors
+				.filter(
+					(n) =>
+						!this.occupied.has(coordToIndex(n)) ||
+						this.roads.has(coordToIndex(n)),
+				)
 				.filter((n) => !visited.has(coordToIndex(n)))
 				.forEach((n) => {
 					visited.add(coordToIndex(n));
@@ -473,9 +479,7 @@ export class RoomPlanner extends RoomProcess {
 		structures[STRUCTURE_LINK] = this.links.map(bareCoord);
 
 		// Roads
-		structures[STRUCTURE_ROAD] = Array.from(
-			new Set(this.roads.map(coordToIndex)),
-		).map(indexToCoord);
+		structures[STRUCTURE_ROAD] = Array.from(this.roads).map(indexToCoord);
 
 		// Spawns
 		structures[STRUCTURE_SPAWN] = this.spawns.map(bareCoord);
@@ -495,7 +499,7 @@ export class RoomPlanner extends RoomProcess {
 	*roomPlanner() {
 		info(`Planning room ${this.roomName}`);
 		const [roads, containers, links, spawnStart] = this.economyRoads();
-		this.roads = roads;
+		roads.forEach((road) => this.roads.add(coordToIndex(road)));
 		this.containers = containers;
 		this.links.push(...links);
 		if (spawnStart == null) {
@@ -504,18 +508,18 @@ export class RoomPlanner extends RoomProcess {
 		const spawnSpot = this.findSpawnSpot(spawnStart);
 		const [spawns, spawnRoads, storage, tower, storageLink] =
 			this.spawnStamp(spawnSpot);
-		this.roads.push(...spawnRoads);
+		spawnRoads.forEach((road) => this.roads.add(coordToIndex(road)));
 		this.spawns = spawns;
 		this.storage = storage;
 		this.towers = [tower];
 		this.links.push(storageLink);
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
-		this.roads.push(...extractorRoad);
+		extractorRoad.forEach((road) => this.roads.add(coordToIndex(road)));
 		this.pathToExits(spawnSpot);
 		const [extensions, extensionRoads] = this.placeExtensions(spawnSpot);
 		this.extensions = extensions;
-		this.roads.push(...extensionRoads);
+		extensionRoads.forEach((road) => this.roads.add(coordToIndex(road)));
 
 		const blueprint = this.blueprint();
 		const message = new SendBlueprint(this.id, this.manageRoomId, blueprint);
