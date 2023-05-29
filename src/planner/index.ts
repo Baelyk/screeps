@@ -352,6 +352,18 @@ export class RoomPlanner extends RoomProcess {
 		];
 	}
 
+	prioritizeLinks(
+		links: RoomPosition[],
+		spawnSpot: RoomPosition,
+	): RoomPosition[] {
+		// Using range as analog for path distance, sort furthest links first
+		links.sort((a, b) => b.getRangeTo(spawnSpot) - a.getRangeTo(spawnSpot));
+		// But have the storage link first
+		links.unshift(links[links.length - 1]);
+		links.pop();
+		return links;
+	}
+
 	mineralExtractor(storage: RoomPosition): [RoomPosition, RoomPosition[]] {
 		const mineral = this.room.find(FIND_MINERALS)[0];
 		if (mineral == null) {
@@ -513,6 +525,7 @@ export class RoomPlanner extends RoomProcess {
 		this.storage = storage;
 		this.towers = [tower];
 		this.links.push(storageLink);
+		this.links = this.prioritizeLinks(this.links, spawnSpot);
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
 		extractorRoad.forEach((road) => this.roads.add(coordToIndex(road)));

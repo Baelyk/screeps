@@ -153,6 +153,15 @@ function build(this: ManageRoom): void {
 		.forEach(({ x, y }) =>
 			this.room.createConstructionSite(x, y, STRUCTURE_STORAGE),
 		);
+
+	// Build the maximum possible number of links
+	(this.blueprint.structures[STRUCTURE_LINK] || [])
+		.filter(
+			(_, num) => num < CONTROLLER_STRUCTURES[STRUCTURE_LINK][controller.level],
+		)
+		.forEach(({ x, y }) =>
+			this.room.createConstructionSite(x, y, STRUCTURE_LINK),
+		);
 }
 
 function* manageRoom(this: ManageRoom): Generator<void, void, never> {
