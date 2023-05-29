@@ -217,7 +217,6 @@ export class ManageRoom extends RoomProcess {
 				expandId?: ProcessId | null;
 				roomPlannerId?: ProcessId | null;
 				defenceId?: ProcessId | null;
-				roomPlanned?: boolean;
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
 				>;
@@ -1421,7 +1420,8 @@ export class UpdateManageSpawnsId implements IMessage {
 }
 
 function minerBody(energyAvailable: number): BodyPartConstant[] {
-	let energy = energyAvailable;
+	// 2050 energy is enough to drain a source in 94t (16W 8M 1C)
+	let energy = Math.min(energyAvailable, 2050);
 	if (
 		energy >
 		BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
