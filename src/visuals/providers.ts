@@ -139,10 +139,9 @@ export function* roomStats(roomName: string) {
 		let harvestedNow = 0;
 		for (const { event, data } of events) {
 			if (event === EVENT_BUILD) {
-				// At least this one is actually sometimes undefined
-				builtNow += data.energySpent || 0;
+				builtNow += data.amount;
 			} else if (event === EVENT_REPAIR) {
-				repairedNow += data.energySpent || 0;
+				repairedNow += data.energySpent;
 			} else if (
 				event === EVENT_TRANSFER &&
 				data.resourceType === RESOURCE_ENERGY
@@ -155,17 +154,17 @@ export function* roomStats(roomName: string) {
 					(target.structureType === STRUCTURE_SPAWN ||
 						target.structureType === STRUCTURE_EXTENSION)
 				) {
-					spawnedNow += data.amount || 0;
+					spawnedNow += data.amount;
 				}
 			} else if (event === EVENT_UPGRADE_CONTROLLER) {
-				upgradedNow += data.energySpent || 0;
+				upgradedNow += data.energySpent;
 			} else if (
 				event === EVENT_HARVEST &&
 				Game.getObjectById(
 					data.targetId as Id<Source | Mineral | Deposit>,
 				) instanceof Source
 			) {
-				harvestedNow += data.amount || 0;
+				harvestedNow += data.amount;
 			}
 		}
 
