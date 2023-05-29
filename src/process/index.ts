@@ -8,6 +8,7 @@ import {
 } from "./../utils";
 import { RequestVisualConnection } from "./../visuals/connection";
 import * as Iterators from "./../utils/iterators";
+import { wrapper } from "utils/errors";
 
 export type ProcessId = number;
 export type ProcessName = string;
@@ -51,7 +52,7 @@ export abstract class Process implements IProcess {
 		const data: any = Object.assign({}, this);
 		// Turn Maps into [key, value] tuple arrays
 		for (const prop in data) {
-			if (data[prop] instanceof Map) {
+			if (data[prop] instanceof Map || data[prop] instanceof Set) {
 				data[prop] = Array.from(data[prop]);
 			}
 		}
@@ -271,5 +272,10 @@ export function deserializeProcess(serialized: string): Process | undefined {
 		);
 		return;
 	}
-	return new process(data);
+	return (
+		wrapper(
+			() => new process(data),
+			`Error deserializing Process ${data.id} ${data.name}`,
+		) || undefined
+	);
 }

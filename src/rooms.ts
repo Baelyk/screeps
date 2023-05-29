@@ -210,6 +210,7 @@ export class ManageRoom extends RoomProcess {
 	expandId: ProcessId | null;
 	roomPlannerId: ProcessId | null;
 	defenceId: ProcessId | null;
+	manageLinksId: ProcessId | null;
 
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
 	blueprint: Blueprint | null;
@@ -226,6 +227,7 @@ export class ManageRoom extends RoomProcess {
 				expandId?: ProcessId | null;
 				roomPlannerId?: ProcessId | null;
 				defenceId?: ProcessId | null;
+				manageLinksId?: ProcessId | null;
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
 				>;
@@ -278,6 +280,9 @@ export class ManageRoom extends RoomProcess {
 					manageSpawnsId: this.manageSpawnsId,
 				}),
 			);
+		this.manageLinksId =
+			data.manageLinksId ||
+			global.kernel.spawnProcess(new ManageLinks({ roomName: this.roomName }));
 
 		this.expandId = data.expandId || null;
 	}
@@ -833,7 +838,10 @@ export class Economy extends RoomProcess {
 	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
-	sources: Map<Id<StructureContainer>, [Id<Source>, string | null]>;
+	sources: Map<
+		Id<StructureContainer>,
+		[Id<Source>, string | null, Id<StructureLink> | null]
+	>;
 	upgraders: Map<string, ProcessId | null>;
 	spawnRequests: Map<
 		MessageId,
@@ -852,7 +860,12 @@ export class Economy extends RoomProcess {
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
 		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
-		sources?: Iterable<[Id<StructureContainer>, [Id<Source>, string | null]]>;
+		sources?: Iterable<
+			[
+				Id<StructureContainer>,
+				[Id<Source>, string | null, Id<StructureLink> | null],
+			]
+		>;
 		upgraders?: Iterable<[string, ProcessId | null]>;
 		spawnRequests?: Iterable<
 			[MessageId, ["miner", Id<StructureContainer>] | "upgrader" | "tender"]
@@ -924,22 +937,37 @@ export class Economy extends RoomProcess {
 								`Sources ${oldSource} and ${sourceId} sharing container ${container.id}`,
 							);
 						}
-						this.sources.set(container.id, [sourceId, minerName]);
+						const linkId =
+							s.pos
+								.findInRange(FIND_MY_STRUCTURES, 2)
+								.find(
+									(s): s is StructureLink => s.structureType === STRUCTURE_LINK,
+								)?.id || null;
+						this.sources.set(container.id, [sourceId, minerName, linkId]);
 					});
 			}
 
 			// Source mining
-			for (const [containerId, [sourceId, minerName]] of this.sources) {
+			for (const [containerId, [sourceId, minerName, linkId]] of this.sources) {
 				const container = Game.getObjectById(containerId);
 				if (container == null) {
 					warn(`Missing container ${containerId}`);
 					this.sources.delete(containerId);
 					continue;
 				}
-
+				const source = Game.getObjectById(sourceId);
+				if (source == null) {
+					error(`Missing source for ${containerId}`);
+					this.sources.delete(containerId);
+					continue;
+				}
+				let link: StructureLink | null = null;
+				if (linkId != null) {
+					link = Game.getObjectById(linkId);
+				}
 				const miner = Game.creeps[minerName || ""];
 				if (miner == null || minerName == null) {
-					this.sources.set(containerId, [sourceId, null]);
+					this.sources.set(containerId, [sourceId, null, linkId]);
 					if (
 						!Iterators.some(
 							this.spawnRequests,
@@ -951,42 +979,42 @@ export class Economy extends RoomProcess {
 					continue;
 				}
 
+				// Sit on top of the container
 				if (!miner.pos.isEqualTo(container.pos)) {
 					miner.moveTo(container.pos);
 					continue;
 				}
 
-				// Mine the source or, if the source is empty, repair the container
-				const source = Game.getObjectById(sourceId);
-				if (source == null) {
-					error(`Missing source for ${containerId}`);
-					this.sources.delete(containerId);
-					continue;
-				}
+				// Harvest the source
 				if (source.energy > 0) {
 					const response = miner.harvest(source);
 					if (response !== OK) {
 						warn(`Miner harvesting with ${errorConstant(response)}`);
 					}
-					continue;
 				}
 
-				if (container.hits < container.hitsMax) {
-					if (miner.store[RESOURCE_ENERGY] > 0) {
-						miner.repair(container);
-						continue;
-					} else if (container.store[RESOURCE_ENERGY] > 0) {
-						miner.withdraw(container, RESOURCE_ENERGY);
-						continue;
+				// Transfer energy to the link
+				if (link != null && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+					miner.withdraw(container, RESOURCE_ENERGY);
+					miner.transfer(link, RESOURCE_ENERGY);
+				} else {
+					// Or pickup dropped energy
+					const pile = miner.pos
+						.findInRange(FIND_DROPPED_RESOURCES, 1)
+						.find((pile) => pile.resourceType === RESOURCE_ENERGY);
+					if (pile != null) {
+						miner.transfer(container, RESOURCE_ENERGY);
+						miner.pickup(pile);
 					}
 				}
 
-				const pile = miner.pos
-					.findInRange(FIND_DROPPED_RESOURCES, 1)
-					.find((pile) => pile.resourceType === RESOURCE_ENERGY);
-				if (pile != null) {
-					miner.transfer(container, RESOURCE_ENERGY);
-					miner.pickup(pile);
+				// Repair the container if the source is empty
+				if (source.energy === 0 && container.hits < container.hitsMax) {
+					if (miner.store[RESOURCE_ENERGY] > 0) {
+						miner.repair(container);
+					} else if (container.store[RESOURCE_ENERGY] > 0) {
+						miner.withdraw(container, RESOURCE_ENERGY);
+					}
 				}
 			}
 
@@ -1095,7 +1123,7 @@ export class Economy extends RoomProcess {
 					);
 					return;
 				}
-				this.sources.set(containerId, [sourceId, message.creepName]);
+				this.sources.set(containerId, [sourceId, message.creepName, null]);
 				reassignCreep(message.creepName, this.id);
 			}
 
@@ -1675,3 +1703,157 @@ export class Defence extends RoomProcess {
 	}
 }
 ProcessConstructors.set("Defence", Defence);
+
+export class ManageLinks extends RoomProcess {
+	storageLinkId: Id<StructureLink> | null;
+	controllerLinkId: Id<StructureLink> | null;
+	sourceLinkIds: Set<Id<StructureLink>>;
+
+	constructor({
+		storageLinkId,
+		controllerLinkId,
+		sourceLinkIds,
+		...data
+	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
+		storageLinkId?: Id<StructureLink> | null;
+		controllerLinkId?: Id<StructureLink> | null;
+		sourceLinkIds?: Iterable<Id<StructureLink>>;
+	}) {
+		super({ name: "ManageLinks", ...data });
+		this.generator = this.manageLinks();
+
+		this.storageLinkId = storageLinkId || null;
+		this.controllerLinkId = controllerLinkId || null;
+		this.sourceLinkIds = new Set(sourceLinkIds);
+	}
+
+	/** Reaquires link IDs */
+	searchForLinks() {
+		// Find a link within 2 of the storage
+		let storageLink: StructureLink | null = null;
+		if (this.storageLinkId != null) {
+			storageLink = Game.getObjectById(this.storageLinkId);
+		}
+		if (this.storageLinkId == null || storageLink == null) {
+			this.storageLinkId = null;
+			if (this.room.storage != null) {
+				storageLink =
+					this.room.storage.pos
+						.findInRange(FIND_MY_STRUCTURES, 2)
+						.find(
+							(s): s is StructureLink => s.structureType === STRUCTURE_LINK,
+						) || null;
+				if (storageLink != null) {
+					this.storageLinkId = storageLink.id;
+				}
+			}
+		}
+
+		// Find a link within 2 of the controller
+		let controllerLink: StructureLink | null = null;
+		if (this.controllerLinkId != null) {
+			controllerLink = Game.getObjectById(this.controllerLinkId);
+		}
+		if (this.controllerLinkId == null || controllerLink == null) {
+			this.controllerLinkId = null;
+			if (this.room.controller != null) {
+				controllerLink =
+					this.room.controller.pos
+						.findInRange(FIND_MY_STRUCTURES, 2)
+						.find(
+							(s): s is StructureLink => s.structureType === STRUCTURE_LINK,
+						) || null;
+				if (controllerLink != null) {
+					this.controllerLinkId = controllerLink.id;
+				}
+			}
+		}
+
+		// Find a link within 2 of each source
+		this.sourceLinkIds = new Set(
+			this.room
+				.find(FIND_SOURCES)
+				.map(
+					(source) =>
+						source.pos
+							.findInRange(FIND_MY_STRUCTURES, 2)
+							.find(
+								(s): s is StructureLink => s.structureType === STRUCTURE_LINK,
+							) || null,
+				)
+				.filter((link): link is StructureLink => link != null)
+				.map((link) => link.id),
+		);
+	}
+
+	emptySourceLinks() {
+		/** Link and current store */
+		const sourceLinks: [StructureLink, number][] = [];
+		this.sourceLinkIds.forEach((linkId) => {
+			const link = Game.getObjectById(linkId);
+			if (link != null) sourceLinks.push([link, link.store[RESOURCE_ENERGY]]);
+		});
+		// Sort by energy
+		sourceLinks.sort(([_, a], [__, b]) => b - a);
+
+		// Controller link
+		let controllerLink: StructureLink | null = null;
+		let controllerLinkEnergy = 0;
+		if (this.controllerLinkId != null) {
+			controllerLink = Game.getObjectById(this.controllerLinkId);
+			controllerLinkEnergy = controllerLink?.store[RESOURCE_ENERGY] || 0;
+		}
+
+		// Storage link
+		let storageLink: StructureLink | null = null;
+		let storageLinkEnergy = 0;
+		if (this.storageLinkId != null) {
+			storageLink = Game.getObjectById(this.storageLinkId);
+			storageLinkEnergy = storageLink?.store[RESOURCE_ENERGY] || 0;
+		}
+
+		const targets: [
+			[0, StructureLink | null, number],
+			[1, StructureLink | null, number],
+		] = [
+			[0, controllerLink, controllerLinkEnergy],
+			[1, storageLink, storageLinkEnergy],
+		];
+
+		// Iterate through source links
+		for (const [link, linkEnergy] of sourceLinks) {
+			if (link.cooldown > 0 || linkEnergy < LINK_CAPACITY * 0.25) {
+				continue;
+			}
+			const [targetIndex, target, targetEnergy] = targets.find(
+				([_, l, e]) => l != null && e < LINK_CAPACITY * 0.75,
+			) || [-1, null, 0];
+			if (target == null) {
+				break;
+			}
+
+			const transferEnergy = Math.min(LINK_CAPACITY - targetEnergy, linkEnergy);
+			const response = link.transferEnergy(target, transferEnergy);
+			info(
+				`Link ${link.id.slice(
+					-4,
+				)} transfering ${transferEnergy} to ${target.id.slice(
+					-4,
+				)} with ${errorConstant(response)}`,
+			);
+			targets[targetIndex][2] += transferEnergy;
+		}
+	}
+
+	*manageLinks() {
+		while (true) {
+			if (Game.time % 100 === 0) {
+				this.searchForLinks();
+			}
+
+			this.emptySourceLinks();
+			yield;
+		}
+	}
+}
+ProcessConstructors.set("ManageLinks", ManageLinks);

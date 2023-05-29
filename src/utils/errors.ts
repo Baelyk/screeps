@@ -112,18 +112,18 @@ export class SpawnMemoryError extends MemoryError {
  * @param {() => void} [final] A function to execute after fn regardless of
  *   whether an error was thrown.
  */
-export function wrapper(
-	fn: () => void,
+export function wrapper<T>(
+	fn: () => T,
 	message?: string,
-	onError?: () => void,
+	onError?: () => T,
 	final?: () => void,
-): void {
+): T | void {
 	try {
-		fn();
+		return fn();
 	} catch (e) {
 		const error = e as Error;
 		logger.error((message ? message + "\n" : "") + displayError(error));
-		if (onError != null) onError();
+		if (onError != null) return onError();
 	} finally {
 		if (final != null) final();
 	}

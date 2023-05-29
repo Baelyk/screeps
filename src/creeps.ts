@@ -2,15 +2,33 @@ import { info, errorConstant, warn, error } from "./utils/logger";
 import { countBodyPart } from "./utils";
 import { ProcessData, CreepProcess, ProcessConstructors } from "./process";
 
-function* getEnergy(this: { creep: Creep }, allowStorage = true) {
+function* getEnergy(
+	this: { creep: Creep },
+	opts?: Partial<{
+		allowStorage: boolean;
+		allowControllerLink: boolean;
+		amount: number;
+	}>,
+) {
+	const options = {
+		allowStorage: true,
+		allowControllerLink: true,
+		amount: this.creep.store.getCapacity(RESOURCE_ENERGY),
+	};
+	Object.assign(options, opts);
+
 	if (this.creep.store.getCapacity(RESOURCE_ENERGY) == null) {
 		throw new Error(`Creep ${this.creep.name} unable to carry energy`);
 	}
-	while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+	while (this.creep.store[RESOURCE_ENERGY] < options.amount) {
 		const target = this.creep.pos.findClosestByPath(FIND_STRUCTURES, {
 			filter: (s) =>
-				((s.structureType === STRUCTURE_STORAGE && allowStorage) ||
-					s.structureType === STRUCTURE_CONTAINER) &&
+				((s.structureType === STRUCTURE_STORAGE && options.allowStorage) ||
+					s.structureType === STRUCTURE_CONTAINER ||
+					(s.structureType === STRUCTURE_LINK &&
+						(options.allowControllerLink ||
+							s.pos.getRangeTo(this.creep.room.controller?.pos || s.pos) >
+								2))) &&
 				s.store[RESOURCE_ENERGY] > 0,
 		});
 		if (target == null) {
@@ -179,7 +197,10 @@ function* tender(this: Tender, roomName?: string) {
 	}
 	let allowTakeFromStorage = true;
 	while (true) {
-		yield* getEnergy.bind(this)(allowTakeFromStorage);
+		yield* getEnergy.bind(this)({
+			allowStorage: allowTakeFromStorage,
+			allowControllerLink: false,
+		});
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const primaryTargets = this.creep.room
 				.find(FIND_MY_STRUCTURES)
@@ -244,8 +265,13 @@ function* upgrader(this: Upgrader, roomName?: string) {
 	if (roomName != null) {
 		yield* moveToRoom.bind(this)(roomName);
 	}
+	let nextToController = false;
 	while (true) {
-		yield* getEnergy.bind(this)();
+		yield* getEnergy.bind(this)({
+			amount: nextToController
+				? 1
+				: this.creep.store.getFreeCapacity(RESOURCE_ENERGY),
+		});
 		while (this.creep.store[RESOURCE_ENERGY] > 0) {
 			const controller = this.creep.room.controller;
 			if (controller == null) {
@@ -254,7 +280,10 @@ function* upgrader(this: Upgrader, roomName?: string) {
 
 			let response = this.creep.upgradeController(controller);
 			if (response === ERR_NOT_IN_RANGE) {
+				nextToController = false;
 				response = this.creep.moveTo(controller);
+			} else {
+				nextToController = true;
 			}
 
 			yield;
