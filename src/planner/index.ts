@@ -147,6 +147,7 @@ export class RoomPlanner extends RoomProcess {
 	extensions: RoomPosition[] = [];
 	spawns: RoomPosition[] = [];
 	towers: RoomPosition[] = [];
+	links: RoomPosition[] = [];
 	extractor: RoomPosition | null = null;
 	storage: RoomPosition | null = null;
 
@@ -209,7 +210,12 @@ export class RoomPlanner extends RoomProcess {
 		);
 	}
 
-	economyRoads(): [RoomPosition[], RoomPosition[], RoomPosition | null] {
+	economyRoads(): [
+		RoomPosition[],
+		RoomPosition[],
+		RoomPosition[],
+		RoomPosition | null,
+	] {
 		const sources = this.room.find(FIND_SOURCES) as (Source | Mineral)[];
 		const controller = this.room.controller;
 		if (controller == null) {
@@ -224,15 +230,19 @@ export class RoomPlanner extends RoomProcess {
 		// Count roads as indices since Counters don't play well with objects
 		const roadCounter = new Counter<Index>();
 		const containers: RoomPosition[] = [];
+		const links: RoomPosition[] = [];
 		for (const source of sources) {
 			const path = this.findPath(source.pos, controller.pos, 2);
 			if (path.incomplete) {
 				warn(`Unable to complete path ${source.pos} to ${controller.pos}`);
 				continue;
 			}
-			if (source instanceof Source) {
-				containers.push(path.path[0]);
-				path.path.shift();
+
+			containers.push(path.path[0]);
+			path.path.shift();
+			// Controller link is the end of the source-controller road(s)
+			if (links.length === 0) {
+				links.push(path.path[path.path.length - 1]);
 			}
 			this.updateCostMatrix(path.path, ROAD_COST);
 			roadCounter.pushMany(path.path.map(coordToIndex));
@@ -254,7 +264,18 @@ export class RoomPlanner extends RoomProcess {
 		);
 		this.occupy(roads);
 		this.occupy(containers);
-		return [roads, containers, firstIntersection];
+		// Source links
+		containers.forEach((pos) => {
+			// An unoccupied tile adjacent to the source container
+			const sourceLink = getNeighbors(pos).find(
+				(n) => !this.occupied.has(coordToIndex(n)),
+			);
+			if (sourceLink != null) {
+				links.push(coordToRoomPosition(sourceLink, this.roomName));
+			}
+		});
+		this.occupy(links);
+		return [roads, containers, links, firstIntersection];
 	}
 
 	findSpawnSpot(spawnStart: RoomPosition): RoomPosition {
@@ -290,7 +311,13 @@ export class RoomPlanner extends RoomProcess {
 
 	spawnStamp(
 		spawnSpot: RoomPosition,
-	): [RoomPosition[], RoomPosition[], RoomPosition, RoomPosition] {
+	): [
+		RoomPosition[],
+		RoomPosition[],
+		RoomPosition,
+		RoomPosition,
+		RoomPosition,
+	] {
 		const area = getTilesInRange(spawnSpot, 2);
 		this.occupy(area);
 		const spawns = [area[6], area[8], area[18]];
@@ -310,15 +337,18 @@ export class RoomPlanner extends RoomProcess {
 		];
 		const storage = area[16];
 		const tower = area[2];
+		const link = area[10];
 		this.updateCostMatrix(roads, ROAD_COST);
 		this.updateCostMatrix(spawns, UNWALKABLE_COST);
 		this.updateCostMatrix(storage, UNWALKABLE_COST);
 		this.updateCostMatrix(tower, UNWALKABLE_COST);
+		this.updateCostMatrix(link, UNWALKABLE_COST);
 		return [
 			spawns.map(coordToRoomPositionMapper(this.roomName)),
 			roads.map(coordToRoomPositionMapper(this.roomName)),
 			coordToRoomPosition(storage, this.roomName),
 			coordToRoomPosition(tower, this.roomName),
+			coordToRoomPosition(link, this.roomName),
 		];
 	}
 
@@ -439,6 +469,9 @@ export class RoomPlanner extends RoomProcess {
 		}
 		structures[STRUCTURE_EXTRACTOR] = [bareCoord(this.extractor)];
 
+		// Extensions
+		structures[STRUCTURE_LINK] = this.links.map(bareCoord);
+
 		// Roads
 		structures[STRUCTURE_ROAD] = Array.from(
 			new Set(this.roads.map(coordToIndex)),
@@ -461,18 +494,21 @@ export class RoomPlanner extends RoomProcess {
 
 	*roomPlanner() {
 		info(`Planning room ${this.roomName}`);
-		const [roads, containers, spawnStart] = this.economyRoads();
+		const [roads, containers, links, spawnStart] = this.economyRoads();
 		this.roads = roads;
 		this.containers = containers;
+		this.links.push(...links);
 		if (spawnStart == null) {
 			throw new Error("Unable to find spawn starting spot");
 		}
 		const spawnSpot = this.findSpawnSpot(spawnStart);
-		const [spawns, spawnRoads, storage, tower] = this.spawnStamp(spawnSpot);
+		const [spawns, spawnRoads, storage, tower, storageLink] =
+			this.spawnStamp(spawnSpot);
 		this.roads.push(...spawnRoads);
 		this.spawns = spawns;
 		this.storage = storage;
 		this.towers = [tower];
+		this.links.push(storageLink);
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
 		this.roads.push(...extractorRoad);

@@ -94,6 +94,9 @@ function* manageRoomProvider(manageRoom: Readonly<ManageRoom>) {
 			(blueprint.structures[STRUCTURE_TOWER] || []).forEach(({ x, y }) =>
 				manageRoom.room.visual.circle(x, y, { fill: "purple" }),
 			);
+			(blueprint.structures[STRUCTURE_LINK] || []).forEach(({ x, y }) =>
+				manageRoom.room.visual.circle(x, y, { fill: "blue" }),
+			);
 		}
 
 		yield;
