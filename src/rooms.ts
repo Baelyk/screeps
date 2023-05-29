@@ -1188,6 +1188,7 @@ export class Expand extends RoomProcess {
 	destinationManagerId: ProcessId | null;
 	destinationName: string | null;
 	spawnRequests: Map<MessageId, "claimer" | "scout" | "attacker">;
+	invalidDestinations: Set<string>;
 
 	scoutName: string | null;
 	attackerName: string | null;
@@ -1199,6 +1200,7 @@ export class Expand extends RoomProcess {
 		destinationManagerId,
 		destinationName,
 		spawnRequests,
+		invalidDestinations,
 		scoutName,
 		attackerName,
 		claimerName,
@@ -1209,6 +1211,7 @@ export class Expand extends RoomProcess {
 		destinationManagerId?: ProcessId | null;
 		destinationName?: string;
 		spawnRequests?: Iterable<[MessageId, "claimer" | "scout" | "attacker"]>;
+		invalidDestinations?: Iterable<string>;
 		scoutName?: string | null;
 		attackerName?: string | null;
 		claimerName?: string | null;
@@ -1221,6 +1224,8 @@ export class Expand extends RoomProcess {
 		this.destinationManagerId = destinationManagerId || null;
 		this.destinationName = destinationName || null;
 		this.spawnRequests = new Map(spawnRequests);
+		this.invalidDestinations = new Set(invalidDestinations);
+
 		this.scoutName = scoutName || null;
 		this.attackerName = attackerName || null;
 		this.claimerName = claimerName || null;
@@ -1232,26 +1237,57 @@ export class Expand extends RoomProcess {
 		}`;
 	}
 
+	isValidDestination(roomName: string): boolean {
+		// Already tried this one
+		if (this.invalidDestinations.has(roomName)) {
+			return false;
+		}
+
+		// Assume invisible rooms are expandable
+		const room = Game.rooms[roomName];
+		if (room == null) {
+			return true;
+		}
+
+		const controller = room.controller;
+		if (controller == null) {
+			return false;
+		}
+
+		return !controller.my;
+	}
+
 	*expand() {
 		while (true) {
 			// Pick a destination
 			if (this.destinationName == null) {
-				const destination = Object.values(
-					Game.map.describeExits(this.roomName),
-				).find((roomName) => {
-					// Assume invisible rooms are expandable
-					const room = Game.rooms[roomName];
-					if (room == null) {
-						return true;
+				// BFS
+				const maxSearches = 25;
+				const queue = [this.roomName];
+				const visited = new Set();
+				let destination;
+				let searches = 0;
+
+				while (searches < maxSearches) {
+					searches++;
+					const current = queue.shift();
+					this.debug(`Searching ${searches} ${current}`);
+					visited.add(current);
+					if (current == null) {
+						this.warn("Exhausted queue");
+						break;
 					}
 
-					const controller = room.controller;
-					if (controller == null) {
-						return false;
+					if (this.isValidDestination(current)) {
+						this.debug(`Found destination ${current}`);
+						destination = current;
+						break;
 					}
 
-					return !controller.my;
-				});
+					Object.values(Game.map.describeExits(this.roomName))
+						.filter((roomName) => !visited.has(roomName))
+						.forEach((roomName) => queue.push(roomName));
+				}
 
 				if (destination == null) {
 					this.warn(`Unable to find expansion target from ${this.roomName} :(`);
@@ -1278,11 +1314,23 @@ export class Expand extends RoomProcess {
 				yield;
 				continue;
 			}
+			const numSources = destination.find(FIND_SOURCES).length;
+			if (numSources !== 2) {
+				this.warn(
+					`Abandoning expansion target ${this.destinationName}, lacks two sources`,
+				);
+				this.invalidDestinations.add(this.destinationName);
+				this.destinationName = null;
+				continue;
+			}
 			const controller = destination.controller;
 			if (controller == null) {
-				throw new Error(
-					`Expansion destination ${this.destinationName} lacks controller`,
+				this.warn(
+					`Abandoning expansion target ${this.destinationName}, lacks controller`,
 				);
+				this.invalidDestinations.add(this.destinationName);
+				this.destinationName = null;
+				continue;
 			}
 
 			// Clear the destination of hostiles
