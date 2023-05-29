@@ -1566,7 +1566,7 @@ export class Defence extends RoomProcess {
 
 			info(
 				`Hostile hits: ${hostileHits} tracked: ${trackedHits} !!${
-					hostileHits - trackedHits
+					trackedHits - hostileHits
 				}!!`,
 			);
 
@@ -1575,7 +1575,7 @@ export class Defence extends RoomProcess {
 			if (
 				this.defenders.size === 0 &&
 				(towers.filter((s) => s.store[RESOURCE_ENERGY] > 0).length === 0 ||
-					hostileHits - trackedHits < 100)
+					(trackedHits > 0 && trackedHits - hostileHits < 100))
 			) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "defender")) {
 					this.requestSpawn("Defender", "defender");
