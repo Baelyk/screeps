@@ -218,7 +218,7 @@ export function pathToRoomPosition(
 export function nextAvailableName(name: string): string {
 	let index = 1;
 	while (
-		Game.creeps[`${name}_${index}`] != undefined &&
+		Game.creeps[`${name}_${index}`] != undefined ||
 		Memory.creeps[`${name}_${index}`] != undefined
 	) {
 		index++;
