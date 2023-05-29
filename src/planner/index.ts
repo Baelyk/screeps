@@ -8,6 +8,7 @@ import { IMessage, MessageId } from "./../messenger";
 import { info, warn, error } from "./../utils/logger";
 import { Counter } from "./../utils/counter";
 import * as Iterators from "./../utils/iterators";
+import * as LZString from "lz-string";
 
 const PRETTY_ROAD_ADJUSTMENT = 1;
 const WALL_ADJACENT_COST = 6;
@@ -556,4 +557,15 @@ export class SendBlueprint implements IMessage {
 
 		this.blueprint = blueprint;
 	}
+}
+
+export function blueprintToBuildingPlannerLink(blueprint: Blueprint): string {
+	const json = {
+		rcl: 8,
+		buildings: blueprint.structures,
+	};
+	const jsonString = JSON.stringify(json);
+	const compressed = LZString.compressToEncodedURIComponent(jsonString);
+	const link = `https://screepers.github.io/screeps-tools/?share=${compressed}#/building-planner`;
+	return link;
 }

@@ -2,7 +2,12 @@ import { info, errorConstant, warn, error } from "./utils/logger";
 import { IMessage, MessageId } from "./messenger";
 import { nextAvailableName, bodyFromSegments, haulerBody } from "./utils";
 import * as Iterators from "./utils/iterators";
-import { Blueprint, RoomPlanner, SendBlueprint } from "./planner";
+import {
+	Blueprint,
+	blueprintToBuildingPlannerLink,
+	RoomPlanner,
+	SendBlueprint,
+} from "./planner";
 import {
 	reassignCreep,
 	ProcessData,
@@ -386,6 +391,16 @@ export class ManageRoom extends RoomProcess {
 		);
 		this.spawnRequests.set(request.id, role);
 		global.kernel.sendMessage(request);
+	}
+
+	blueprintLink(): string {
+		const link = blueprintToBuildingPlannerLink(
+			this.blueprint || { structures: {} },
+		);
+		console.log(
+			`<a href="${link}">Room ${this.roomName} Building Planner Link</a>`,
+		);
+		return link;
 	}
 }
 ProcessConstructors.set("ManageRoom", ManageRoom);
