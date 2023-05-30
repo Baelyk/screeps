@@ -11,6 +11,7 @@ import * as LZString from "lz-string";
 
 const PRETTY_ROAD_ADJUSTMENT = 1;
 const WALL_ADJACENT_COST = 6;
+const DEFAULT_COST = 0;
 // From fatigue values (wiki/Pathfinding)
 const ROAD_COST = 1;
 const PLAIN_COST = 2;
@@ -72,12 +73,14 @@ function coordToRoomPositionMapper(
 	return (coord: Coord) => coordToRoomPosition(coord, roomName);
 }
 
-function prettyRoadCostMatrix(roomName: string): CostMatrix {
+function loadTerrain(roomName: string): [RoomTerrain, CostMatrix, Set<Index>] {
 	const costMatrix = new PathFinder.CostMatrix();
+	const occupied = new Set<Index>();
 	const terrain = Game.map.getRoomTerrain(roomName);
 	for (let x = 0; x < 50; x++) {
 		for (let y = 0; y < 50; y++) {
 			if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+				occupied.add(coordToIndex({ x, y }));
 				costMatrix.set(x, y, UNWALKABLE_COST);
 				getNeighbors({ x, y })
 					.filter(({ x, y }) => terrain.get(x, y) !== TERRAIN_MASK_WALL)
@@ -86,7 +89,7 @@ function prettyRoadCostMatrix(roomName: string): CostMatrix {
 		}
 	}
 
-	return costMatrix;
+	return [terrain, costMatrix, occupied];
 }
 
 function occupyTiles(
@@ -143,6 +146,7 @@ export class RoomPlanner extends RoomProcess {
 	occupied: Set<Index>;
 
 	roads: Set<Index>;
+	exitPaths: Set<Index>;
 	containers: RoomPosition[] = [];
 	extensions: RoomPosition[] = [];
 	spawns: RoomPosition[] = [];
@@ -162,11 +166,10 @@ export class RoomPlanner extends RoomProcess {
 
 		this.manageRoomId = manageRoomId;
 
-		this.costMatrix = prettyRoadCostMatrix(this.roomName);
-		this.terrain = Game.map.getRoomTerrain(this.roomName);
-		this.occupied = new Set();
+		[this.terrain, this.costMatrix, this.occupied] = loadTerrain(this.roomName);
 
 		this.roads = new Set();
+		this.exitPaths = new Set();
 	}
 
 	occupy(pos: Index | Coord | Index[] | Coord[]): void {
@@ -210,12 +213,10 @@ export class RoomPlanner extends RoomProcess {
 		);
 	}
 
-	economyRoads(): [
-		RoomPosition[],
-		RoomPosition[],
-		RoomPosition[],
-		RoomPosition | null,
-	] {
+	findSpawnSpot(): RoomPosition {
+		let spawnStart;
+
+		// Path from sources to controller, and start looking at their intersection
 		const sources = this.room.find(FIND_SOURCES) as (Source | Mineral)[];
 		const controller = this.room.controller;
 		if (controller == null) {
@@ -226,59 +227,37 @@ export class RoomPlanner extends RoomProcess {
 			(a, b) =>
 				a.pos.getRangeTo(controller.pos) - b.pos.getRangeTo(controller.pos),
 		);
-
 		// Count roads as indices since Counters don't play well with objects
 		const roadCounter = new Counter<Index>();
-		const containers: RoomPosition[] = [];
-		const links: RoomPosition[] = [];
 		for (const source of sources) {
 			const path = this.findPath(source.pos, controller.pos, 2);
 			if (path.incomplete) {
 				this.warn(`Unable to complete path ${source.pos} to ${controller.pos}`);
 				continue;
 			}
-
-			containers.push(path.path[0]);
-			path.path.shift();
-			// Controller link is the end of the source-controller road(s)
-			if (links.length === 0) {
-				links.push(path.path[path.path.length - 1]);
-			}
 			this.updateCostMatrix(path.path, ROAD_COST);
 			roadCounter.pushMany(path.path.map(coordToIndex));
 		}
-		let firstIntersection: RoomPosition | null = null;
+		// Find intersection
 		let intersections = 0;
 		for (const [pos, count] of roadCounter) {
 			if (count > intersections) {
-				firstIntersection = coordToRoomPosition(
-					indexToCoord(pos),
-					this.roomName,
-				);
+				spawnStart = coordToRoomPosition(indexToCoord(pos), this.roomName);
 				intersections = count;
 			}
+			if (intersections === sources.length) {
+				break;
+			}
 		}
-
+		if (spawnStart == null) {
+			throw new Error("Unable to find spawn spot");
+		}
+		// Clean up roads, will recreate after spawn is planned
 		const roads = Array.from(roadCounter.keys()).map((index) =>
 			coordToRoomPosition(indexToCoord(index), this.roomName),
 		);
-		this.occupy(roads);
-		this.occupy(containers);
-		// Source links
-		containers.forEach((pos) => {
-			// An unoccupied tile adjacent to the source container
-			const sourceLink = getNeighbors(pos).find(
-				(n) => !this.occupied.has(coordToIndex(n)),
-			);
-			if (sourceLink != null) {
-				links.push(coordToRoomPosition(sourceLink, this.roomName));
-			}
-		});
-		this.occupy(links);
-		return [roads, containers, links, firstIntersection];
-	}
+		this.updateCostMatrix(roads, DEFAULT_COST);
 
-	findSpawnSpot(spawnStart: RoomPosition): RoomPosition {
 		const queue: Coord[] = [spawnStart];
 		const visited: Set<Index> = new Set();
 
@@ -287,14 +266,18 @@ export class RoomPlanner extends RoomProcess {
 			if (current == null) {
 				break;
 			}
-			visited.add(coordToIndex(current));
+
+			const spawnArea = getTilesInRange(current, 3);
+
+			// Does not run off the map
+			const onMap = spawnArea.length === (1 + 2 * 3) ** 2;
 
 			// No tiles within three are walls
 			const withinThree = Iterators.all(
-				getTilesInRange(current, 3),
+				spawnArea,
 				(tile) => this.terrain.get(tile.x, tile.y) !== TERRAIN_MASK_WALL,
 			);
-			if (withinThree) {
+			if (onMap && withinThree) {
 				return coordToRoomPosition(current, this.roomName);
 			}
 
@@ -352,6 +335,69 @@ export class RoomPlanner extends RoomProcess {
 		];
 	}
 
+	economySetup(
+		spawnSpot: RoomPosition,
+	): [RoomPosition[], RoomPosition[], RoomPosition[]] {
+		const roads: RoomPosition[] = [];
+		const containers: RoomPosition[] = [];
+		const links: RoomPosition[] = [];
+
+		// Sources to spawn
+		const sources = this.room.find(FIND_SOURCES) as (Source | Mineral)[];
+		// Find roads for the closest first
+		sources.sort(
+			(a, b) => a.pos.getRangeTo(spawnSpot) - b.pos.getRangeTo(spawnSpot),
+		);
+		for (const source of sources) {
+			const path = this.findPath(source.pos, spawnSpot, 1);
+			if (path.incomplete) {
+				this.warn(`Unable to complete path ${source.pos} to ${spawnSpot}`);
+			}
+			// Container replaces first road on the source -> spawn road
+			containers.push(path.path[0]);
+			this.updateCostMatrix(containers, UNWALKABLE_COST);
+			path.path.shift();
+			this.updateCostMatrix(path.path, ROAD_COST);
+			roads.push(...path.path);
+		}
+
+		// Miners will sit on containers, so mark them as unwalkable
+
+		// Spawn to controller
+		const controller = this.room.controller;
+		if (controller == null) {
+			throw new Error(`Room ${this.roomName} lacks a controller`);
+		}
+		const path = this.findPath(spawnSpot, controller.pos, 2);
+		if (path.incomplete) {
+			this.warn(`Unable to complete path ${spawnSpot} to ${controller.pos}`);
+		}
+		// Controller link is the end of the source-controller road(s)
+		if (links.length === 0) {
+			links.push(path.path[path.path.length - 1]);
+		}
+		this.updateCostMatrix(path.path, ROAD_COST);
+		roads.push(...path.path);
+
+		// Source links
+		containers.forEach((pos) => {
+			// An unoccupied tile adjacent to the source container
+			const sourceLink = getNeighbors(pos).find(
+				(n) => !this.occupied.has(coordToIndex(n)),
+			);
+			if (sourceLink != null) {
+				links.push(coordToRoomPosition(sourceLink, this.roomName));
+			}
+		});
+		this.updateCostMatrix(links, UNWALKABLE_COST);
+
+		this.occupy(roads);
+		this.occupy(containers);
+		this.occupy(links);
+
+		return [roads, containers, links];
+	}
+
 	prioritizeLinks(
 		links: RoomPosition[],
 		spawnSpot: RoomPosition,
@@ -394,6 +440,7 @@ export class RoomPlanner extends RoomProcess {
 				continue;
 			}
 			this.occupy(path.path);
+			path.path.forEach((road) => this.exitPaths.add(coordToIndex(road)));
 		}
 	}
 
@@ -417,7 +464,6 @@ export class RoomPlanner extends RoomProcess {
 			if (current == null) {
 				break;
 			}
-			visited.add(coordToIndex(current));
 
 			// This tile is empty
 			if (tileOpen(current)) {
@@ -453,17 +499,22 @@ export class RoomPlanner extends RoomProcess {
 			this.updateCostMatrix(extensions, UNWALKABLE_COST);
 
 			getNeighbors(current)
-				// Only traverse along unoccupied or road neighbors
+				// Only traverse along unoccupied or road/exit path neighbors
 				.filter(
 					(n) =>
 						!this.occupied.has(coordToIndex(n)) ||
-						this.roads.has(coordToIndex(n)),
+						this.roads.has(coordToIndex(n)) ||
+						this.exitPaths.has(coordToIndex(n)),
 				)
 				.filter((n) => !visited.has(coordToIndex(n)))
 				.forEach((n) => {
 					visited.add(coordToIndex(n));
 					queue.push(n);
 				});
+		}
+
+		if (extensions.length !== 60) {
+			this.warn(`Only able to plan ${extensions.length} extensions`);
 		}
 
 		return [
@@ -510,14 +561,8 @@ export class RoomPlanner extends RoomProcess {
 
 	*roomPlanner() {
 		this.info(`Planning room ${this.roomName}`);
-		const [roads, containers, links, spawnStart] = this.economyRoads();
-		roads.forEach((road) => this.roads.add(coordToIndex(road)));
-		this.containers = containers;
-		this.links.push(...links);
-		if (spawnStart == null) {
-			throw new Error("Unable to find spawn starting spot");
-		}
-		const spawnSpot = this.findSpawnSpot(spawnStart);
+		const spawnSpot = this.findSpawnSpot();
+
 		const [spawns, spawnRoads, storage, tower, storageLink] =
 			this.spawnStamp(spawnSpot);
 		spawnRoads.forEach((road) => this.roads.add(coordToIndex(road)));
@@ -525,12 +570,21 @@ export class RoomPlanner extends RoomProcess {
 		this.storage = storage;
 		this.towers = [tower];
 		this.links.push(storageLink);
+
+		const [roads, containers, links] = this.economySetup(spawnSpot);
+		roads.forEach((road) => this.roads.add(coordToIndex(road)));
+		this.containers = containers;
+		this.links.push(...links);
+
 		this.links = this.prioritizeLinks(this.links, spawnSpot);
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
 		extractorRoad.forEach((road) => this.roads.add(coordToIndex(road)));
-		this.pathToExits(spawnSpot);
+
 		const [extensions, extensionRoads] = this.placeExtensions(spawnSpot);
+
+		this.pathToExits(spawnSpot);
+
 		this.extensions = extensions;
 		extensionRoads.forEach((road) => this.roads.add(coordToIndex(road)));
 

@@ -30,7 +30,7 @@ export class Visualizer extends Process {
 			}
 
 			// Get saved RoomProcesses
-			const processes = Memory.rooms[roomName].processes || {};
+			const processes = Memory.rooms[roomName]?.processes || {};
 			for (const processName in processes) {
 				const processId = processes[processName];
 				const provider = Providers.RoomProcessProviders.get(processName);
