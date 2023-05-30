@@ -293,9 +293,10 @@ export class ManageRoom extends RoomProcess {
 	}
 
 	init(): void {
+		// If room has no blueprint and no room planner, start a new one
 		if (
-			this.roomPlannerId == null ||
-			(this.blueprint == null && !global.kernel.hasProcess(this.roomPlannerId))
+			this.blueprint == null &&
+			!global.kernel.hasProcess(this.roomPlannerId || -1)
 		) {
 			global.kernel.spawnProcess(
 				new RoomPlanner({ roomName: this.roomName, manageRoomId: this.id }),
