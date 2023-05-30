@@ -20,16 +20,42 @@ function* getEnergy(
 		throw new Error(`Creep ${this.creep.name} unable to carry energy`);
 	}
 	while (this.creep.store[RESOURCE_ENERGY] < options.amount) {
-		const target = this.creep.pos.findClosestByPath(FIND_STRUCTURES, {
-			filter: (s) =>
-				((s.structureType === STRUCTURE_STORAGE && options.allowStorage) ||
-					s.structureType === STRUCTURE_CONTAINER ||
-					(s.structureType === STRUCTURE_LINK &&
-						(options.allowControllerLink ||
-							s.pos.getRangeTo(this.creep.room.controller?.pos || s.pos) >
-								2))) &&
-				s.store[RESOURCE_ENERGY] > 0,
-		});
+		const targets: Array<
+			| StructureStorage
+			| StructureContainer
+			| StructureLink
+			| Resource<RESOURCE_ENERGY>
+			| Tombstone
+		> = [];
+		// Find storage structures
+		this.creep.room
+			.find(FIND_STRUCTURES)
+			.filter(
+				(s): s is StructureStorage | StructureContainer | StructureLink =>
+					((s.structureType === STRUCTURE_STORAGE && options.allowStorage) ||
+						s.structureType === STRUCTURE_CONTAINER ||
+						(s.structureType === STRUCTURE_LINK &&
+							(options.allowControllerLink ||
+								s.pos.getRangeTo(this.creep.room.controller?.pos || s.pos) >
+									2))) &&
+					s.store[RESOURCE_ENERGY] > 0,
+			)
+			.forEach((s) => targets.push(s));
+		// Find dropped resources
+		this.creep.room
+			.find(FIND_DROPPED_RESOURCES)
+			.filter(
+				(r): r is Resource<RESOURCE_ENERGY> =>
+					r.resourceType === RESOURCE_ENERGY,
+			)
+			.forEach((s) => targets.push(s));
+		// Find tombstones
+		this.creep.room
+			.find(FIND_TOMBSTONES)
+			.filter((t) => t.store[RESOURCE_ENERGY] > 0)
+			.forEach((t) => targets.push(t));
+
+		const target = this.creep.pos.findClosestByPath(targets);
 		if (target == null) {
 			// If creep can harvest, do it. Otherwise, stop.
 			if (countBodyPart(this.creep.body, WORK) > 0) {
@@ -40,10 +66,12 @@ function* getEnergy(
 			return;
 		}
 
-		let response: ScreepsReturnCode = this.creep.withdraw(
-			target,
-			RESOURCE_ENERGY,
-		);
+		let response: ScreepsReturnCode | undefined;
+		if (target instanceof Structure || target instanceof Tombstone) {
+			response = this.creep.withdraw(target, RESOURCE_ENERGY);
+		} else if (target instanceof Resource) {
+			response = this.creep.pickup(target);
+		}
 		if (response === ERR_NOT_IN_RANGE) {
 			response = this.creep.moveTo(target);
 		}
