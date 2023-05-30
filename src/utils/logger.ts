@@ -69,13 +69,20 @@ export function info(msg?: any) {
 	console.log(withColor(INFO_COLOR, ` ${msg}`));
 }
 
+declare global {
+	interface SettingsMemory {
+		/** Whether to print debug logs */
+		debug?: boolean;
+	}
+}
+
 /**
  * Like info, but only prints the message if `Memory.settings.debug` is set
  *
  * @param msg The message
  */
 export function debug(msg?: any) {
-	if (Memory.settings?.debug) console.log(withColor(INFO_COLOR, ` ${msg}`));
+	if (Memory.settings?.debug) console.log(withColor(INFO_COLOR, ` ${msg}`));
 }
 
 /**

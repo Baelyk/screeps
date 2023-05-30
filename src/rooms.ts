@@ -801,7 +801,7 @@ export class ManageSpawns extends RoomProcess {
 				const [creepName, body, message] = this.queue[0];
 				const spawnedName = nextAvailableName(creepName);
 				const response = spawn.spawnCreep(body, spawnedName);
-				this.info(
+				this.debug(
 					`Spawn ${spawn.name} spawning ${creepName} in ${
 						this.room.name
 					} with response ${errorConstant(response)}`,
@@ -1259,6 +1259,7 @@ export class Expand extends RoomProcess {
 
 	*expand() {
 		while (true) {
+			this.info(`Room ${this.roomName} expanding to ${this.destinationName}`);
 			// Pick a destination
 			if (this.destinationName == null) {
 				// BFS

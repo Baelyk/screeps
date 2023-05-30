@@ -1,4 +1,4 @@
-import { info, warn, error, tick as logTick } from "./utils/logger";
+import { info, warn, error, tick as logTick, debug } from "./utils/logger";
 import { wrapper } from "./utils/errors";
 import { ProcessTable } from "./processTable";
 import { IProcess, ProcessId, deserializeProcess } from "./process";
@@ -15,13 +15,6 @@ declare global {
 		processesBackup?: [ProcessId, string, string[]];
 		/** Various settings useful for debugging and visualization */
 		settings?: SettingsMemory;
-	}
-}
-
-declare global {
-	interface SettingsMemory {
-		/** Whether to print debug logs */
-		debug?: boolean;
 	}
 }
 
@@ -90,12 +83,10 @@ export class Kernel {
 
 			wrapper(
 				() => {
-					if (Memory.settings?.debug)
-						info(`Running process ${process.display()}`);
+					debug(`Running process ${process.display()}`);
 					const { code } = process.run();
 					if (code <= 0) {
-						if (Memory.settings?.debug)
-							info(`Process ${process.display()} has stopped with ${code}`);
+						debug(`Process ${process.display()} has stopped with ${code}`);
 						this.stopProcess(process.id);
 					}
 				},
