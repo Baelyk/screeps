@@ -1010,15 +1010,14 @@ export class Economy extends RoomProcess {
 					}
 				}
 
-				// Transfer energy to the link
+				// Transfer energy to the link or pickup dropped energy
+				const pile = miner.pos
+					.findInRange(FIND_DROPPED_RESOURCES, 1)
+					.find((pile) => pile.resourceType === RESOURCE_ENERGY);
 				if (link != null && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
 					miner.withdraw(container, RESOURCE_ENERGY);
 					miner.transfer(link, RESOURCE_ENERGY);
 				} else {
-					// Or pickup dropped energy
-					const pile = miner.pos
-						.findInRange(FIND_DROPPED_RESOURCES, 1)
-						.find((pile) => pile.resourceType === RESOURCE_ENERGY);
 					if (pile != null) {
 						miner.transfer(container, RESOURCE_ENERGY);
 						miner.pickup(pile);
@@ -1031,6 +1030,21 @@ export class Economy extends RoomProcess {
 						miner.repair(container);
 					} else if (container.store[RESOURCE_ENERGY] > 0) {
 						miner.withdraw(container, RESOURCE_ENERGY);
+					}
+				}
+
+				// If miner has nothing to do
+				if (
+					source.energy === 0 &&
+					(link?.store.getFreeCapacity(RESOURCE_ENERGY) ?? 0) === 0 &&
+					pile == null &&
+					container.hits === container.hitsMax
+				) {
+					if (
+						(miner.ticksToLive ?? CREEP_LIFE_TIME) < source.ticksToRegeneration
+					) {
+						this.info(`Miner ${minerName} won't live to source regen, dying`);
+						miner.suicide();
 					}
 				}
 			}
