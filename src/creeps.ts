@@ -55,7 +55,7 @@ function* getEnergy(
 			.filter((t) => t.store[RESOURCE_ENERGY] > 0)
 			.forEach((t) => targets.push(t));
 
-		const target = this.creep.pos.findClosestByPath(targets);
+		const target = this.creep.pos.findClosestByPath(targets, { range: 1 });
 		if (target == null) {
 			// If creep can harvest, do it. Otherwise, stop.
 			if (countBodyPart(this.creep.body, WORK) > 0) {

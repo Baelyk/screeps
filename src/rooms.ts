@@ -1071,10 +1071,10 @@ export class Economy extends RoomProcess {
 
 		while (true) {
 			// Maintain desired number of upgraders
-			const desiredUpgraders = Math.min(
-				3,
-				Math.max(1, Math.floor(this.energyAvailable / 55000)),
-			);
+			const desiredUpgraders =
+				this.room.controller.level === 8
+					? 1
+					: Math.min(3, Math.max(1, Math.floor(this.energyAvailable / 55000)));
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
 					this.info(
@@ -1546,8 +1546,8 @@ export class UpdateManageSpawnsId implements IMessage {
 }
 
 function minerBody(energyAvailable: number): BodyPartConstant[] {
-	// 2050 energy is enough to drain a source in 94t (16W 8M 1C)
-	let energy = Math.min(energyAvailable, 2050);
+	// 1050 energy is enough to drain a source in 188t (8W 4M 1C)
+	let energy = Math.min(energyAvailable, 1050);
 	if (
 		energy >
 		BODYPART_COST[CARRY] + 4 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE])
