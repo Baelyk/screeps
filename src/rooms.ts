@@ -1052,10 +1052,13 @@ export class Economy extends RoomProcess {
 			// Maintain desired number of upgraders
 			const desiredUpgraders = Math.min(
 				3,
-				Math.max(1, Math.floor(this.energyAvailable / 50000)),
+				Math.max(1, Math.floor(this.energyAvailable / 55000)),
 			);
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
+					this.info(
+						`Requesting more upgraders: ${this.upgraders.size} < ${desiredUpgraders} (${this.energyAvailable})`,
+					);
 					this.requestSpawn("Upgrader", "upgrader");
 				}
 			}
@@ -1285,7 +1288,7 @@ export class Expand extends RoomProcess {
 						break;
 					}
 
-					Object.values(Game.map.describeExits(this.roomName))
+					Object.values(Game.map.describeExits(current))
 						.filter((roomName) => !visited.has(roomName))
 						.forEach((roomName) => queue.push(roomName));
 				}
