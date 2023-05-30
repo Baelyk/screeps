@@ -1036,9 +1036,15 @@ export class Economy extends RoomProcess {
 				// If miner has nothing to do
 				if (
 					source.energy === 0 &&
-					(link?.store.getFreeCapacity(RESOURCE_ENERGY) ?? 0) === 0 &&
 					pile == null &&
-					container.hits === container.hitsMax
+					// Link full or miner has no energy to fill
+					((link?.store.getFreeCapacity(RESOURCE_ENERGY) ?? 0) === 0 ||
+						(miner.store[RESOURCE_ENERGY] === 0 &&
+							container.store[RESOURCE_ENERGY] === 0)) &&
+					// Container full hits or miner has no energy to repair
+					(container.hits === container.hitsMax ||
+						(miner.store[RESOURCE_ENERGY] === 0 &&
+							container.store[RESOURCE_ENERGY] === 0))
 				) {
 					if (
 						(miner.ticksToLive ?? CREEP_LIFE_TIME) < source.ticksToRegeneration
