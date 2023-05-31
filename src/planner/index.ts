@@ -17,6 +17,7 @@ const ROAD_COST = 1;
 const PLAIN_COST = 2;
 const SWAMP_COST = 10;
 const UNWALKABLE_COST = 255;
+const MAX_EXTENSION_ROAD = 15;
 
 export interface Blueprint {
 	structures: Partial<Record<StructureConstant, Coord[]>>;
@@ -446,11 +447,17 @@ export class RoomPlanner extends RoomProcess {
 
 	placeExtensions(spawnSpot: RoomPosition): [RoomPosition[], RoomPosition[]] {
 		const temporarilyOccupied: Set<Index> = new Set();
+		const tilePathable = function (this: RoomPlanner, coord: Coord): boolean {
+			return (
+				!this.occupied.has(coordToIndex(coord)) ||
+				this.roads.has(coordToIndex(coord)) ||
+				this.exitPaths.has(coordToIndex(coord))
+			);
+		}.bind(this);
 		const tileOpen = function (this: RoomPlanner, coord: Coord): boolean {
 			return (
 				!this.occupied.has(coordToIndex(coord)) &&
-				!temporarilyOccupied.has(coordToIndex(coord)) &&
-				this.terrain.get(coord.x, coord.y) !== TERRAIN_MASK_WALL
+				!temporarilyOccupied.has(coordToIndex(coord))
 			);
 		}.bind(this);
 
@@ -464,6 +471,11 @@ export class RoomPlanner extends RoomProcess {
 			if (current == null) {
 				break;
 			}
+			// This tile is no longer valid to search along
+			if (extensions.length > 0 && !tilePathable(current)) {
+				this.info(`Skipping ${current.x} ${current.y}`);
+				continue;
+			}
 
 			// This tile is empty
 			if (tileOpen(current)) {
@@ -476,8 +488,12 @@ export class RoomPlanner extends RoomProcess {
 				path.path.shift();
 				occupyTiles(temporarilyOccupied, path.path);
 				const openNeighbors = getNeighbors(current).filter(tileOpen);
-				// At least 5 of its neighbors are empty
-				if (!path.incomplete && openNeighbors.length >= 5) {
+				// At least 6 of its neighbors are empty (> 5 prevents cap arrangement)
+				if (
+					!path.incomplete &&
+					path.path.length <= MAX_EXTENSION_ROAD &&
+					openNeighbors.length >= 6
+				) {
 					const path = this.findPath(
 						spawnSpot,
 						coordToRoomPosition(current, this.roomName),
@@ -486,11 +502,13 @@ export class RoomPlanner extends RoomProcess {
 					while (extensions.length + openNeighbors.length > 60) {
 						openNeighbors.pop();
 					}
-					roads.push(...path.path);
+					path.path.forEach((road) => this.roads.add(coordToIndex(road)));
 					extensions.push(...openNeighbors);
 					this.occupy(path.path);
 					this.occupy(openNeighbors);
-					this.debug(`Extensions: ${extensions.length}`);
+					this.debug(
+						`Extension at ${current.x} ${current.y} [${extensions.length}]`,
+					);
 				}
 				unoccupyTiles(temporarilyOccupied, path.path);
 			}
@@ -500,12 +518,7 @@ export class RoomPlanner extends RoomProcess {
 
 			getNeighbors(current)
 				// Only traverse along unoccupied or road/exit path neighbors
-				.filter(
-					(n) =>
-						!this.occupied.has(coordToIndex(n)) ||
-						this.roads.has(coordToIndex(n)) ||
-						this.exitPaths.has(coordToIndex(n)),
-				)
+				.filter(tilePathable)
 				.filter((n) => !visited.has(coordToIndex(n)))
 				.forEach((n) => {
 					visited.add(coordToIndex(n));
@@ -581,12 +594,10 @@ export class RoomPlanner extends RoomProcess {
 		this.extractor = extractor;
 		extractorRoad.forEach((road) => this.roads.add(coordToIndex(road)));
 
-		const [extensions, extensionRoads] = this.placeExtensions(spawnSpot);
-
 		this.pathToExits(spawnSpot);
 
+		const [extensions] = this.placeExtensions(spawnSpot);
 		this.extensions = extensions;
-		extensionRoads.forEach((road) => this.roads.add(coordToIndex(road)));
 
 		const blueprint = this.blueprint();
 		const message = new SendBlueprint(this.id, this.manageRoomId, blueprint);
