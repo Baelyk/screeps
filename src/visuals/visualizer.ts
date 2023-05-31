@@ -1,3 +1,4 @@
+import { wrapper } from "./../utils/errors";
 import { IMessage } from "./../messenger";
 import {
 	Process,
@@ -50,11 +51,13 @@ export class Visualizer extends Process {
 	*visualizer() {
 		while (true) {
 			for (const [provider, _] of this.providers) {
-				const status = provider.next();
-				if (status.done) {
-					info(`A provider has finished with ${JSON.stringify(status)}`);
-					this.providers.delete(provider);
-				}
+				wrapper(() => {
+					const status = provider.next();
+					if (status.done) {
+						info(`A provider has finished with ${JSON.stringify(status)}`);
+						this.providers.delete(provider);
+					}
+				}, "An error occured while running a provider");
 			}
 			yield;
 		}
