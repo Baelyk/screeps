@@ -1,7 +1,13 @@
-import { countBodyPart } from "./utils";
-import { ProcessData, CreepProcess, ProcessConstructors } from "./process";
+import { countBodyPart } from "./bodies";
+import {
+	ProcessData,
+	CreepProcess,
+	ProcessConstructors,
+	ProcessId,
+} from "./../process";
+import { ConstructTarget, RequestConstructTarget } from "./../rooms/construct";
 
-function* getEnergy(
+export function* getEnergy(
 	this: CreepProcess,
 	opts?: Partial<{
 		allowStorage: boolean;
@@ -280,7 +286,7 @@ export class Tender extends CreepProcess {
 }
 ProcessConstructors.set("Tender", Tender);
 
-function* moveToRoom(this: CreepProcess, roomName: string) {
+export function* moveToRoom(this: CreepProcess, roomName: string) {
 	while (this.creep.room.name !== roomName) {
 		const dummyPosition = new RoomPosition(24, 24, roomName);
 		this.creep.moveTo(dummyPosition, { range: 22 });
@@ -288,7 +294,7 @@ function* moveToRoom(this: CreepProcess, roomName: string) {
 	}
 }
 
-function* upgrader(this: Upgrader, roomName?: string) {
+export function* upgrader(this: CreepProcess, roomName?: string) {
 	if (roomName != null) {
 		yield* moveToRoom.bind(this)(roomName);
 	}

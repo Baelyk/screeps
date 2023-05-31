@@ -308,8 +308,8 @@ function* constructProvider(construct: Readonly<Construct>) {
 		});
 
 		// Highlight urgent repair
-		if (construct.repairers.size > 0 && construct.repairables.length > 0) {
-			const target = construct.repairables[0];
+		if (construct.urgentRepairs.length > 0) {
+			const target = construct.urgentRepairs[0];
 			if (target.hits < target.hitsMax * 0.25) {
 				box(construct.room.visual, target.pos.x, target.pos.y, 1, 1, "black", {
 					lineStyle: "dashed",

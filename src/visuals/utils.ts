@@ -1,4 +1,4 @@
-import { info, warn } from "./../utils/logger";
+import { debug, info, warn } from "./../utils/logger";
 
 const GRID_OFFSET = 0.5;
 const TEXT_Y_OFFSET = 0.2;

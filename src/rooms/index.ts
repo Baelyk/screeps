@@ -1,22 +1,31 @@
-import { errorConstant } from "./utils/logger";
-import { IMessage, MessageId } from "./messenger";
-import { nextAvailableName, bodyFromSegments, haulerBody } from "./utils";
-import * as Iterators from "./utils/iterators";
+import { errorConstant } from "./../utils/logger";
+import { IMessage, MessageId } from "./../messenger";
+import { bodyFromSegments, genericBody, haulerBody } from "./../creeps/bodies";
+import * as Iterators from "./../utils/iterators";
 import {
 	Blueprint,
 	blueprintToBuildingPlannerLink,
 	RoomPlanner,
 	SendBlueprint,
-} from "./planner";
+} from "./../planner";
 import {
 	reassignCreep,
 	ProcessData,
 	ProcessId,
 	RoomProcess,
 	ProcessConstructors,
-} from "./process";
+} from "./../process";
 
-import { Builder, Harvester, Repairer, Tender, Upgrader } from "./creeps";
+import { Harvester, Tender, Upgrader } from "./../creeps";
+import { Construct } from "./construct";
+import {
+	CreepSpawned,
+	ManageSpawns,
+	SpawnRequest,
+	UpdateManageSpawnsId,
+} from "./spawns";
+
+export { ManageSpawns, Construct };
 
 function tendRoom(this: ManageRoom): void {
 	// No tender needed if the room lacks a spawn
@@ -405,451 +414,6 @@ export class ManageRoom extends RoomProcess {
 	}
 }
 ProcessConstructors.set("ManageRoom", ManageRoom);
-
-export class Construct extends RoomProcess {
-	manageRoomId: ProcessId;
-	manageSpawnsId: ProcessId;
-
-	builders: Map<string, [Id<ConstructionSite> | null, ProcessId | null]>;
-	repairers: Map<string, [Id<Structure> | null, ProcessId | null]>;
-	spawnRequests: Map<MessageId, "builder" | "repairer">;
-
-	constructor({
-		manageRoomId,
-		manageSpawnsId,
-		builders,
-		repairers,
-		spawnRequests,
-		...data
-	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
-		manageRoomId: ProcessId;
-		manageSpawnsId: ProcessId;
-		builders?: Iterable<
-			[string, [Id<ConstructionSite> | null, ProcessId | null]]
-		>;
-		repairers?: Iterable<[string, [Id<Structure> | null, ProcessId | null]]>;
-		spawnRequests?: Iterable<[MessageId, "builder" | "repairer"]>;
-	}) {
-		super({ name: "Construct", ...data });
-		this.generator = this._generator();
-		this.manageRoomId = manageRoomId;
-		this.manageSpawnsId = manageSpawnsId;
-
-		this.builders = new Map(builders);
-		this.repairers = new Map(repairers);
-		this.spawnRequests = new Map(spawnRequests);
-	}
-
-	_repairables: AnyStructure[] | null = null;
-	_repairablesTick: number | null = null;
-	get repairables(): AnyStructure[] {
-		if (this._repairables == null || this._repairablesTick !== Game.time) {
-			this._repairablesTick = Game.time;
-			this._repairables = this.room.find(FIND_STRUCTURES).filter(
-				(s) =>
-					// Heal normal structures below 75%
-					(s.structureType !== STRUCTURE_WALL &&
-						s.structureType !== STRUCTURE_RAMPART &&
-						s.hits < s.hitsMax * 0.75) ||
-					// Heal walls and ramparts below 100k hits
-					((s.structureType === STRUCTURE_WALL ||
-						s.structureType === STRUCTURE_RAMPART) &&
-						s.hits < 100000),
-			);
-			this._repairables.sort((a, b) => a.hits - b.hits);
-		}
-		return this._repairables;
-	}
-
-	*_generator(): Generator<void, void, never> {
-		while (true) {
-			if (!this.room.controller?.my) {
-				this.warn(`Not my room, stopping ${this.display()}`);
-				return;
-			}
-
-			const urgentRepairs = this.repairables.filter(
-				(s) => s.hits < s.hitsMax * 0.25,
-			);
-			urgentRepairs.sort((a, b) => a.hits - b.hits);
-			const repairHits = this.repairables.reduce(
-				(hits, s) => hits + s.hitsMax - s.hits,
-				0,
-			);
-
-			// If there are sites and *zero* repairer, wait on spawning a builder
-			if (
-				this.repairers.size === 0 &&
-				// Assume repairs actually repair for half their life, and repair with
-				// 10 WORK parts
-				(urgentRepairs.length > 0 ||
-					repairHits > (CREEP_LIFE_TIME / 2) * REPAIR_POWER * 10)
-			) {
-				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "repairer")) {
-					this.requestSpawn("Repairer", "repairer");
-				}
-			}
-
-			// Manage repairs
-			for (let [repairerName, [siteId, processId]] of this.repairers) {
-				const repairer = Game.creeps[repairerName || ""];
-				if (repairer == null) {
-					this.repairers.delete(repairerName);
-					continue;
-				}
-				let site: Structure | null = null;
-				// Get current assignment
-				if (siteId != null) {
-					site = Game.getObjectById(siteId);
-				}
-				// If site fully repaired, cancel this repair
-				if (site != null && site.hits === site.hitsMax) {
-					site = null;
-					global.kernel.stopProcess(processId || -1);
-				}
-				// Find new assignment, either targeting the lowest hit point urgent
-				// repair, or the closest repairable
-				if (site == null || site.hits > site.hitsMax * 0.8) {
-					site = urgentRepairs[0];
-				}
-				if (site == null) {
-					site = repairer.pos.findClosestByPath(this.repairables);
-				}
-				// Repair found site
-				if (site != null) {
-					// This is a new site
-					if (site.id !== siteId) {
-						if (processId != null) {
-							global.kernel.stopProcess(processId);
-						}
-						processId = global.kernel.spawnProcess(
-							new Repairer({ creepName: repairerName, siteId: site.id }),
-						);
-						this.repairers.set(repairerName, [site.id, processId]);
-					}
-					continue;
-				}
-
-				// No site found, do something else (upgrade)
-				if (this.room.controller == null || !this.room.controller.my) {
-					this.info(
-						`Creep ${repairerName} has nothing to construct or upgrade`,
-					);
-					this.repairers.set(repairerName, [null, null]);
-					continue;
-				}
-				if (!global.kernel.hasProcess(processId || -1)) {
-					if (processId != null) {
-						global.kernel.stopProcess(processId);
-					}
-					processId = global.kernel.spawnProcess(
-						new Upgrader({ creepName: repairerName }),
-					);
-					this.repairers.set(repairerName, [null, processId]);
-				}
-			}
-
-			const sites = this.room.find(FIND_CONSTRUCTION_SITES);
-			const energy = sites.reduce(
-				(energy, site) => energy + site.progressTotal - site.progress,
-				0,
-			);
-			// Source: I made it up
-			const desiredBuilders = Math.max(1, Math.min(3, energy / 50000));
-			// Spawn more builders if below desired number
-			if (sites.length > 0 && this.builders.size < desiredBuilders) {
-				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "builder")) {
-					this.requestSpawn("Builder", "builder");
-				}
-			}
-
-			// Manage building projects
-			for (let [builderName, [siteId, processId]] of this.builders) {
-				const builder = Game.creeps[builderName];
-				if (builder == null) {
-					this.builders.delete(builderName);
-					continue;
-				}
-				let site: ConstructionSite | null = null;
-				// Get current assignment
-				if (siteId != null) {
-					site = Game.getObjectById(siteId);
-				}
-				// Find new assignment
-				if (site == null && sites.length > 0) {
-					site = sites[0];
-				}
-				// Repair found site
-				if (site != null) {
-					// This is a new site
-					if (site.id !== siteId) {
-						if (processId != null) {
-							global.kernel.stopProcess(processId);
-						}
-						processId = global.kernel.spawnProcess(
-							new Builder({ creepName: builderName, siteId: site.id }),
-						);
-						this.builders.set(builderName, [site.id, processId]);
-					}
-					continue;
-				}
-
-				// No site found, do something else (upgrade)
-				if (this.room.controller == null || !this.room.controller.my) {
-					this.warn(`Creep ${builderName} has nothing to construct or upgrade`);
-					this.repairers.set(builderName, [null, null]);
-					continue;
-				}
-				if (!global.kernel.hasProcess(processId || -1)) {
-					if (processId != null) {
-						global.kernel.stopProcess(processId);
-					}
-					processId = global.kernel.spawnProcess(
-						new Upgrader({ creepName: builderName }),
-					);
-					this.builders.set(builderName, [null, processId]);
-				}
-			}
-
-			yield;
-		}
-	}
-
-	receiveMessage(message: IMessage): void {
-		if (message instanceof CreepSpawned) {
-			const role = this.spawnRequests.get(message.requestId);
-			if (role == null) {
-				this.warn(
-					`Unexpectedly received message about unrequested creep: ${JSON.stringify(
-						message,
-					)}`,
-				);
-			}
-
-			if (message.creepName == null) {
-				this.warn(`Creep request ${message.requestId} went awry`);
-			} else if (role === "repairer") {
-				this.repairers.set(message.creepName, [null, null]);
-				Memory.creeps[message.creepName].process = this.id;
-			} else if (role === "builder") {
-				this.builders.set(message.creepName, [null, null]);
-				Memory.creeps[message.creepName].process = this.id;
-			}
-
-			this.spawnRequests.delete(message.requestId);
-		} else if (message instanceof UpdateManageSpawnsId) {
-			if (message.manageSpawnsId == null) {
-				this.error(
-					"Received message to recreate ManageSpawns, but is not ManageRoom",
-				);
-				return;
-			}
-			// Update this' manageSpawnsId
-			this.manageSpawnsId = message.manageSpawnsId;
-			this.info(`Updated spawn manager to ${this.manageSpawnsId}`);
-		} else {
-			super.receiveMessage(message);
-		}
-	}
-
-	requestSpawn(creepName: string, role: "builder" | "repairer"): void {
-		const request = new SpawnRequest(this.id, this.manageSpawnsId, creepName);
-		this.spawnRequests.set(request.id, role);
-		global.kernel.sendMessage(request);
-	}
-}
-ProcessConstructors.set("Construct", Construct);
-
-function genericBody(energy: number): BodyPartConstant[] {
-	return bodyFromSegments([MOVE, WORK, CARRY], energy);
-}
-
-interface ICreepSpawned {
-	requester: MessageId;
-	creepName: string | null;
-	requestId: MessageId;
-}
-
-export class CreepSpawned implements IMessage, ICreepSpawned {
-	id: MessageId;
-	from: ProcessId;
-	to: ProcessId;
-
-	requester: MessageId;
-	creepName: string | null;
-	requestId: MessageId;
-
-	constructor(
-		from: ProcessId,
-		to: ProcessId,
-		creepName: string | null,
-		requestId: MessageId,
-	) {
-		this.id = global.kernel.getNextMessageId();
-		this.from = from;
-		this.to = to;
-
-		this.requester = to;
-		this.creepName = creepName;
-		this.requestId = requestId;
-	}
-}
-
-export class SpawnRequest implements IMessage {
-	id: MessageId;
-	from: ProcessId;
-	to: ProcessId;
-
-	creepName: string;
-	body: BodyPartConstant[] | ((energy: number) => BodyPartConstant[]) | null;
-	important: boolean;
-
-	constructor(
-		from: ProcessId,
-		to: ProcessId,
-		creepName: string,
-		body?: BodyPartConstant[] | ((energy: number) => BodyPartConstant[]),
-		important?: boolean,
-	) {
-		this.id = global.kernel.getNextMessageId();
-		this.from = from;
-		this.to = to;
-
-		this.creepName = creepName;
-		this.body = body || null;
-		this.important = important || false;
-	}
-}
-
-type ManageSpawnsQueueItem = [
-	string,
-	BodyPartConstant[],
-	{ id: MessageId; from: ProcessId } | null,
-];
-export class ManageSpawns extends RoomProcess {
-	outbox: ICreepSpawned[];
-	queue: ManageSpawnsQueueItem[];
-
-	constructor({
-		outbox,
-		queue,
-		...data
-	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
-		outbox?: ICreepSpawned[];
-		queue?: ManageSpawnsQueueItem[];
-	}) {
-		super({ name: "ManageSpawns", ...data });
-		this.generator = this.manageSpawns();
-
-		this.outbox = outbox || [];
-		this.queue = queue || [];
-
-		if (this.room == null) {
-			throw new Error("Room not visible");
-		}
-	}
-
-	*manageSpawns() {
-		const processOutbox = this.processOutbox();
-		const spawnCreeps = this.spawnCreeps();
-		while (true) {
-			processOutbox.next();
-			spawnCreeps.next();
-			yield;
-		}
-	}
-
-	*processOutbox() {
-		while (true) {
-			if (this.outbox.length === 0) {
-				yield;
-				continue;
-			}
-
-			for (const { requester, creepName, requestId } of this.outbox) {
-				const message = new CreepSpawned(
-					this.id,
-					requester,
-					creepName,
-					requestId,
-				);
-				this.debug(JSON.stringify(message));
-				global.kernel.sendMessage(message);
-			}
-
-			this.outbox = [];
-		}
-	}
-
-	*spawnCreeps() {
-		while (true) {
-			while (this.queue.length === 0) {
-				// Nothing to do
-				yield;
-			}
-
-			const spawns = this.room.find(FIND_MY_SPAWNS);
-			for (const spawn of spawns) {
-				if (this.queue.length === 0) {
-					break;
-				}
-				if (spawn.spawning != null) {
-					continue;
-				}
-
-				// Get the first queue item. Get again from the top, in case priorities
-				// have changed.
-				const [creepName, body, message] = this.queue[0];
-				const spawnedName = nextAvailableName(creepName);
-				const response = spawn.spawnCreep(body, spawnedName);
-				this.debug(
-					`Spawn ${spawn.name} spawning ${creepName} in ${
-						this.room.name
-					} with response ${errorConstant(response)}`,
-				);
-
-				// Unable to spawn this creep, done for this tick.
-				// TODO: Consider moving on the next in the queue?
-				if (response !== OK) {
-					break;
-				}
-
-				// Creep spawning, message requester and remove from queue.
-				if (message != null) {
-					// TODO: Send message on delay?
-					this.outbox.push({
-						requester: message.from,
-						creepName: spawnedName,
-						requestId: message.id,
-					});
-				}
-				this.queue.shift();
-			}
-
-			yield;
-		}
-	}
-
-	receiveMessage(message: IMessage): void {
-		if (message instanceof SpawnRequest) {
-			this.debug(`Received spawn request ${JSON.stringify(message)}`);
-			let body = message.body;
-			if (body == null) {
-				body = genericBody(this.room.energyCapacityAvailable);
-			} else if (typeof body === "function") {
-				body = body(this.room.energyCapacityAvailable);
-			}
-			if (message.important) {
-				this.queue.unshift([message.creepName, body, message]);
-			} else {
-				this.queue.push([message.creepName, body, message]);
-			}
-		} else {
-			super.receiveMessage(message);
-		}
-	}
-}
-ProcessConstructors.set("ManageSpawns", ManageSpawns);
 
 export class Economy extends RoomProcess {
 	manageRoomId: ProcessId;
@@ -1426,13 +990,34 @@ export class Expand extends RoomProcess {
 			}
 
 			// Spawn a ManageRoom process for the new room
-			if (this.destinationManagerId == null) {
-				this.destinationManagerId = global.kernel.spawnProcess(
-					new ManageRoom({
-						roomName: this.destinationName,
-						manageSpawnsId: this.manageSpawnsId,
-					}),
-				);
+			if (
+				this.destinationManagerId == null ||
+				!global.kernel.hasProcess(this.destinationManagerId)
+			) {
+				this.destinationManagerId =
+					destination.memory.processes?.["ManageRoom"] ?? null;
+				// No saved ManageRoom id or outdated ManageRoom id
+				if (
+					this.destinationManagerId == null ||
+					!global.kernel.hasProcess(this.destinationManagerId)
+				) {
+					this.info(`Spawning new ManageRoom ${this.destinationManagerId}`);
+					this.destinationManagerId = global.kernel.spawnProcess(
+						new ManageRoom({
+							roomName: this.destinationName,
+							manageSpawnsId: this.manageSpawnsId,
+						}),
+					);
+				} else {
+					// Adopt existing ManageRoom
+					this.info(`Adopting ManageRoom ${this.destinationManagerId}`);
+					const adopt = new UpdateManageSpawnsId(
+						this.id,
+						this.destinationManagerId,
+						this.id,
+					);
+					global.kernel.sendMessage(adopt);
+				}
 			}
 
 			// Wait until the room has a storage and spawn to detach
@@ -1524,26 +1109,6 @@ export class Expand extends RoomProcess {
 	}
 }
 ProcessConstructors.set("Expand", Expand);
-
-export class UpdateManageSpawnsId implements IMessage {
-	id: MessageId;
-	from: ProcessId;
-	to: ProcessId;
-
-	manageSpawnsId: ProcessId | null;
-
-	constructor(
-		from: ProcessId,
-		to: ProcessId,
-		manageSpawnsId: ProcessId | null,
-	) {
-		this.id = global.kernel.getNextMessageId();
-		this.from = from;
-		this.to = to;
-
-		this.manageSpawnsId = manageSpawnsId;
-	}
-}
 
 function minerBody(energyAvailable: number): BodyPartConstant[] {
 	// 1050 energy is enough to drain a source in 188t (8W 4M 1C)

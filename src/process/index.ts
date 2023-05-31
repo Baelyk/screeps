@@ -303,10 +303,14 @@ export function reassignCreep(
 	creepName: string,
 	processId: ProcessId,
 ): ProcessId | undefined {
-	const oldId = Memory.creeps[creepName].process;
-	debug(`Reassigning ${creepName} from ${oldId || "none"} to ${processId}`);
-	Memory.creeps[creepName].process = processId;
-	return oldId;
+	return (
+		wrapper(() => {
+			const oldId = Memory.creeps[creepName].process;
+			debug(`Reassigning ${creepName} from ${oldId || "none"} to ${processId}`);
+			Memory.creeps[creepName].process = processId;
+			return oldId;
+		}, `Error reassign ${creepName} to ${processId}`) ?? undefined
+	);
 }
 
 export function deserializeProcess(serialized: string): Process | undefined {

@@ -57,6 +57,26 @@ export class Kernel {
 				Memory.processesBackup = Memory.processes;
 			},
 		);
+
+		// Ensure owned rooms have a ManageRoom
+		for (const roomName in Game.rooms) {
+			const room = Game.rooms[roomName];
+			const processes = Memory.rooms[roomName]?.processes;
+			if (room.controller == null || !room.controller.my || processes == null) {
+				continue;
+			}
+
+			const manageRoomId = processes?.["ManageRoom"];
+			if (!this.hasProcess(manageRoomId || -1)) {
+				warn(`Spawning new ManageRoom for ${roomName}`);
+				// Will recreate ManageRoom, kill other room processes for recreation
+				for (const processName in processes) {
+					const processId = processes[processName];
+					this.stopProcess(processId || -1);
+				}
+				this.spawnProcess(new ManageRoom({ roomName }));
+			}
+		}
 	}
 
 	static init(): Kernel {
@@ -81,6 +101,12 @@ export class Kernel {
 				continue;
 			}
 
+			let errorMessage: string;
+			try {
+				errorMessage = `Error running process ${process.display()}`;
+			} catch (_) {
+				errorMessage = "Error running process";
+			}
 			wrapper(
 				() => {
 					debug(`Running process ${process.display()}`);
@@ -90,7 +116,7 @@ export class Kernel {
 						this.stopProcess(process.id);
 					}
 				},
-				`Error running process ${process.display()}`,
+				errorMessage,
 				() => {
 					this.stopProcess(process.id);
 				},
@@ -136,7 +162,11 @@ export class Kernel {
 			warn("Received request to stop nonexistant process");
 			return;
 		}
-		warn(`Stopping ${process.display()}`);
+		try {
+			warn(`Stopping ${process.display()}`);
+		} catch (error) {
+			warn(`Stopping ${process.id}`);
+		}
 		this.processTable.removeProcess(processId);
 	}
 
