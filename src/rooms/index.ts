@@ -195,7 +195,7 @@ function manageRemotes(this: ManageRoom) {
 	}
 
 	// Look for new remotes
-	if (Game.time % 100 === 0) {
+	if ((this.room.controller?.level ?? 0) >= 5 && Game.time % 100 === 0) {
 		// TODO: Temporary limit 1 remote
 		if (this.remoteRooms.size > 0) {
 			return;
