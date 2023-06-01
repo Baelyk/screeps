@@ -986,6 +986,17 @@ export class Expand extends RoomProcess {
 				this.destinationName = null;
 				continue;
 			}
+			if (scout.room.name === this.destinationName) {
+				const response = scout.moveTo(controller);
+				if (response === ERR_NO_PATH) {
+					this.warn(
+						`Abandoning expansion target ${this.destinationName}, cannot path to controller`,
+					);
+					this.invalidDestinations.add(this.destinationName);
+					this.destinationName = null;
+					continue;
+				}
+			}
 
 			// Clear the destination of hostiles
 			const hostile = (
