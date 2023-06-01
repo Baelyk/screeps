@@ -35,8 +35,10 @@ export function progressBar(
 	x: number,
 	y: number,
 	width: number,
-	showProgress = true,
+	opts?: Partial<{ showProgress: boolean; textColor: string }>,
 ) {
+	const options = { showProgress: true, textColor: "#ffffff" };
+	Object.assign(options, opts);
 	const height = 0.95;
 	const strokeWidth = 0.1;
 	visual.rect(
@@ -67,12 +69,13 @@ export function progressBar(
 			x + GRID_OFFSET + strokeWidth,
 			y + 1 + GRID_OFFSET - TEXT_Y_OFFSET,
 			{
+				color: options.textColor,
 				...TEXT_STYLE,
 			},
 		);
 	}
 
-	if (showProgress) {
+	if (options.showProgress) {
 		visual.text(
 			displayPercent(progress),
 			x + GRID_OFFSET + width - strokeWidth,

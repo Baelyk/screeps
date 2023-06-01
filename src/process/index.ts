@@ -232,7 +232,7 @@ export class RoomProcess extends Process {
 		if (memory.processes == null) {
 			memory.processes = {};
 		}
-		memory.processes[this.roomName] = this.id;
+		memory.processes[this.name] = this.id;
 		Memory.rooms[this.roomName] = memory;
 	}
 

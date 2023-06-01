@@ -26,7 +26,11 @@ export class Visualizer extends Process {
 
 	init(): void {
 		for (const roomName in Game.rooms) {
-			if (Game.rooms[roomName].controller?.my) {
+			if (
+				Game.rooms[roomName].controller?.my ||
+				Game.rooms[roomName].controller?.reservation?.username ===
+					global.USERNAME
+			) {
 				this.providers.set(Providers.roomStats(roomName), null);
 			}
 

@@ -1,5 +1,5 @@
 import { ManageRoom, ManageSpawns, Construct, Economy } from "./../rooms";
-import { debug } from "./../utils/logger";
+import { debug, info } from "./../utils/logger";
 import {
 	textLines,
 	progressBar,
@@ -7,10 +7,11 @@ import {
 	interpolateColors,
 	displayPerTick,
 } from "./utils";
-import { RoomPlanner } from "./../planner";
+import { IBlueprint, RoomPlanner } from "./../planner";
 import { UnboundVisualProvider } from "./connection";
 import { ProcessName } from "./../process";
 import * as Iterators from "./../utils/iterators";
+import { RemoteRoom } from "./../rooms/remote";
 
 declare global {
 	interface SettingsMemory {
@@ -24,11 +25,50 @@ declare global {
 export const RoomProcessProviders: Map<
 	ProcessName,
 	| UnboundVisualProvider<ManageRoom>
+	| UnboundVisualProvider<RemoteRoom>
 	| UnboundVisualProvider<ManageSpawns>
 	| UnboundVisualProvider<Construct>
 	| UnboundVisualProvider<Economy>
 	| UnboundVisualProvider<RoomPlanner>
 > = new Map();
+
+function visualizeBlueprint(
+	blueprint: IBlueprint,
+	defaultRoomName: string,
+): void {
+	(blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(
+		({ x, y, roomName }) =>
+			new RoomVisual(roomName ?? defaultRoomName).circle(x, y, {
+				fill: "yellow",
+			}),
+	);
+	(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(
+		({ x, y, roomName }) =>
+			new RoomVisual(roomName ?? defaultRoomName).circle(x, y, {
+				fill: "green",
+			}),
+	);
+	(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y, roomName }) =>
+		new RoomVisual(roomName ?? defaultRoomName).circle(x, y),
+	);
+	(blueprint.structures[STRUCTURE_SPAWN] || []).forEach(({ x, y, roomName }) =>
+		new RoomVisual(roomName ?? defaultRoomName).circle(x, y, { fill: "red" }),
+	);
+	(blueprint.structures[STRUCTURE_STORAGE] || []).forEach(
+		({ x, y, roomName }) =>
+			new RoomVisual(roomName ?? defaultRoomName).circle(x, y, {
+				fill: "orange",
+			}),
+	);
+	(blueprint.structures[STRUCTURE_TOWER] || []).forEach(({ x, y, roomName }) =>
+		new RoomVisual(roomName ?? defaultRoomName).circle(x, y, {
+			fill: "purple",
+		}),
+	);
+	(blueprint.structures[STRUCTURE_LINK] || []).forEach(({ x, y, roomName }) =>
+		new RoomVisual(roomName ?? defaultRoomName).circle(x, y, { fill: "blue" }),
+	);
+}
 
 RoomProcessProviders.set("ManageRoom", manageRoomProvider);
 function* manageRoomProvider(manageRoom: Readonly<ManageRoom>) {
@@ -71,27 +111,46 @@ function* manageRoomProvider(manageRoom: Readonly<ManageRoom>) {
 		// Show plan
 		const blueprint = manageRoom.blueprint;
 		if (Memory.settings?.showBlueprint && blueprint != null) {
-			(blueprint.structures[STRUCTURE_CONTAINER] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y, { fill: "yellow" }),
+			visualizeBlueprint(blueprint, manageRoom.roomName);
+		}
+
+		yield;
+	}
+}
+
+RoomProcessProviders.set("RemoteRoom", remoteRoomProvider);
+function* remoteRoomProvider(remoteRoom: Readonly<RemoteRoom>) {
+	while (global.kernel.hasProcess(remoteRoom.id)) {
+		const lines = [];
+		lines.push(`Room ${remoteRoom.roomName} for ${remoteRoom.ownerName}`);
+
+		if (remoteRoom.room.controller != null) {
+			const ticks = remoteRoom.room.controller?.reservation?.ticksToEnd ?? 0;
+			progressBar(
+				remoteRoom.room.visual,
+				ticks / CONTROLLER_RESERVE_MAX,
+				`${ticks} ticks`,
+				0,
+				lines.length,
+				10,
+				{
+					showProgress: true,
+					textColor:
+						remoteRoom.room.controller?.reservation?.username ===
+						global.USERNAME
+							? undefined
+							: "#ff0000",
+				},
 			);
-			(blueprint.structures[STRUCTURE_EXTENSION] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y, { fill: "green" }),
-			);
-			(blueprint.structures[STRUCTURE_ROAD] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y),
-			);
-			(blueprint.structures[STRUCTURE_SPAWN] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y, { fill: "red" }),
-			);
-			(blueprint.structures[STRUCTURE_STORAGE] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y, { fill: "orange" }),
-			);
-			(blueprint.structures[STRUCTURE_TOWER] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y, { fill: "purple" }),
-			);
-			(blueprint.structures[STRUCTURE_LINK] || []).forEach(({ x, y }) =>
-				manageRoom.room.visual.circle(x, y, { fill: "blue" }),
-			);
+			lines.push("");
+		}
+
+		textLines(remoteRoom.room.visual, lines, 0, 1);
+
+		// Show plan
+		const blueprint = remoteRoom.blueprint;
+		if (Memory.settings?.showBlueprint && blueprint != null) {
+			visualizeBlueprint(blueprint, remoteRoom.roomName);
 		}
 
 		yield;
