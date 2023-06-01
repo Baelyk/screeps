@@ -48,7 +48,6 @@ export class AssignConstructTarget implements IMessage {
 
 const REPAIR_WALLS_TO = 100000;
 export class Construct extends RoomProcess {
-	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
 	constructors: Map<string, [ConstructTarget | null, ProcessId | null]>;
@@ -56,13 +55,11 @@ export class Construct extends RoomProcess {
 	spawnRequests: Map<MessageId, typeof Construct._roles>;
 
 	constructor({
-		manageRoomId,
 		manageSpawnsId,
 		constructors,
 		spawnRequests,
 		...data
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
-		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
 		constructors?: Iterable<
 			[string, [ConstructTarget | null, ProcessId | null]]
@@ -71,7 +68,6 @@ export class Construct extends RoomProcess {
 	}) {
 		super({ name: "Construct", ...data });
 		this.generator = this.construct();
-		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
 		this.constructors = new Map(constructors);
@@ -120,11 +116,6 @@ export class Construct extends RoomProcess {
 
 	*spawner(): Generator<void, void, never> {
 		while (true) {
-			if (!this.room.controller?.my) {
-				this.warn(`Not my room, stopping ${this.display()}`);
-				return;
-			}
-
 			const siteEnergy = this.sites.reduce(
 				(energy, site) => energy + site.progressTotal - site.progress,
 				0,
@@ -306,7 +297,7 @@ export class Constructor extends CreepProcess {
 			while (this.creep.store[RESOURCE_ENERGY] > 0) {
 				// Assignment expired, upgrade in the mean time
 				if (this.siteId == null) {
-					this.info("Idly upgrading");
+					this.debug("Idly upgrading");
 					yield* this.idle();
 					this.warn("Upgrader subprocess unexpectedly stopped");
 					continue;
@@ -322,7 +313,6 @@ export class Constructor extends CreepProcess {
 						this.creepName,
 					);
 					global.kernel.sendMessage(request);
-					this.info("Sent target request");
 					// Wait one tick before upgrading
 					yield;
 					continue;
@@ -330,7 +320,6 @@ export class Constructor extends CreepProcess {
 
 				let response: ScreepsReturnCode;
 				if (site instanceof ConstructionSite) {
-					this.info("Building");
 					response = this.creep.build(site);
 				} else {
 					// Check if repaired enough, if so, do something else
@@ -339,30 +328,25 @@ export class Constructor extends CreepProcess {
 						site.structureType !== STRUCTURE_RAMPART
 					) {
 						if (site.hits >= site.hitsMax * 0.8) {
-							this.info("site hits enough");
 							this.siteId = null;
 							continue;
 						}
 					} else {
-						this.info("wall hits enough");
 						if (site.hits >= REPAIR_WALLS_TO) {
 							this.siteId = null;
 							continue;
 						}
 					}
 
-					this.info("Repairing");
 					response = this.creep.repair(site);
 				}
 
 				if (response === ERR_NOT_IN_RANGE) {
-					this.info("moving");
 					this.creep.moveTo(site);
 				}
 
 				yield;
 			}
-			this.info("time to get energy");
 			yield* getEnergy.bind(this)();
 		}
 	}
@@ -370,7 +354,6 @@ export class Constructor extends CreepProcess {
 	receiveMessage(message: IMessage): void {
 		if (message instanceof AssignConstructTarget) {
 			this.siteId = message.target;
-			this.info("Received construciton target");
 			// Restart process with new target
 			this.generator = this._generator();
 		} else {

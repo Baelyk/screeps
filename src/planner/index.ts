@@ -8,6 +8,19 @@ import { IMessage, MessageId } from "./../messenger";
 import { Counter } from "./../utils/counter";
 import * as Iterators from "./../utils/iterators";
 import * as LZString from "lz-string";
+import {
+	bareCoord,
+	Coord,
+	coordToIndex,
+	coordToRoomPosition,
+	coordToRoomPositionMapper,
+	getNeighbors,
+	getTilesInRange,
+	Index,
+	indexToCoord,
+	RoomCoord,
+	RoomCoordSet,
+} from "./../utils/coord";
 
 const PRETTY_ROAD_ADJUSTMENT = 1;
 const WALL_ADJACENT_COST = 6;
@@ -18,61 +31,6 @@ const PLAIN_COST = 2;
 const SWAMP_COST = 10;
 const UNWALKABLE_COST = 255;
 const MAX_EXTENSION_ROAD = 15;
-
-export interface Blueprint {
-	structures: Partial<Record<StructureConstant, Coord[]>>;
-}
-
-interface Coord {
-	x: number;
-	y: number;
-}
-
-type Index = number;
-
-function bareCoord({ x, y }: Coord): Coord {
-	return { x, y };
-}
-
-function indexToCoord(index: Index): Coord {
-	return { x: Math.floor(index / 50), y: index % 50 };
-}
-
-function coordToIndex({ x, y }: Coord): Index {
-	return x * 50 + y;
-}
-
-function coordToTuple({ x, y }: Coord): [number, number] {
-	return [x, y];
-}
-
-function tupleToCoord([x, y]: [number, number]): Coord {
-	return { x, y };
-}
-
-function getNeighbors({ x, y }: Coord): Coord[] {
-	return getTilesInRange({ x, y }, 1);
-}
-
-function getTilesInRange({ x, y }: Coord, range: number): Coord[] {
-	const neighbors = [];
-	for (let dx = -range; dx <= range; dx++) {
-		for (let dy = -range; dy <= range; dy++) {
-			neighbors.push({ x: x + dx, y: y + dy });
-		}
-	}
-	return neighbors.filter(({ x, y }) => x >= 0 && x <= 49 && y >= 0 && y <= 49);
-}
-
-function coordToRoomPosition({ x, y }: Coord, roomName: string): RoomPosition {
-	return new RoomPosition(x, y, roomName);
-}
-
-function coordToRoomPositionMapper(
-	roomName: string,
-): (coord: Coord) => RoomPosition {
-	return (coord: Coord) => coordToRoomPosition(coord, roomName);
-}
 
 function loadTerrain(roomName: string): [RoomTerrain, CostMatrix, Set<Index>] {
 	const costMatrix = new PathFinder.CostMatrix();
@@ -139,38 +97,26 @@ function unoccupyTiles(
 	spots.forEach((spot) => set.delete(spot));
 }
 
-export class RoomPlanner extends RoomProcess {
-	manageRoomId: ProcessId;
+export interface IBlueprint {
+	structures: Partial<Record<StructureConstant, RoomCoord[]>>;
+}
 
+abstract class Blueprint extends RoomProcess implements IBlueprint {
 	costMatrix: CostMatrix;
 	terrain: RoomTerrain;
 	occupied: Set<Index>;
 
-	roads: Set<Index>;
-	exitPaths: Set<Index>;
-	containers: RoomPosition[] = [];
-	extensions: RoomPosition[] = [];
-	spawns: RoomPosition[] = [];
-	towers: RoomPosition[] = [];
-	links: RoomPosition[] = [];
-	extractor: RoomPosition | null = null;
-	storage: RoomPosition | null = null;
+	structures: Partial<Record<StructureConstant, RoomCoord[]>>;
 
-	constructor({
-		manageRoomId,
-		...data
-	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
-		manageRoomId: ProcessId;
-	}) {
-		super({ name: "RoomPlanner", ...data });
-		this.generator = this.roomPlanner();
+	roads: RoomCoordSet;
 
-		this.manageRoomId = manageRoomId;
+	constructor({ ...data }: ProcessData<typeof RoomProcess> & {}) {
+		super(data);
 
 		[this.terrain, this.costMatrix, this.occupied] = loadTerrain(this.roomName);
+		this.structures = {};
 
-		this.roads = new Set();
-		this.exitPaths = new Set();
+		this.roads = new RoomCoordSet();
 	}
 
 	occupy(pos: Index | Coord | Index[] | Coord[]): void {
@@ -195,8 +141,11 @@ export class RoomPlanner extends RoomProcess {
 		origin: RoomPosition,
 		goal: RoomPosition,
 		range: number,
-		opts?: { allowOtherRooms: boolean },
+		opts?: Partial<{ allowOtherRooms: boolean; maxOps: number }>,
 	): PathFinderPath {
+		this.debug(`Pathing ${JSON.stringify(origin)} to ${JSON.stringify(goal)}`);
+		const options = { allowOtherRooms: false, maxOps: 4000 };
+		Object.assign(options, opts);
 		return PathFinder.search(
 			origin,
 			{ pos: goal, range },
@@ -204,14 +153,49 @@ export class RoomPlanner extends RoomProcess {
 				roomCallback: (roomName) => {
 					// Do not search other rooms
 					if (roomName !== this.roomName) {
-						return opts?.allowOtherRooms ? new PathFinder.CostMatrix() : false;
+						return options.allowOtherRooms
+							? new PathFinder.CostMatrix()
+							: false;
 					}
 					return this.costMatrix;
 				},
 				plainCost: PLAIN_COST + PRETTY_ROAD_ADJUSTMENT,
 				swampCost: PLAIN_COST + PRETTY_ROAD_ADJUSTMENT,
+				...options,
 			},
 		);
+	}
+
+	blueprint(): IBlueprint {
+		this.structures[STRUCTURE_ROAD] = Array.from(this.roads);
+		return { structures: this.structures };
+	}
+}
+
+export class RoomPlanner extends Blueprint {
+	manageRoomId: ProcessId;
+
+	exitPaths: Set<Index>;
+	containers: RoomPosition[] = [];
+	extensions: RoomPosition[] = [];
+	spawns: RoomPosition[] = [];
+	towers: RoomPosition[] = [];
+	links: RoomPosition[] = [];
+	extractor: RoomPosition | null = null;
+	storage: RoomPosition | null = null;
+
+	constructor({
+		manageRoomId,
+		...data
+	}: Omit<ProcessData<typeof Blueprint>, "name"> & {
+		manageRoomId: ProcessId;
+	}) {
+		super({ name: "RoomPlanner", ...data });
+		this.generator = this.roomPlanner();
+
+		this.manageRoomId = manageRoomId;
+
+		this.exitPaths = new Set();
 	}
 
 	findSpawnSpot(): RoomPosition {
@@ -447,21 +431,24 @@ export class RoomPlanner extends RoomProcess {
 
 	placeExtensions(spawnSpot: RoomPosition): [RoomPosition[], RoomPosition[]] {
 		const temporarilyOccupied: Set<Index> = new Set();
-		const tilePathable = function (this: RoomPlanner, coord: Coord): boolean {
+		const tilePathable = function (
+			this: RoomPlanner,
+			coord: RoomCoord,
+		): boolean {
 			return (
 				!this.occupied.has(coordToIndex(coord)) ||
-				this.roads.has(coordToIndex(coord)) ||
+				this.roads.has(coord) ||
 				this.exitPaths.has(coordToIndex(coord))
 			);
 		}.bind(this);
-		const tileOpen = function (this: RoomPlanner, coord: Coord): boolean {
+		const tileOpen = function (this: RoomPlanner, coord: RoomCoord): boolean {
 			return (
 				!this.occupied.has(coordToIndex(coord)) &&
 				!temporarilyOccupied.has(coordToIndex(coord))
 			);
 		}.bind(this);
 
-		const queue: Coord[] = [spawnSpot];
+		const queue: RoomCoord[] = [spawnSpot];
 		const visited: Set<Index> = new Set();
 		const extensions: Coord[] = [];
 		const roads: Coord[] = [];
@@ -502,7 +489,7 @@ export class RoomPlanner extends RoomProcess {
 					while (extensions.length + openNeighbors.length > 60) {
 						openNeighbors.pop();
 					}
-					path.path.forEach((road) => this.roads.add(coordToIndex(road)));
+					path.path.forEach((road) => this.roads.add(road));
 					extensions.push(...openNeighbors);
 					this.occupy(path.path);
 					this.occupy(openNeighbors);
@@ -536,38 +523,40 @@ export class RoomPlanner extends RoomProcess {
 		];
 	}
 
-	blueprint(): Blueprint {
-		const structures: Partial<Record<StructureConstant, Coord[]>> = {};
+	blueprint(): IBlueprint {
+		const structures: Partial<Record<StructureConstant, RoomCoord[]>> = {};
 
 		// Containers
-		structures[STRUCTURE_CONTAINER] = this.containers.map(bareCoord);
+		structures[STRUCTURE_CONTAINER] = this.containers;
 
 		// Extensions
-		structures[STRUCTURE_EXTENSION] = this.extensions.map(bareCoord);
+		structures[STRUCTURE_EXTENSION] = this.extensions;
 
 		// Extractor
 		if (this.extractor == null) {
 			throw new Error(`Room ${this.roomName} lacks an extractor plan`);
 		}
-		structures[STRUCTURE_EXTRACTOR] = [bareCoord(this.extractor)];
+		structures[STRUCTURE_EXTRACTOR] = [this.extractor];
 
 		// Extensions
-		structures[STRUCTURE_LINK] = this.links.map(bareCoord);
+		structures[STRUCTURE_LINK] = this.links;
 
 		// Roads
-		structures[STRUCTURE_ROAD] = Array.from(this.roads).map(indexToCoord);
+		structures[STRUCTURE_ROAD] = Array.from(this.roads);
 
 		// Spawns
-		structures[STRUCTURE_SPAWN] = this.spawns.map(bareCoord);
+		structures[STRUCTURE_SPAWN] = this.spawns;
 
 		// Storage
 		if (this.storage == null) {
 			throw new Error(`Room ${this.roomName} lacks a storage plan`);
 		}
-		structures[STRUCTURE_STORAGE] = [bareCoord(this.storage)];
+		structures[STRUCTURE_STORAGE] = [this.storage];
 
 		// Towers
-		structures[STRUCTURE_TOWER] = this.towers.map(bareCoord);
+		structures[STRUCTURE_TOWER] = this.towers;
+
+		this.structures = structures;
 
 		return { structures };
 	}
@@ -578,21 +567,21 @@ export class RoomPlanner extends RoomProcess {
 
 		const [spawns, spawnRoads, storage, tower, storageLink] =
 			this.spawnStamp(spawnSpot);
-		spawnRoads.forEach((road) => this.roads.add(coordToIndex(road)));
+		spawnRoads.forEach((road) => this.roads.add(road));
 		this.spawns = spawns;
 		this.storage = storage;
 		this.towers = [tower];
 		this.links.push(storageLink);
 
 		const [roads, containers, links] = this.economySetup(spawnSpot);
-		roads.forEach((road) => this.roads.add(coordToIndex(road)));
+		roads.forEach((road) => this.roads.add(road));
 		this.containers = containers;
 		this.links.push(...links);
 
 		this.links = this.prioritizeLinks(this.links, spawnSpot);
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
-		extractorRoad.forEach((road) => this.roads.add(coordToIndex(road)));
+		extractorRoad.forEach((road) => this.roads.add(road));
 
 		this.pathToExits(spawnSpot);
 
@@ -612,9 +601,9 @@ export class SendBlueprint implements IMessage {
 	from: ProcessId;
 	to: ProcessId;
 
-	blueprint: Blueprint;
+	blueprint: IBlueprint;
 
-	constructor(from: ProcessId, to: ProcessId, blueprint: Blueprint) {
+	constructor(from: ProcessId, to: ProcessId, blueprint: IBlueprint) {
 		this.id = global.kernel.getNextMessageId();
 		this.from = from;
 		this.to = to;
@@ -623,7 +612,7 @@ export class SendBlueprint implements IMessage {
 	}
 }
 
-export function blueprintToBuildingPlannerLink(blueprint: Blueprint): string {
+export function blueprintToBuildingPlannerLink(blueprint: IBlueprint): string {
 	const json = {
 		rcl: 8,
 		buildings: blueprint.structures,
@@ -632,4 +621,76 @@ export function blueprintToBuildingPlannerLink(blueprint: Blueprint): string {
 	const compressed = LZString.compressToEncodedURIComponent(jsonString);
 	const link = `https://screepers.github.io/screeps-tools/?share=${compressed}#/building-planner`;
 	return link;
+}
+
+export class RemotePlanner extends Blueprint {
+	ownerName: string;
+	remoteRoomId: ProcessId;
+
+	constructor({
+		ownerName,
+		remoteRoomId,
+		...data
+	}: Omit<ProcessData<typeof Blueprint>, "name"> & {
+		ownerName: string;
+		remoteRoomId: ProcessId;
+	}) {
+		super({ name: "RoomPlanner", ...data });
+		this.generator = this.remotePlanner();
+
+		this.ownerName = ownerName;
+		this.remoteRoomId = remoteRoomId;
+	}
+
+	sourceRoads(origin: RoomPosition) {
+		const sources = this.room.find(FIND_SOURCES);
+		this.structures[STRUCTURE_CONTAINER] = [];
+		for (const source of sources) {
+			const path = this.findPath(source.pos, origin, 1, {
+				allowOtherRooms: true,
+			});
+			if (path.incomplete) {
+				this.error(`Unable to complete path ${source.pos} to ${origin}`);
+				continue;
+			}
+			this.structures[STRUCTURE_CONTAINER].push(path.path[0]);
+			path.path.shift();
+			this.updateCostMatrix(path.path, ROAD_COST);
+			path.path.forEach((road) => this.roads.add(road));
+		}
+	}
+
+	controllerRoad(origin: RoomPosition) {
+		if (this.room.controller == null) {
+			throw new Error("Room controller not found");
+		}
+
+		const path = this.findPath(this.room.controller.pos, origin, 1, {
+			allowOtherRooms: true,
+		});
+		if (path.incomplete) {
+			this.error(
+				`Unable to complete path ${this.room.controller.pos} to ${origin} (ops ${path.ops})`,
+			);
+			return;
+		}
+		this.updateCostMatrix(path.path, ROAD_COST);
+		path.path.forEach((road) => this.roads.add(road));
+	}
+
+	*remotePlanner() {
+		const origin = Game.rooms[this.ownerName].storage?.pos;
+		if (origin == null) {
+			throw new Error(`Unable to find storage in owner ${this.ownerName}`);
+		}
+		// Plan roads to sources (and container)
+		this.sourceRoads(origin);
+		// Plan road to controller
+		this.controllerRoad(origin);
+
+		const blueprint = this.blueprint();
+		const message = new SendBlueprint(this.id, this.remoteRoomId, blueprint);
+		global.kernel.sendMessage(message);
+		yield;
+	}
 }

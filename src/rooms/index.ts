@@ -3,7 +3,7 @@ import { IMessage, MessageId } from "./../messenger";
 import { bodyFromSegments, genericBody, haulerBody } from "./../creeps/bodies";
 import * as Iterators from "./../utils/iterators";
 import {
-	Blueprint,
+	IBlueprint,
 	blueprintToBuildingPlannerLink,
 	RoomPlanner,
 	SendBlueprint,
@@ -24,6 +24,8 @@ import {
 	SpawnRequest,
 	UpdateManageSpawnsId,
 } from "./spawns";
+import { RemoteRoom } from "./remote";
+import { wrapper } from "./../utils/errors";
 
 export { ManageSpawns, Construct };
 
@@ -38,6 +40,7 @@ function tendRoom(this: ManageRoom): void {
 	}
 
 	if (Game.creeps[this.tenderName || ""] == null) {
+		this.tenderName = null;
 		if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "tender")) {
 			const energy = Math.max(this.room.energyAvailable, 300);
 			let body: BodyPartConstant[];
@@ -178,6 +181,61 @@ function build(this: ManageRoom): void {
 		);
 }
 
+function manageRemotes(this: ManageRoom) {
+	if (this.room.name !== "W8N4") {
+		return;
+	}
+	// Need a storage to have remotes
+	if (this.room.storage == null) {
+		return;
+	}
+
+	// Prune dead remotes
+	for (const [remoteName, remoteId] of this.remoteRooms) {
+		if (!global.kernel.hasProcess(remoteId)) {
+			this.remoteRooms.delete(remoteName);
+		}
+	}
+
+	// Look for new remotes
+	if (Game.time % 100 === 0) {
+		const roomName = Object.values(Game.map.describeExits(this.roomName)).find(
+			(roomName) => {
+				if (this.remoteRooms.has(roomName)) {
+					return false;
+				}
+				const room = Game.rooms[roomName];
+				if (room == null) {
+					return true;
+				}
+				if (room.controller == null) {
+					return false;
+				}
+				if (
+					room.controller.my ||
+					room.controller.reservation?.username === global.USERNAME
+				) {
+					return false;
+				}
+				return true;
+			},
+		);
+		if (roomName != null) {
+			this.info(`Creating remote room ${roomName}`);
+			const remoteId = global.kernel.spawnProcess(
+				new RemoteRoom({
+					roomName,
+					ownerName: this.roomName,
+					manageSpawnsId: this.manageSpawnsId,
+				}),
+			);
+			this.remoteRooms.set(roomName, remoteId);
+		} else {
+			this.debug("Failed to find new remote room");
+		}
+	}
+}
+
 function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 	while (true) {
 		if (!this.room.controller?.my) {
@@ -188,6 +246,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 		tendRoom.bind(this)();
 		upgradeRoom.bind(this)();
 		expand.bind(this)();
+		wrapper(() => manageRemotes.bind(this)(), "Error managing remotes");
 
 		if (Game.time % 100 === 0) {
 			build.bind(this)();
@@ -225,9 +284,10 @@ export class ManageRoom extends RoomProcess {
 	roomPlannerId: ProcessId | null;
 	defenceId: ProcessId | null;
 	manageLinksId: ProcessId | null;
+	remoteRooms: Map<string, ProcessId>;
 
 	spawnRequests: Map<MessageId, "harvester" | "tender" | "upgrader">;
-	blueprint: Blueprint | null;
+	blueprint: IBlueprint | null;
 
 	tenderName: string | null;
 	upgraderName: string | null;
@@ -242,10 +302,11 @@ export class ManageRoom extends RoomProcess {
 				roomPlannerId?: ProcessId | null;
 				defenceId?: ProcessId | null;
 				manageLinksId?: ProcessId | null;
+				remoteRooms?: Map<string, ProcessId>;
 				spawnRequests?: Iterable<
 					[MessageId, "harvester" | "tender" | "upgrader"]
 				>;
-				blueprint?: Blueprint | null;
+				blueprint?: IBlueprint | null;
 				tenderName?: string | null;
 				upgraderName?: string | null;
 			},
@@ -264,6 +325,8 @@ export class ManageRoom extends RoomProcess {
 		this.tenderName = data.tenderName || null;
 		this.upgraderName = data.upgraderName || null;
 
+		this.remoteRooms = new Map(data.remoteRooms);
+
 		this.manageSpawnsId =
 			data.manageSpawnsId ||
 			global.kernel.spawnProcess(new ManageSpawns({ roomName: this.roomName }));
@@ -272,7 +335,6 @@ export class ManageRoom extends RoomProcess {
 			global.kernel.spawnProcess(
 				new Construct({
 					roomName: this.roomName,
-					manageRoomId: this.id,
 					manageSpawnsId: this.manageSpawnsId,
 				}),
 			);
@@ -281,7 +343,6 @@ export class ManageRoom extends RoomProcess {
 			global.kernel.spawnProcess(
 				new Economy({
 					roomName: this.roomName,
-					manageRoomId: this.id,
 					manageSpawnsId: this.manageSpawnsId,
 				}),
 			);
@@ -416,7 +477,6 @@ export class ManageRoom extends RoomProcess {
 ProcessConstructors.set("ManageRoom", ManageRoom);
 
 export class Economy extends RoomProcess {
-	manageRoomId: ProcessId;
 	manageSpawnsId: ProcessId;
 
 	sources: Map<
@@ -431,7 +491,6 @@ export class Economy extends RoomProcess {
 	emergencyTenders: Map<string, ProcessId>;
 
 	constructor({
-		manageRoomId,
 		manageSpawnsId,
 		sources,
 		upgraders,
@@ -439,7 +498,6 @@ export class Economy extends RoomProcess {
 		emergencyTenders,
 		...data
 	}: Omit<ProcessData<typeof RoomProcess>, "name"> & {
-		manageRoomId: ProcessId;
 		manageSpawnsId: ProcessId;
 		sources?: Iterable<
 			[
@@ -455,7 +513,6 @@ export class Economy extends RoomProcess {
 	}) {
 		super({ name: "Economy", ...data });
 		this.generator = this.economy();
-		this.manageRoomId = manageRoomId;
 		this.manageSpawnsId = manageSpawnsId;
 
 		this.sources = new Map(sources);
@@ -628,9 +685,7 @@ export class Economy extends RoomProcess {
 			this.warn(
 				`Failed to fine controller owned by ${global.USERNAME} in ${this.roomName}`,
 			);
-			while (true) {
-				yield;
-			}
+			return;
 		}
 
 		while (true) {
@@ -677,6 +732,7 @@ export class Economy extends RoomProcess {
 		while (true) {
 			// Energy crisis if no miners, no energy
 			if (
+				this.room.controller?.my &&
 				this.energyAvailable === 0 &&
 				Iterators.all(
 					this.sources,

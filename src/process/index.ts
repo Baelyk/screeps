@@ -108,7 +108,7 @@ export abstract class Process implements IProcess {
 		this._initialized = true;
 
 		if (this.generator == null) {
-			this.warn(`Process ${this.display()} has null generator`);
+			this.error(`Process ${this.display()} has null generator`);
 			return { code: ProcessReturnCode.Done };
 		}
 
@@ -227,10 +227,13 @@ export class RoomProcess extends Process {
 		super(data);
 		this.roomName = data.roomName;
 
-		if (this.room.memory.processes == null) {
-			this.room.memory.processes = {};
+		// TODO: This seems silly
+		const memory = Memory.rooms[this.roomName] ?? {};
+		if (memory.processes == null) {
+			memory.processes = {};
 		}
-		this.room.memory.processes[this.name] = this.id;
+		memory.processes[this.roomName] = this.id;
+		Memory.rooms[this.roomName] = memory;
 	}
 
 	get room(): Room {
@@ -294,8 +297,12 @@ export class RoomProcess extends Process {
 		return this._energyCapacityAvailable;
 	}
 
+	get isVisible(): boolean {
+		return this.roomName in Game.rooms;
+	}
+
 	display(): string {
-		return `${this.id} ${this.name} ${this.room.name}`;
+		return `${this.id} ${this.name} ${this.roomName}`;
 	}
 }
 

@@ -6,6 +6,7 @@ import {
 	ProcessId,
 } from "./../process";
 import { ConstructTarget, RequestConstructTarget } from "./../rooms/construct";
+import { RoomCoord } from "./../utils/coord";
 
 export function* getEnergy(
 	this: CreepProcess,
@@ -333,6 +334,107 @@ export class Upgrader extends CreepProcess {
 		super({ name: "Upgrader", ...data });
 		this.roomName = roomName || null;
 		this.generator = upgrader.bind(this)(roomName);
+	}
+}
+ProcessConstructors.set("Upgrader", Upgrader);
+
+export function* hauler(this: Hauler) {
+	while (true) {
+		while (this.creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+			// If not next to the source
+			if (!this.creep.pos.inRangeTo(this.source, 1)) {
+				this.creep.moveTo(this.source, { range: 1 });
+				yield;
+				continue;
+			}
+
+			const targets: Array<Resource<RESOURCE_ENERGY> | AnyStoreStructure> = [];
+			this.source
+				.lookFor(LOOK_RESOURCES)
+				.filter(
+					(t): t is Resource<RESOURCE_ENERGY> =>
+						t.resourceType === RESOURCE_ENERGY,
+				)
+				.forEach((t) => targets.push(t));
+			this.source
+				.lookFor(LOOK_STRUCTURES)
+				.filter(
+					(t): t is AnyStoreStructure => (t as AnyStoreStructure).store != null,
+				)
+				.filter((t) => (t.store[RESOURCE_ENERGY] ?? 0) > 0)
+				.forEach((t) => targets.push(t));
+
+			const target = targets[0];
+			if (target == null) {
+				yield;
+				break;
+			}
+
+			let response: ScreepsReturnCode | undefined;
+			if (target instanceof Structure || target instanceof Tombstone) {
+				response = this.creep.withdraw(target, RESOURCE_ENERGY);
+			} else if (target instanceof Resource) {
+				response = this.creep.pickup(target);
+			}
+
+			yield;
+		}
+		while (this.creep.store[RESOURCE_ENERGY] > 0) {
+			// If not next to the sink
+			if (!this.creep.pos.inRangeTo(this.sink, 1)) {
+				this.creep.moveTo(this.sink, { range: 1 });
+				yield;
+				continue;
+			}
+
+			const target = this.sink
+				.lookFor(LOOK_STRUCTURES)
+				.find(
+					(t) =>
+						(t as AnyStoreStructure).store != null &&
+						((t as AnyStoreStructure).store.getFreeCapacity(RESOURCE_ENERGY) ??
+							0) > 0,
+				);
+
+			let response: ScreepsReturnCode | undefined;
+			if (target instanceof Structure) {
+				response = this.creep.transfer(target, RESOURCE_ENERGY);
+			} else if (target == null) {
+				response = this.creep.drop(RESOURCE_ENERGY);
+			}
+
+			yield;
+		}
+	}
+}
+
+export class Hauler extends CreepProcess {
+	_source: RoomCoord;
+	get source(): RoomPosition {
+		return new RoomPosition(
+			this._source.x,
+			this._source.y,
+			this._source.roomName,
+		);
+	}
+
+	_sink: RoomCoord;
+	get sink(): RoomPosition {
+		return new RoomPosition(this._sink.x, this._sink.y, this._sink.roomName);
+	}
+
+	constructor({
+		source,
+		sink,
+		...data
+	}: Omit<ProcessData<typeof CreepProcess>, "name"> & {
+		source: RoomCoord;
+		sink: RoomCoord;
+	}) {
+		super({ name: "Upgrader", ...data });
+		this._source = source;
+		this._sink = sink;
+		this.generator = hauler.bind(this)();
 	}
 }
 ProcessConstructors.set("Upgrader", Upgrader);
