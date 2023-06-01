@@ -30,13 +30,16 @@ export function textLines(
 
 export function progressBar(
 	visual: RoomVisual,
-	progress: number,
+	progressPercent: number,
 	text: string | null,
 	x: number,
 	y: number,
 	width: number,
 	opts?: Partial<{ showProgress: boolean; textColor: string }>,
 ) {
+	const progress = Number.isNaN(progressPercent)
+		? 0
+		: Math.min(1, Math.max(0, progressPercent));
 	const options = { showProgress: true, textColor: "#ffffff" };
 	Object.assign(options, opts);
 	const height = 0.95;

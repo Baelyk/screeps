@@ -182,9 +182,6 @@ function build(this: ManageRoom): void {
 }
 
 function manageRemotes(this: ManageRoom) {
-	if (this.room.name !== "W8N4") {
-		return;
-	}
 	// Need a storage to have remotes
 	if (this.room.storage == null) {
 		return;
@@ -199,6 +196,10 @@ function manageRemotes(this: ManageRoom) {
 
 	// Look for new remotes
 	if (Game.time % 100 === 0) {
+		// TODO: Temporary limit 1 remote
+		if (this.remoteRooms.size > 0) {
+			return;
+		}
 		const roomName = Object.values(Game.map.describeExits(this.roomName)).find(
 			(roomName) => {
 				if (this.remoteRooms.has(roomName)) {
@@ -972,6 +973,14 @@ export class Expand extends RoomProcess {
 			if (controller == null) {
 				this.warn(
 					`Abandoning expansion target ${this.destinationName}, lacks controller`,
+				);
+				this.invalidDestinations.add(this.destinationName);
+				this.destinationName = null;
+				continue;
+			}
+			if (controller.owner !== undefined) {
+				this.warn(
+					`Abandoning expansion target ${this.destinationName}, foreign owned`,
 				);
 				this.invalidDestinations.add(this.destinationName);
 				this.destinationName = null;

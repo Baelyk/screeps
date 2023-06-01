@@ -11,6 +11,7 @@ import {
 
 import { getEnergy, upgrader } from "./../creeps";
 import { CreepSpawned, SpawnRequest, UpdateManageSpawnsId } from "./spawns";
+import { errorConstant } from "./../utils/logger";
 
 export type ConstructTarget = Id<ConstructionSite> | Id<Structure>;
 
@@ -342,7 +343,8 @@ export class Constructor extends CreepProcess {
 				}
 
 				if (response === ERR_NOT_IN_RANGE) {
-					this.creep.moveTo(site);
+					this.info("on the move");
+					this.info(errorConstant(this.creep.moveTo(site)));
 				}
 
 				yield;
