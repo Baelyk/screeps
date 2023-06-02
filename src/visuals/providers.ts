@@ -355,16 +355,18 @@ function* constructProvider(construct: Readonly<Construct>) {
 		lines.push(`Repairs: ${Math.ceil(repairsNeeded / 1000)}k`);
 
 		// Show boxes around
-		construct.repairables.forEach((s) => {
-			box(
-				construct.room.visual,
-				s.pos.x,
-				s.pos.y,
-				1,
-				1,
-				interpolateColors("#ff0000", "#00ff00", s.hits / s.hitsMax),
-			);
-		});
+		construct.repairables
+			.filter((s) => s.hitsMax > 0)
+			.forEach((s) => {
+				box(
+					construct.room.visual,
+					s.pos.x,
+					s.pos.y,
+					1,
+					1,
+					interpolateColors("#ff0000", "#00ff00", s.hits / s.hitsMax),
+				);
+			});
 
 		// Highlight urgent repair
 		if (construct.urgentRepairs.length > 0) {
