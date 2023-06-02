@@ -1017,7 +1017,13 @@ export class Expand extends RoomProcess {
 				this.destinationName = null;
 				continue;
 			}
-			if (scout.room.name === this.destinationName) {
+			if (
+				scout.room.name === this.destinationName &&
+				// If the scout is actually next to the controller, moveTo returns
+				// ERR_NO_PATH, also, not letting it get closer than two should help
+				// prevent it blocking the controller.
+				scout.pos.getRangeTo(controller.pos) > 2
+			) {
 				const response = scout.moveTo(controller, { range: 1 });
 				if (response === ERR_NO_PATH) {
 					this.warn(
