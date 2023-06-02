@@ -40,7 +40,6 @@ function loadTerrain(roomName: string): [RoomTerrain, CostMatrix, Set<Index>] {
 		for (let y = 0; y < 50; y++) {
 			if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
 				occupied.add(coordToIndex({ x, y }));
-				costMatrix.set(x, y, UNWALKABLE_COST);
 				getNeighbors({ x, y })
 					.filter(({ x, y }) => terrain.get(x, y) !== TERRAIN_MASK_WALL)
 					.forEach(({ x, y }) => costMatrix.set(x, y, WALL_ADJACENT_COST));
@@ -102,7 +101,7 @@ export interface IBlueprint {
 }
 
 abstract class Blueprint extends RoomProcess implements IBlueprint {
-	costMatrix: CostMatrix;
+	costMatrices: { [roomName: string]: CostMatrix };
 	terrain: RoomTerrain;
 	occupied: Set<Index>;
 
@@ -112,8 +111,10 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 
 	constructor({ ...data }: ProcessData<typeof RoomProcess> & {}) {
 		super(data);
+		this.costMatrices = {};
 
-		[this.terrain, this.costMatrix, this.occupied] = loadTerrain(this.roomName);
+		[this.terrain, this.costMatrices[this.roomName], this.occupied] =
+			loadTerrain(this.roomName);
 		this.structures = {};
 
 		this.roads = new RoomCoordSet();
@@ -127,13 +128,20 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 		unoccupyTiles(this.occupied, pos);
 	}
 
-	updateCostMatrix(pos: Coord | Coord[], cost: number): void {
+	getCostMatrix(roomName: string): CostMatrix {
+		if (!(roomName in this.costMatrices)) {
+			this.costMatrices[roomName] = new PathFinder.CostMatrix();
+		}
+		return this.costMatrices[roomName];
+	}
+
+	updateCostMatrix(pos: RoomCoord | RoomCoord[], cost: number): void {
 		if (!Array.isArray(pos)) {
-			this.costMatrix.set(pos.x, pos.y, cost);
+			this.getCostMatrix(pos.roomName).set(pos.x, pos.y, cost);
 			return;
 		}
-		for (const { x, y } of pos) {
-			this.costMatrix.set(x, y, cost);
+		for (const { x, y, roomName } of pos) {
+			this.getCostMatrix(roomName).set(x, y, cost);
 		}
 	}
 
@@ -157,7 +165,7 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 							? new PathFinder.CostMatrix()
 							: false;
 					}
-					return this.costMatrix;
+					return this.getCostMatrix(roomName);
 				},
 				plainCost: PLAIN_COST + PRETTY_ROAD_ADJUSTMENT,
 				swampCost: PLAIN_COST + PRETTY_ROAD_ADJUSTMENT,
@@ -450,8 +458,8 @@ export class RoomPlanner extends Blueprint {
 
 		const queue: RoomCoord[] = [spawnSpot];
 		const visited: Set<Index> = new Set();
-		const extensions: Coord[] = [];
-		const roads: Coord[] = [];
+		const extensions: RoomCoord[] = [];
+		const roads: RoomCoord[] = [];
 
 		while (queue.length > 0 && extensions.length < 60) {
 			const current = queue.shift();
@@ -460,7 +468,6 @@ export class RoomPlanner extends Blueprint {
 			}
 			// This tile is no longer valid to search along
 			if (extensions.length > 0 && !tilePathable(current)) {
-				this.info(`Skipping ${current.x} ${current.y}`);
 				continue;
 			}
 

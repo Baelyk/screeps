@@ -175,17 +175,21 @@ export class RemoteRoom extends RoomProcess {
 					`Owned rooms should not be remotes (${this.room.controller.owner})`,
 				);
 			}
-			// If controller already over 20% reserved by me, do nothing
+			// Wait for claimer
 			const claimer = Game.creeps[this.claimerName ?? ""];
-			if (
-				this.room.controller.reservation?.username === global.USERNAME &&
-				this.room.controller.reservation.ticksToEnd >
-					CONTROLLER_RESERVE_MAX * 0.2 &&
-				claimer == null
-			) {
-				this.claimerName = null;
-				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "claimer")) {
-					this.requestSpawn("Reserver", "claimer");
+			if (claimer == null) {
+				// But we actually only need one if its not over 20% reserved
+				if (
+					this.room.controller.reservation?.username !== global.USERNAME ||
+					this.room.controller.reservation.ticksToEnd <
+						CONTROLLER_RESERVE_MAX * 0.2
+				) {
+					this.claimerName = null;
+					if (
+						!Iterators.some(this.spawnRequests, ([_, v]) => v === "claimer")
+					) {
+						this.requestSpawn("Reserver", "claimer");
+					}
 				}
 				yield;
 				continue;

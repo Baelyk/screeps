@@ -197,9 +197,13 @@ function manageRemotes(this: ManageRoom) {
 	// Look for new remotes
 	if ((this.room.controller?.level ?? 0) >= 5 && Game.time % 100 === 0) {
 		// TODO: Temporary limit 1 remote
-		if (this.remoteRooms.size > 0) {
+		if (
+			(this.roomName !== "W8N4" && this.remoteRooms.size > 0) ||
+			(this.roomName === "W8N4" && this.remoteRooms.size > 1)
+		) {
 			return;
 		}
+		this.info("Looking for new remote");
 		const roomName = Object.values(Game.map.describeExits(this.roomName)).find(
 			(roomName) => {
 				if (this.remoteRooms.has(roomName)) {
@@ -908,7 +912,7 @@ export class Expand extends RoomProcess {
 			// Pick a destination
 			if (this.destinationName == null) {
 				// BFS
-				const maxSearches = 25;
+				const maxSearches = 50;
 				const queue = [this.roomName];
 				const visited = new Set();
 				let destination;
