@@ -1003,7 +1003,8 @@ export class Expand extends RoomProcess {
 				continue;
 			}
 			if (
-				controller.owner !== undefined ||
+				(controller.owner !== undefined &&
+					controller.owner.username !== global.USERNAME) ||
 				controller.reservation?.username !== undefined
 			) {
 				this.warn(
