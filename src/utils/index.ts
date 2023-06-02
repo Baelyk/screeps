@@ -1,3 +1,5 @@
+export { roomDescribe } from "./roomDescribe";
+
 import { ScriptError } from "utils/errors";
 export function livenRoomPosition(
 	position:

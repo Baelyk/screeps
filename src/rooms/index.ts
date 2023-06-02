@@ -26,6 +26,7 @@ import {
 } from "./spawns";
 import { RemoteRoom } from "./remote";
 import { wrapper } from "./../utils/errors";
+import { roomDescribe } from "./../utils";
 
 export { ManageSpawns, Construct };
 
@@ -84,6 +85,7 @@ function expand(this: ManageRoom): void {
 		(room) => room.controller?.my,
 	).length;
 	if (
+		Game.time % 100 === 0 &&
 		this.expandId == null &&
 		ownedRooms < Game.gcl.level &&
 		(this.room.controller?.level || 0) >= 6 &&
@@ -202,6 +204,11 @@ function manageRemotes(this: ManageRoom) {
 				if (this.remoteRooms.has(roomName)) {
 					return false;
 				}
+				// Room must be a standard room
+				if (roomDescribe(roomName) !== global.ROOM_STANDARD) {
+					return false;
+				}
+				// Assume invisible rooms are valid
 				const room = Game.rooms[roomName];
 				if (room == null) {
 					return true;
@@ -885,6 +892,11 @@ export class Expand extends RoomProcess {
 			return false;
 		}
 
+		// Room must be a standard room
+		if (roomDescribe(roomName) !== global.ROOM_STANDARD) {
+			return false;
+		}
+
 		// Assume invisible rooms are expandable
 		const room = Game.rooms[roomName];
 		if (room == null) {
@@ -897,6 +909,14 @@ export class Expand extends RoomProcess {
 		}
 
 		return !controller.my;
+	}
+
+	shouldSearchThrough(roomName: string): boolean {
+		// Don't search through the central invader-filled rooms
+		return (
+			roomDescribe(roomName) !== global.ROOM_SOURCE_KEEPER &&
+			roomDescribe(roomName) !== global.ROOM_CENTER
+		);
 	}
 
 	*expand() {
@@ -914,12 +934,14 @@ export class Expand extends RoomProcess {
 				while (searches < maxSearches) {
 					searches++;
 					const current = queue.shift();
-					this.debug(`Searching ${searches} ${current}`);
 					visited.add(current);
 					if (current == null) {
 						this.warn("Exhausted queue");
 						break;
 					}
+					this.debug(
+						`Searching ${searches} ${current} ${roomDescribe(current)}`,
+					);
 
 					if (this.isValidDestination(current)) {
 						this.debug(`Found destination ${current}`);
@@ -927,9 +949,14 @@ export class Expand extends RoomProcess {
 						break;
 					}
 
-					Object.values(Game.map.describeExits(current))
-						.filter((roomName) => !visited.has(roomName))
-						.forEach((roomName) => queue.push(roomName));
+					if (this.shouldSearchThrough(current)) {
+						this.debug(`Searching through ${current}`);
+						Object.values(Game.map.describeExits(current))
+							.filter((roomName) => !visited.has(roomName))
+							.forEach((roomName) => queue.push(roomName));
+					} else {
+						this.debug(`Not searching through ${current}`);
+					}
 				}
 
 				if (destination == null) {
