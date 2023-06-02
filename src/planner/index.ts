@@ -130,6 +130,7 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 
 	getCostMatrix(roomName: string): CostMatrix {
 		if (!(roomName in this.costMatrices)) {
+			this.debug(`Creating new cost matrix for ${roomName}`);
 			this.costMatrices[roomName] = new PathFinder.CostMatrix();
 		}
 		return this.costMatrices[roomName];
@@ -141,6 +142,7 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 			return;
 		}
 		for (const { x, y, roomName } of pos) {
+			this.debug(`Updating ${x} ${y} ${roomName} to ${cost}`);
 			this.getCostMatrix(roomName).set(x, y, cost);
 		}
 	}
@@ -160,10 +162,9 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 			{
 				roomCallback: (roomName) => {
 					// Do not search other rooms
-					if (roomName !== this.roomName) {
-						return options.allowOtherRooms
-							? new PathFinder.CostMatrix()
-							: false;
+					if (roomName !== this.roomName && !options.allowOtherRooms) {
+						this.debug(`${roomName} is not ${this.roomName}, will not search`);
+						return false;
 					}
 					return this.getCostMatrix(roomName);
 				},
