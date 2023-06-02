@@ -975,16 +975,23 @@ export class Expand extends RoomProcess {
 				this.destinationName = null;
 				continue;
 			}
-			if (controller.owner !== undefined) {
+			if (
+				controller.owner !== undefined ||
+				controller.reservation?.username !== undefined
+			) {
 				this.warn(
-					`Abandoning expansion target ${this.destinationName}, foreign owned`,
+					`Abandoning expansion target ${
+						this.destinationName
+					}, owned/reserved by ${
+						controller.owner ?? controller.reservation?.username
+					}`,
 				);
 				this.invalidDestinations.add(this.destinationName);
 				this.destinationName = null;
 				continue;
 			}
 			if (scout.room.name === this.destinationName) {
-				const response = scout.moveTo(controller);
+				const response = scout.moveTo(controller, { range: 1 });
 				if (response === ERR_NO_PATH) {
 					this.warn(
 						`Abandoning expansion target ${this.destinationName}, cannot path to controller`,
