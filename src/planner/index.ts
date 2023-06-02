@@ -460,7 +460,7 @@ export class RoomPlanner extends Blueprint {
 		const queue: RoomCoord[] = [spawnSpot];
 		const visited: Set<Index> = new Set();
 		const extensions: RoomCoord[] = [];
-		const roads: RoomCoord[] = [];
+		const roads: RoomPosition[] = [];
 
 		while (queue.length > 0 && extensions.length < 60) {
 			const current = queue.shift();
@@ -498,18 +498,18 @@ export class RoomPlanner extends Blueprint {
 						openNeighbors.pop();
 					}
 					path.path.forEach((road) => this.roads.add(road));
-					extensions.push(...openNeighbors);
+					roads.push(...path.path);
 					this.occupy(path.path);
+					this.updateCostMatrix(path.path, ROAD_COST);
+					extensions.push(...openNeighbors);
 					this.occupy(openNeighbors);
+					this.updateCostMatrix(extensions, UNWALKABLE_COST);
 					this.debug(
 						`Extension at ${current.x} ${current.y} [${extensions.length}]`,
 					);
 				}
 				unoccupyTiles(temporarilyOccupied, path.path);
 			}
-
-			this.updateCostMatrix(roads, ROAD_COST);
-			this.updateCostMatrix(extensions, UNWALKABLE_COST);
 
 			getNeighbors(current)
 				// Only traverse along unoccupied or road/exit path neighbors
@@ -525,10 +525,7 @@ export class RoomPlanner extends Blueprint {
 			this.warn(`Only able to plan ${extensions.length} extensions`);
 		}
 
-		return [
-			extensions.map(coordToRoomPositionMapper(this.roomName)),
-			roads.map(coordToRoomPositionMapper(this.roomName)),
-		];
+		return [extensions.map(coordToRoomPositionMapper(this.roomName)), roads];
 	}
 
 	blueprint(): IBlueprint {
