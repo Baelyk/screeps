@@ -360,7 +360,6 @@ export class RemoteRoom extends RoomProcess {
 		const mineSources = this.mineSources();
 		const haulEnergy = this.haulEnergy();
 		while (true) {
-			this.info(`Remote room ${this.roomName} for ${this.ownerName}`);
 			scoutRoom.next();
 			// Wait until room visible to continue
 			if (!this.isVisible) {

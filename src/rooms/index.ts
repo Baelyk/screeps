@@ -196,13 +196,6 @@ function manageRemotes(this: ManageRoom) {
 
 	// Look for new remotes
 	if ((this.room.controller?.level ?? 0) >= 5 && Game.time % 100 === 0) {
-		// TODO: Temporary limit 1 remote
-		if (
-			(this.roomName !== "W8N4" && this.remoteRooms.size > 0) ||
-			(this.roomName === "W8N4" && this.remoteRooms.size > 1)
-		) {
-			return;
-		}
 		this.info("Looking for new remote");
 		const roomName = Object.values(Game.map.describeExits(this.roomName)).find(
 			(roomName) => {
