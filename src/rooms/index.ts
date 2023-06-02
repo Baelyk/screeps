@@ -691,7 +691,7 @@ export class Economy extends RoomProcess {
 			const desiredUpgraders =
 				this.room.controller.level === 8
 					? Math.floor(this.energyAvailable / 200000)
-					: Math.min(3, Math.max(1, Math.floor(this.energyAvailable / 55000)));
+					: Math.min(5, Math.max(1, Math.floor(this.energyAvailable / 55000)));
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
 					this.info(
