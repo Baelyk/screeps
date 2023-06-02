@@ -739,6 +739,7 @@ export class Economy extends RoomProcess {
 			if (
 				this.room.controller?.my &&
 				this.energyAvailable === 0 &&
+				this.room.energyCapacityAvailable > 0 &&
 				Iterators.all(
 					this.sources,
 					([_, [__, minerName]]) => Game.creeps[minerName || ""] == null,
