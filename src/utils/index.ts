@@ -138,12 +138,25 @@ export function pathToRoomPosition(
 }
 
 export function nextAvailableName(name: string): string {
-	let index = 1;
+	let token = tokenGenerator(2);
+	// Regenerate token until no such Creep exists
 	while (
-		Game.creeps[`${name}_${index}`] != undefined ||
-		Memory.creeps[`${name}_${index}`] != undefined
+		Game.creeps[`${name}_${token}`] != null ||
+		Memory.creeps[`${name}_${token}`] != null
 	) {
-		index++;
+		token = tokenGenerator(2);
 	}
-	return `${name}_${index}`;
+	return `${name}_${token}`;
+}
+
+export function tokenGenerator(N: number, alphabet?: string): string {
+	const s = alphabet ?? "0123456789";
+	// https://stackoverflow.com/a/19964557
+	return Array(N)
+		.join()
+		.split(",")
+		.map(function () {
+			return s.charAt(Math.floor(Math.random() * s.length));
+		})
+		.join("");
 }

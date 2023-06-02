@@ -343,8 +343,12 @@ export class Constructor extends CreepProcess {
 				}
 
 				if (response === ERR_NOT_IN_RANGE) {
-					this.info("on the move");
-					this.info(errorConstant(this.creep.moveTo(site)));
+					const start = Game.cpu.getUsed();
+					this.creep.moveTo(site.pos, { range: 1, maxOps: 10000 });
+					const used = Math.round((Game.cpu.getUsed() - start) * 100) / 100;
+					if (used > 1) {
+						this.warn(`Used ${used} CPU pathing to site`);
+					}
 				}
 
 				yield;
