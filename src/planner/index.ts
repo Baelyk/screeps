@@ -142,7 +142,6 @@ abstract class Blueprint extends RoomProcess implements IBlueprint {
 			return;
 		}
 		for (const { x, y, roomName } of pos) {
-			this.debug(`Updating ${x} ${y} ${roomName} to ${cost}`);
 			this.getCostMatrix(roomName).set(x, y, cost);
 		}
 	}
@@ -504,9 +503,6 @@ export class RoomPlanner extends Blueprint {
 					extensions.push(...openNeighbors);
 					this.occupy(openNeighbors);
 					this.updateCostMatrix(extensions, UNWALKABLE_COST);
-					this.debug(
-						`Extension at ${current.x} ${current.y} [${extensions.length}]`,
-					);
 				}
 				unoccupyTiles(temporarilyOccupied, path.path);
 			}
@@ -584,6 +580,7 @@ export class RoomPlanner extends Blueprint {
 		this.links.push(...links);
 
 		this.links = this.prioritizeLinks(this.links, spawnSpot);
+
 		const [extractor, extractorRoad] = this.mineralExtractor(storage);
 		this.extractor = extractor;
 		extractorRoad.forEach((road) => this.roads.add(road));

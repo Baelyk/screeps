@@ -103,7 +103,22 @@ function expand(this: ManageRoom): void {
 }
 
 function build(this: ManageRoom): void {
+	// If room has no blueprint and no room planner, start a new one
+	if (
+		this.blueprint == null &&
+		!global.kernel.hasProcess(this.roomPlannerId || -1)
+	) {
+		this.roomPlannerId = global.kernel.spawnProcess(
+			new RoomPlanner({ roomName: this.roomName, manageRoomId: this.id }),
+		);
+	}
+
+	// Wait for blueprint to exist
 	if (this.blueprint == null) {
+		return;
+	}
+	// Only build every 100 ticks
+	if (Game.time % 100 !== 0) {
 		return;
 	}
 	// TODO: Temporary for my pre-existing manually planned rooms
@@ -252,10 +267,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 		upgradeRoom.bind(this)();
 		expand.bind(this)();
 		wrapper(() => manageRemotes.bind(this)(), "Error managing remotes");
-
-		if (Game.time % 100 === 0) {
-			build.bind(this)();
-		}
+		wrapper(() => build.bind(this)(), "Error building");
 
 		const creeps = this.room.find(FIND_MY_CREEPS);
 		creeps.forEach((creep) => {
@@ -365,18 +377,6 @@ export class ManageRoom extends RoomProcess {
 			global.kernel.spawnProcess(new ManageLinks({ roomName: this.roomName }));
 
 		this.expandId = data.expandId || null;
-	}
-
-	init(): void {
-		// If room has no blueprint and no room planner, start a new one
-		if (
-			this.blueprint == null &&
-			!global.kernel.hasProcess(this.roomPlannerId || -1)
-		) {
-			global.kernel.spawnProcess(
-				new RoomPlanner({ roomName: this.roomName, manageRoomId: this.id }),
-			);
-		}
 	}
 
 	receiveMessage(message: IMessage): void {

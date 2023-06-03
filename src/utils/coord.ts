@@ -1,4 +1,4 @@
-import { info } from "./logger";
+import { debug, info } from "./logger";
 
 export interface Coord {
 	x: number;
@@ -109,7 +109,11 @@ export class RoomCoordSet {
 
 	has(coord: RoomCoord): boolean {
 		const index = roomCoordToStr(coord);
-		return this.set.delete(index);
+		return this.set.has(index);
+	}
+
+	get size(): number {
+		return this.set.size;
 	}
 
 	*[Symbol.iterator]() {
