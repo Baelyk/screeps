@@ -102,6 +102,7 @@ export abstract class Process implements IProcess {
 	}
 
 	run(): ProcessReturn {
+		const start = Game.cpu.getUsed();
 		if (!this._initialized) {
 			this.init();
 		}
@@ -121,6 +122,14 @@ export abstract class Process implements IProcess {
 
 		try {
 			const status = this.generator.next();
+
+			const elapsed = Game.cpu.getUsed() - start;
+			if (elapsed >= 1) {
+				this.warn(`Used ${Math.floor(elapsed * 100) / 100} CPU`);
+			} else {
+				this.debug(`Used ${Math.floor(elapsed * 100) / 100} CPU`);
+			}
+
 			return {
 				code: status.done
 					? ProcessReturnCode.Done
