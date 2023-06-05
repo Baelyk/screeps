@@ -34,14 +34,18 @@ export function genericBody(energy: number): BodyPartConstant[] {
 	return bodyFromSegments([MOVE, WORK, CARRY], energy);
 }
 
-export function haulerBody(energy: number): BodyPartConstant[] {
+export function haulerBody(energy: number, remote = false): BodyPartConstant[] {
 	const body: BodyPartConstant[] = [];
 	// Haulers/tenders don't really need more thnat 30 body parts, allowing
 	// them 1000 carry capacity and 1 move speed on roads empty and full.
 	// Energy capacity minus work cost divided by MOVE/CARRY cost
 	//
 	// Also, require at least 2 body units for a move and a carry
-	const bodyUnits = Math.max(2, Math.min(30, Math.floor(energy / 50)));
+	const bodyUnits = Math.max(
+		2,
+		// But, if for a remote room, don't limit hauler size
+		Math.min(remote ? 50 : 30, Math.floor(energy / 50)),
+	);
 	// 1/3 MOVE, rest CARRY
 	for (let i = 0; i < bodyUnits; i++) {
 		// Prioritize MOVE parts so that the creep always moves in 1

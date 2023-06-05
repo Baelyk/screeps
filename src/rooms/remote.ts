@@ -394,7 +394,7 @@ export class RemoteRoom extends RoomProcess {
 		} else if (role === "guard") {
 			body = (energy) => bodyFromSegments([ATTACK, MOVE], energy);
 		} else if (role[0] === "hauler") {
-			body = haulerBody;
+			body = (energy) => haulerBody(energy, true);
 		} else {
 			this.error(`Unexpected role ${JSON.stringify(role)}`);
 		}
