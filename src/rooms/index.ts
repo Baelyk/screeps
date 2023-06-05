@@ -85,7 +85,7 @@ function expand(this: ManageRoom): void {
 		(room) => room.controller?.my,
 	).length;
 	if (
-		Game.time % 100 === 0 &&
+		Game.time % 1000 === 0 &&
 		this.expandId == null &&
 		ownedRooms < Game.gcl.level &&
 		(this.room.controller?.level || 0) >= 6 &&
@@ -212,7 +212,7 @@ function manageRemotes(this: ManageRoom) {
 	}
 
 	// Look for new remotes
-	if ((this.room.controller?.level ?? 0) >= 5 && Game.time % 100 === 0) {
+	if ((this.room.controller?.level ?? 0) >= 5 && Game.time % 1000 === 0) {
 		this.info("Looking for new remote");
 		const roomName = Object.values(Game.map.describeExits(this.roomName)).find(
 			(roomName) => {
