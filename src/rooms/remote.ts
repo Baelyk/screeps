@@ -359,8 +359,8 @@ export class RemoteRoom extends RoomProcess {
 					const newProcessId = global.kernel.spawnProcess(
 						new Hauler({
 							creepName: haulerName,
-							sink: storage.pos,
-							source: container.pos,
+							_sink: storage.pos,
+							_source: container.pos,
 						}),
 					);
 					this.containers.set(containerId, [haulerName, newProcessId]);

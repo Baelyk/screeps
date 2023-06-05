@@ -424,16 +424,16 @@ export class Hauler extends CreepProcess {
 	}
 
 	constructor({
-		source,
-		sink,
+		_source,
+		_sink,
 		...data
 	}: Omit<ProcessData<typeof CreepProcess>, "name"> & {
-		source: RoomCoord;
-		sink: RoomCoord;
+		_source: RoomCoord;
+		_sink: RoomCoord;
 	}) {
 		super({ name: "Hauler", ...data });
-		this._source = source;
-		this._sink = sink;
+		this._source = _source;
+		this._sink = _sink;
 		this.generator = hauler.bind(this)();
 	}
 }
