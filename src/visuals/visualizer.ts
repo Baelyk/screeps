@@ -5,6 +5,7 @@ import {
 	ProcessData,
 	ProcessConstructors,
 	RoomProcess,
+	ProcessId,
 } from "./../process";
 import { info, warn } from "./../utils/logger";
 import {
@@ -16,7 +17,7 @@ import {
 import * as Providers from "./providers";
 
 export class Visualizer extends Process {
-	providers: Map<BoundVisualProvider, null>;
+	providers: Map<BoundVisualProvider, ProcessId | string>;
 
 	constructor(data: Omit<ProcessData<typeof Process>, "name">) {
 		super({ name: "Visualizer", ...data });
@@ -24,22 +25,28 @@ export class Visualizer extends Process {
 		this.generator = this.visualizer();
 	}
 
-	init(): void {
+	getNewProviders(): void {
+		const provided = new Set(this.providers.values());
 		for (const roomName in Game.rooms) {
 			if (
-				Game.rooms[roomName].controller?.my ||
-				Game.rooms[roomName].controller?.reservation?.username ===
-					global.USERNAME
+				!provided.has(roomName) &&
+				(Game.rooms[roomName].controller?.my ||
+					Game.rooms[roomName].controller?.reservation?.username ===
+						global.USERNAME)
 			) {
-				this.providers.set(Providers.roomStats(roomName), null);
+				this.providers.set(Providers.roomStats(roomName), roomName);
 			}
 
 			// Get saved RoomProcesses
 			const processes = Memory.rooms[roomName]?.processes || {};
 			for (const processName in processes) {
 				const processId = processes[processName];
+				if (processId == null || provided.has(processId)) {
+					continue;
+				}
+
 				const provider = Providers.RoomProcessProviders.get(processName);
-				if (processId != null && provider != null) {
+				if (provider != null) {
 					global.kernel.sendMessage(
 						new RequestVisualConnection(
 							this.id,
@@ -52,16 +59,29 @@ export class Visualizer extends Process {
 		}
 	}
 
+	init(): void {
+		this.getNewProviders();
+	}
+
 	*visualizer() {
 		while (true) {
-			for (const [provider, _] of this.providers) {
+			// Look for new providers
+			if (Game.time % 100 === 0) {
+				this.getNewProviders();
+			}
+
+			for (const [provider, id] of this.providers) {
 				wrapper(() => {
 					const status = provider.next();
 					if (status.done) {
-						info(`A provider has finished with ${JSON.stringify(status)}`);
+						info(
+							`A provider for ${id} has finished with ${JSON.stringify(
+								status,
+							)}`,
+						);
 						this.providers.delete(provider);
 					}
-				}, "An error occured while running a provider");
+				}, `An error occured while running a provider for ${id}`);
 			}
 			yield;
 		}
@@ -72,7 +92,7 @@ export class Visualizer extends Process {
 			warn("Received erroneous visual connection request");
 			return;
 		} else if (message instanceof VisualConnection) {
-			this.providers.set(message.provider, null);
+			this.providers.set(message.provider, message.from);
 			return;
 		}
 		super.receiveMessage(message);
