@@ -117,6 +117,24 @@ export class RemoteRoom extends RoomProcess {
 			const dummyPosition = new RoomPosition(24, 24, this.roomName);
 			scout.moveTo(dummyPosition, { range: 22 });
 
+			// Wait until scout is in the room
+			if (scout.room.name !== this.roomName) {
+				yield;
+				continue;
+			}
+			if (this.room.controller == null) {
+				throw new Error("Room lacks a controller");
+			}
+			// If the scout is actually next to the controller, moveTo returns
+			// ERR_NO_PATH, also, not letting it get closer than two should help
+			// prevent it blocking the controller.
+			if (scout.pos.getRangeTo(this.room.controller.pos) > 2) {
+				const response = scout.moveTo(this.room.controller, { range: 1 });
+				if (response === ERR_NO_PATH) {
+					throw new Error("Cannot path to controller");
+				}
+			}
+
 			yield;
 		}
 	}

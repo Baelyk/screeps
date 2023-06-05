@@ -431,10 +431,10 @@ export class Hauler extends CreepProcess {
 		source: RoomCoord;
 		sink: RoomCoord;
 	}) {
-		super({ name: "Upgrader", ...data });
+		super({ name: "Hauler", ...data });
 		this._source = source;
 		this._sink = sink;
 		this.generator = hauler.bind(this)();
 	}
 }
-ProcessConstructors.set("Upgrader", Upgrader);
+ProcessConstructors.set("Hauler", Hauler);
