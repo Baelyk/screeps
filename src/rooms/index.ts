@@ -27,6 +27,8 @@ import {
 import { RemoteRoom } from "./remote";
 import { wrapper } from "./../utils/errors";
 import { roomDescribe } from "./../utils";
+import { RequestScoutingInfo, SendScoutingInfo } from "./../scouting";
+import { Socket } from "./../process/socket";
 
 export { ManageSpawns, Construct };
 
@@ -85,7 +87,7 @@ function expand(this: ManageRoom): void {
 		(room) => room.controller?.my,
 	).length;
 	if (
-		Game.time % 1000 === 0 &&
+		Game.time % 100 === 0 &&
 		this.expandId == null &&
 		ownedRooms < Game.gcl.level &&
 		(this.room.controller?.level || 0) >= 6 &&
@@ -887,29 +889,80 @@ export class Expand extends RoomProcess {
 		}`;
 	}
 
-	isValidDestination(roomName: string): boolean {
+	*isValidDestination(roomName: string) {
+		this.debug(`Checking expansion validity of ${roomName}`);
 		// Already tried this one
 		if (this.invalidDestinations.has(roomName)) {
+			this.debug(`Room ${roomName} already tried`);
 			return false;
 		}
 
 		// Room must be a standard room
 		if (roomDescribe(roomName) !== global.ROOM_STANDARD) {
+			this.debug(`Room ${roomName} is nonstandard ${roomDescribe(roomName)}`);
 			return false;
 		}
 
-		// Assume invisible rooms are expandable
-		const room = Game.rooms[roomName];
-		if (room == null) {
+		// Send request for room scouting info and wait on it
+		const request = new RequestScoutingInfo(this.id, roomName);
+		const { info } = yield* Socket.send(request, SendScoutingInfo);
+
+		// Assume unscouted rooms are expandable
+		if (info == null) {
+			this.debug(`Room ${roomName} unscouted`);
 			return true;
 		}
 
-		const controller = room.controller;
+		// Has controller
+		const controller = info.structures[STRUCTURE_CONTROLLER]?.[0];
 		if (controller == null) {
+			this.debug(`Room ${roomName} lacks a controller`);
 			return false;
 		}
 
-		return !controller.my;
+		// Not owned
+		if (info.owner != null || info.reservation?.username != null) {
+			this.debug(
+				`Room ${roomName} owned/reserved by ${
+					info.owner ?? info.reservation?.username
+				}`,
+			);
+			return false;
+		}
+
+		// Has two sources
+		if (info.sources.length !== 2) {
+			this.debug(`Room ${roomName} has ${info.sources.length} sources`);
+			return false;
+		}
+
+		// Can path from origin storage to destination controller
+		const storage = this.room.storage?.pos;
+		if (storage == null) {
+			throw new Error("Origin lacks storage");
+		}
+		const destinationCostMatrix = new PathFinder.CostMatrix();
+		info.structures[STRUCTURE_WALL]?.forEach(({ x, y }) =>
+			destinationCostMatrix.set(x, y, 255),
+		);
+		const path = PathFinder.search(storage, {
+			pos: new RoomPosition(controller.x, controller.y, roomName),
+			range: 1,
+		});
+		if (path.incomplete) {
+			this.debug(`Cannot path to room ${roomName} controller`);
+			return false;
+		}
+
+		// Controller is not too far
+		if (path.cost > 500) {
+			this.debug(`Room ${roomName} controller too far: ${path.cost}`);
+			return false;
+		}
+
+		// Checks out so far
+		this.debug(`Room ${roomName} checks out`);
+		return true;
 	}
 
 	shouldSearchThrough(roomName: string): boolean {
@@ -920,52 +973,67 @@ export class Expand extends RoomProcess {
 		);
 	}
 
+	*findDestination() {
+		this.info("Finding destination");
+		// BFS
+		const maxSearches = 50;
+		const queue = [this.roomName];
+		const visited = new Set();
+		let destination;
+		let searches = 0;
+
+		while (searches < maxSearches) {
+			searches++;
+			const current = queue.shift();
+			visited.add(current);
+			if (current == null) {
+				this.warn("Exhausted queue");
+				break;
+			}
+			this.debug(`Searching ${searches} ${current} ${roomDescribe(current)}`);
+
+			const isValid = yield* this.isValidDestination(current);
+			if (isValid) {
+				this.debug(`Found destination ${current}`);
+				destination = current;
+				break;
+			} else {
+				this.debug(`Room ${current} is not a valid destination`);
+				this.invalidDestinations.add(current);
+			}
+
+			if (this.shouldSearchThrough(current)) {
+				this.debug(`Searching through ${current}`);
+				Object.values(Game.map.describeExits(current))
+					.filter((roomName) => !visited.has(roomName))
+					.forEach((roomName) => queue.push(roomName));
+			} else {
+				this.debug(`Not searching through ${current}`);
+			}
+		}
+
+		if (destination == null) {
+			throw new Error(
+				`Unable to find expansion target from ${this.roomName} : (`,
+			);
+		}
+
+		return destination;
+	}
+
 	*expand() {
 		while (true) {
+			if (
+				Object.values(Game.rooms).filter((r) => r.controller?.my).length >=
+				Game.gcl.level
+			) {
+				this.warn("Too many owned rooms");
+				return;
+			}
 			this.info(`Room ${this.roomName} expanding to ${this.destinationName}`);
 			// Pick a destination
 			if (this.destinationName == null) {
-				// BFS
-				const maxSearches = 50;
-				const queue = [this.roomName];
-				const visited = new Set();
-				let destination;
-				let searches = 0;
-
-				while (searches < maxSearches) {
-					searches++;
-					const current = queue.shift();
-					visited.add(current);
-					if (current == null) {
-						this.warn("Exhausted queue");
-						break;
-					}
-					this.debug(
-						`Searching ${searches} ${current} ${roomDescribe(current)}`,
-					);
-
-					if (this.isValidDestination(current)) {
-						this.debug(`Found destination ${current}`);
-						destination = current;
-						break;
-					}
-
-					if (this.shouldSearchThrough(current)) {
-						this.debug(`Searching through ${current}`);
-						Object.values(Game.map.describeExits(current))
-							.filter((roomName) => !visited.has(roomName))
-							.forEach((roomName) => queue.push(roomName));
-					} else {
-						this.debug(`Not searching through ${current}`);
-					}
-				}
-
-				if (destination == null) {
-					this.warn(`Unable to find expansion target from ${this.roomName} :(`);
-					return;
-				}
-
-				this.destinationName = destination;
+				this.destinationName = yield* this.findDestination();
 			}
 
 			// Scout the destination
@@ -1011,7 +1079,7 @@ export class Expand extends RoomProcess {
 				this.warn(
 					`Abandoning expansion target ${
 						this.destinationName
-					}, owned/reserved by ${
+					}, owned / reserved by ${
 						controller.owner ?? controller.reservation?.username
 					}`,
 				);
@@ -1362,9 +1430,9 @@ export class Defence extends RoomProcess {
 			const trackedHits = Iterators.sum(this.trackedHostiles.values());
 
 			this.info(
-				`Hostile hits: ${hostileHits} tracked: ${trackedHits} !!${
+				`Hostile hits: ${hostileHits} tracked: ${trackedHits}!!${
 					trackedHits - hostileHits
-				}!!`,
+				} !!`,
 			);
 
 			// If there are no operational towers or we are not doing at least 100
@@ -1398,7 +1466,7 @@ export class Defence extends RoomProcess {
 					this.info(
 						`Creep ${defenderName} attacking ${
 							target.pos
-						} with response ${errorConstant(response)}`,
+						} with response ${errorConstant(response)} `,
 					);
 				}
 			}
@@ -1454,7 +1522,7 @@ export class Defence extends RoomProcess {
 				this.warn(
 					`Unexpectedly received message about unrequested creep: ${JSON.stringify(
 						message,
-					)}`,
+					)} `,
 				);
 			}
 
@@ -1608,7 +1676,7 @@ export class ManageLinks extends RoomProcess {
 					-4,
 				)} transfering ${transferEnergy} to ${target.id.slice(
 					-4,
-				)} with ${errorConstant(response)}`,
+				)} with ${errorConstant(response)} `,
 			);
 			targets[targetIndex][2] += transferEnergy;
 		}

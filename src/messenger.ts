@@ -3,17 +3,29 @@ import { error } from "./utils/logger";
 
 export type MessageId = number;
 
+// I don't want this to be a union of private, public messages so that messages
+// can implement IMessage
 export interface IMessage {
 	id: MessageId;
 	from: ProcessId;
+	to?: ProcessId;
+}
+
+export interface IPrivateMessage extends IMessage {
 	to: ProcessId;
+}
+
+export interface IPublicMessage extends IMessage {
+	to: undefined;
 }
 
 export class Messenger {
 	/** Counter for next MessageId */
 	private nextMessageId: MessageId;
 	/** Map from recipient process to message */
-	private messages: Map<ProcessId, IMessage[]>;
+	private messages: Map<ProcessId, IPrivateMessage[]>;
+	/** Map from message id to message, for public messages */
+	private publicMessages: Map<MessageId, IPublicMessage>;
 
 	/**
 	 * Creates a new Messenger from a serialization of a Messenger.
@@ -35,6 +47,7 @@ export class Messenger {
 	constructor({ nextMessageId }: { nextMessageId?: MessageId }) {
 		this.nextMessageId = nextMessageId || 0;
 		this.messages = new Map();
+		this.publicMessages = new Map();
 	}
 
 	/**
@@ -78,9 +91,41 @@ export class Messenger {
 	 * @param message The message as an `IMessage`
 	 */
 	send(message: IMessage): void {
-		const recipient = message.to;
-		const messages = this.messages.get(recipient) || [];
-		messages.push(message);
-		this.messages.set(recipient, messages);
+		// TODO: Some way to get this to work as a type guard?
+		if (message.to == null) {
+			// Public message
+			this.publicMessages.set(message.id, message as IPublicMessage);
+		} else {
+			// Private message
+			const recipient = message.to;
+			const messages = this.messages.get(recipient) || [];
+			messages.push(message as IPrivateMessage);
+			this.messages.set(recipient, messages);
+		}
+	}
+
+	/**
+	 * Logs a public message with the Messenger.
+	 *
+	 * @param message The public message as an `IPublicMessage`
+	 */
+	sendPublicMessage(message: IPublicMessage): void {
+		this.publicMessages.set(message.id, message);
+	}
+
+	/**
+	 * Removes a public message from the Messenger.
+	 *
+	 * @param messageId The public message id
+	 */
+	removePublicMessage(messageId: MessageId): void {
+		this.publicMessages.delete(messageId);
+	}
+
+	/**
+	 * Gets the list of public messages.
+	 */
+	getPublicMessages(): IPublicMessage[] {
+		return Array.from(this.publicMessages.values());
 	}
 }
