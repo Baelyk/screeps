@@ -945,10 +945,16 @@ export class Expand extends RoomProcess {
 		info.structures[STRUCTURE_WALL]?.forEach(({ x, y }) =>
 			destinationCostMatrix.set(x, y, 255),
 		);
-		const path = PathFinder.search(storage, {
-			pos: new RoomPosition(controller.x, controller.y, roomName),
-			range: 1,
-		});
+		const path = PathFinder.search(
+			storage,
+			{
+				pos: new RoomPosition(controller.x, controller.y, roomName),
+				range: 1,
+			},
+			{
+				maxOps: 20000,
+			},
+		);
 		if (path.incomplete) {
 			this.debug(`Cannot path to room ${roomName} controller`);
 			return false;
@@ -1023,13 +1029,6 @@ export class Expand extends RoomProcess {
 
 	*expand() {
 		while (true) {
-			if (
-				Object.values(Game.rooms).filter((r) => r.controller?.my).length >=
-				Game.gcl.level
-			) {
-				this.warn("Too many owned rooms");
-				return;
-			}
 			this.info(`Room ${this.roomName} expanding to ${this.destinationName}`);
 			// Pick a destination
 			if (this.destinationName == null) {
@@ -1138,6 +1137,14 @@ export class Expand extends RoomProcess {
 
 			// Claim the destination
 			if (!controller.my) {
+				if (
+					Object.values(Game.rooms).filter((r) => r.controller?.my).length >=
+					Game.gcl.level
+				) {
+					this.warn("Too many owned rooms");
+					return;
+				}
+
 				const claimer = Game.creeps[this.claimerName || ""];
 				if (claimer == null) {
 					if (
