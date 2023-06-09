@@ -200,7 +200,7 @@ function build(this: ManageRoom): void {
 		);
 }
 
-function manageRemotes(this: ManageRoom) {
+function* manageRemotes(this: ManageRoom) {
 	// Need a storage to have remotes
 	if (this.room.storage == null) {
 		return;
@@ -216,32 +216,75 @@ function manageRemotes(this: ManageRoom) {
 	// Look for new remotes
 	if ((this.room.controller?.level ?? 0) >= 5 && Game.time % 1000 === 0) {
 		this.info("Looking for new remote");
-		const roomName = Object.values(Game.map.describeExits(this.roomName)).find(
-			(roomName) => {
-				if (this.remoteRooms.has(roomName)) {
-					return false;
-				}
-				// Room must be a standard room
-				if (roomDescribe(roomName) !== global.ROOM_STANDARD) {
-					return false;
-				}
-				// Assume invisible rooms are valid
-				const room = Game.rooms[roomName];
-				if (room == null) {
-					return true;
-				}
-				if (room.controller == null) {
-					return false;
-				}
-				if (
-					room.controller.my ||
-					room.controller.reservation?.username === global.USERNAME
-				) {
-					return false;
-				}
-				return true;
-			},
-		);
+		let roomName;
+		for (roomName of Object.values(Game.map.describeExits(this.roomName))) {
+			// Room must be a standard room
+			if (roomDescribe(roomName) !== global.ROOM_STANDARD) {
+				this.debug(`Room ${roomName} is nonstandard ${roomDescribe(roomName)}`);
+				continue;
+			}
+
+			// Send request for room scouting info and wait on it
+			const request = new RequestScoutingInfo(this.id, roomName);
+			const { info } = yield* Socket.send(request, SendScoutingInfo);
+
+			// Assume unscouted rooms are expandable
+			if (info == null) {
+				this.debug(`Room ${roomName} unscouted`);
+				break;
+			}
+
+			// Has controller
+			const controller = info.structures[STRUCTURE_CONTROLLER]?.[0];
+			if (controller == null) {
+				this.debug(`Room ${roomName} lacks a controller`);
+				continue;
+			}
+
+			// Not owned
+			if (info.owner != null || info.reservation?.username != null) {
+				this.debug(
+					`Room ${roomName} owned/reserved by ${
+						info.owner ?? info.reservation?.username
+					}`,
+				);
+				continue;
+			}
+
+			// Can path from origin storage to destination controller
+			const storage = this.room.storage?.pos;
+			if (storage == null) {
+				throw new Error("Origin lacks storage");
+			}
+			const destinationCostMatrix = new PathFinder.CostMatrix();
+			info.structures[STRUCTURE_WALL]?.forEach(({ x, y }) =>
+				destinationCostMatrix.set(x, y, 255),
+			);
+			const path = PathFinder.search(
+				storage,
+				{
+					pos: new RoomPosition(controller.x, controller.y, roomName),
+					range: 1,
+				},
+				{
+					maxOps: 20000,
+				},
+			);
+			if (path.incomplete) {
+				this.debug(`Cannot path to room ${roomName} controller`);
+				continue;
+			}
+
+			// Controller is not too far
+			if (path.cost > 500) {
+				this.debug(`Room ${roomName} controller too far: ${path.cost}`);
+				continue;
+			}
+
+			// Checks out so far
+			this.debug(`Room ${roomName} checks out`);
+			break;
+		}
 		if (roomName != null) {
 			this.info(`Creating remote room ${roomName}`);
 			const remoteId = global.kernel.spawnProcess(
