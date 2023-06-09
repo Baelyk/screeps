@@ -1088,7 +1088,15 @@ export class Expand extends RoomProcess {
 				continue;
 			}
 			const dummyPosition = new RoomPosition(24, 24, this.destinationName);
-			scout.moveTo(dummyPosition, { range: 22 });
+			const response = scout.moveTo(dummyPosition, { range: 22 });
+			if (response === ERR_NO_PATH) {
+				this.warn(
+					`Abandoning expansion target ${this.destinationName}, scout cannot path to it`,
+				);
+				this.invalidDestinations.add(this.destinationName);
+				this.destinationName = null;
+				continue;
+			}
 
 			const destination = Game.rooms[this.destinationName];
 			if (destination == null) {
