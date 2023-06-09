@@ -4,7 +4,7 @@ import {
 	ProcessConstructors,
 	ProcessId,
 } from "./../process";
-import { IMessage, MessageId } from "./../messenger";
+import { IMessage, IPrivateMessage, MessageId } from "./../messenger";
 import { Counter } from "./../utils/counter";
 import * as Iterators from "./../utils/iterators";
 import * as LZString from "lz-string";

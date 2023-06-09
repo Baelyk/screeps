@@ -4,9 +4,10 @@ import { ProcessTable } from "./processTable";
 import { IProcess, ProcessId, deserializeProcess } from "./process";
 import { ForgetDeadCreeps } from "./misc";
 import { ManageRoom } from "./rooms";
-import { IMessage, MessageId, Messenger } from "./messenger";
+import { IMessage, IPublicMessage, MessageId, Messenger } from "./messenger";
 import { Scheduler } from "./scheduler";
 import { Visualizer } from "./visuals/visualizer";
+import { Scouting } from "./scouting";
 
 declare global {
 	interface Memory {
@@ -38,6 +39,7 @@ export class Kernel {
 				this.spawnProcess(new ManageRoom({ roomName: name }));
 			}
 
+			this.spawnProcess(new Scouting({}));
 			this.spawnProcess(new Visualizer({}));
 			return;
 		}
@@ -142,6 +144,14 @@ export class Kernel {
 
 	sendMessage(message: IMessage): void {
 		this.messenger.send(message);
+	}
+
+	removePublicMessage(messageId: MessageId): void {
+		this.messenger.removePublicMessage(messageId);
+	}
+
+	getPublicMessages(): IPublicMessage[] {
+		return this.messenger.getPublicMessages();
 	}
 
 	getNextId(): ProcessId {

@@ -71,6 +71,8 @@ export abstract class Process implements IProcess {
 		return `${this.id} ${this.name}`;
 	}
 
+	// TODO: Figure out how to type this wrt an instance's Generator without just
+	// overriding this in the instance
 	[Symbol.iterator](): Generator {
 		if (this.generator == null) {
 			throw new Error("Iterating through Generatorless Process");
