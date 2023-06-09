@@ -42,7 +42,7 @@ export class Socket<T = IMessage> extends Process {
 
 	*socket(): Generator<void, T, void> {
 		while (this.message == null) {
-			this.info("Awaiting message");
+			this.debug("Awaiting message");
 
 			// TODO: This is here until we improve yield*ing to a process
 			const messages = global.kernel.pollMessages(this.id);
