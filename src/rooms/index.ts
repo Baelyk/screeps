@@ -220,6 +220,11 @@ function* manageRemotes(this: ManageRoom) {
 			this.info("Looking for new remote");
 			let roomName;
 			for (roomName of Object.values(Game.map.describeExits(this.roomName))) {
+				// Cannot already be a remote room
+				if (this.remoteRooms.has(roomName)) {
+					continue;
+				}
+
 				// Room must be a standard room
 				if (roomDescribe(roomName) !== global.ROOM_STANDARD) {
 					this.debug(
@@ -309,6 +314,7 @@ function* manageRemotes(this: ManageRoom) {
 }
 
 function* manageRoom(this: ManageRoom): Generator<void, void, never> {
+	const manageRemotesGen = manageRemotes.bind(this)();
 	while (true) {
 		if (!this.room.controller?.my) {
 			this.warn(`Not my room, stopping ${this.display()}`);
@@ -318,7 +324,7 @@ function* manageRoom(this: ManageRoom): Generator<void, void, never> {
 		tendRoom.bind(this)();
 		upgradeRoom.bind(this)();
 		expand.bind(this)();
-		wrapper(() => manageRemotes.bind(this)(), "Error managing remotes");
+		wrapper(() => manageRemotesGen.next(), "Error managing remotes");
 		wrapper(() => build.bind(this)(), "Error building");
 
 		const creeps = this.room.find(FIND_MY_CREEPS);
