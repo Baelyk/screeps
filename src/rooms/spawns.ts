@@ -116,6 +116,20 @@ export class ManageSpawns extends RoomProcess {
 		}
 	}
 
+	flushQueue(): void {
+		this.warn("Flushing queue");
+		for (const [_, __, request] of this.queue) {
+			if (request != null) {
+				this.outbox.push({
+					requester: request.from,
+					creepName: null,
+					requestId: request.id,
+				});
+			}
+		}
+		this.queue = [];
+	}
+
 	*manageSpawns() {
 		const processOutbox = this.processOutbox();
 		const spawnCreeps = this.spawnCreeps();
