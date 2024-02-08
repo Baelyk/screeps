@@ -8,3 +8,4 @@ dist
 .screeps-multimeter.history
 .screeps.yaml
 *.log
+server/.env

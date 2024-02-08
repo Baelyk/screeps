@@ -32,6 +32,16 @@ export class Kernel {
 		const serializedProcesses = Memory.processes;
 		if (serializedProcesses == null) {
 			warn("Starting from scratch");
+
+			if (Memory.rooms == null) {
+				warn("Initialized rooms memory");
+				Memory.rooms = {};
+			}
+			if (Memory.creeps == null) {
+				warn("Initialized creeps memory");
+				Memory.creeps = {};
+			}
+
 			this.messenger = new Messenger({});
 			this.spawnProcess(new ForgetDeadCreeps({}));
 
