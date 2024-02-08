@@ -97,7 +97,7 @@ export abstract class Process implements IProcess {
 	}
 
 	_initialized = false;
-	init(): void {}
+	init(): void { }
 
 	errorHandler(error: Error): ProcessReturn {
 		throw error;
@@ -237,6 +237,11 @@ export class RoomProcess extends Process {
 	) {
 		super(data);
 		this.roomName = data.roomName;
+
+		if (Memory.rooms == null) {
+			Memory.rooms = {};
+			this.warn("Initialized rooms memory");
+		}
 
 		// TODO: This seems silly
 		const memory = Memory.rooms[this.roomName] ?? {};
