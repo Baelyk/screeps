@@ -253,8 +253,7 @@ function* manageRemotes(this: ManageRoom) {
 				// Not owned
 				if (info.owner != null || info.reservation?.username != null) {
 					this.debug(
-						`Room ${roomName} owned/reserved by ${
-							info.owner ?? info.reservation?.username
+						`Room ${roomName} owned/reserved by ${info.owner ?? info.reservation?.username
 						}`,
 					);
 					continue;
@@ -940,9 +939,8 @@ export class Expand extends RoomProcess {
 	}
 
 	display(): string {
-		return `${this.id} ${this.name} ${this.roomName} -> ${
-			this.destinationName || "??"
-		}`;
+		return `${this.id} ${this.name} ${this.roomName} -> ${this.destinationName || "??"
+			}`;
 	}
 
 	*isValidDestination(roomName: string) {
@@ -979,8 +977,7 @@ export class Expand extends RoomProcess {
 		// Not owned
 		if (info.owner != null || info.reservation?.username != null) {
 			this.debug(
-				`Room ${roomName} owned/reserved by ${
-					info.owner ?? info.reservation?.username
+				`Room ${roomName} owned/reserved by ${info.owner ?? info.reservation?.username
 				}`,
 			);
 			return false;
@@ -1059,10 +1056,10 @@ export class Expand extends RoomProcess {
 				this.debug(`Found destination ${current}`);
 				destination = current;
 				break;
-			} else {
-				this.debug(`Room ${current} is not a valid destination`);
-				this.invalidDestinations.add(current);
 			}
+
+			this.debug(`Room ${current} is not a valid destination`);
+			this.invalidDestinations.add(current);
 
 			if (this.shouldSearchThrough(current)) {
 				this.debug(`Searching through ${current}`);
@@ -1140,10 +1137,8 @@ export class Expand extends RoomProcess {
 				controller.reservation?.username !== undefined
 			) {
 				this.warn(
-					`Abandoning expansion target ${
-						this.destinationName
-					}, owned / reserved by ${
-						controller.owner ?? controller.reservation?.username
+					`Abandoning expansion target ${this.destinationName
+					}, owned / reserved by ${controller.owner ?? controller.reservation?.username
 					}`,
 				);
 				this.invalidDestinations.add(this.destinationName);
@@ -1249,7 +1244,7 @@ export class Expand extends RoomProcess {
 				!global.kernel.hasProcess(this.destinationManagerId)
 			) {
 				this.destinationManagerId =
-					destination.memory.processes?.["ManageRoom"] ?? null;
+					destination.memory.processes?.ManageRoom ?? null;
 				// No saved ManageRoom id or outdated ManageRoom id
 				if (
 					this.destinationManagerId == null ||
@@ -1375,22 +1370,22 @@ function minerBody(energyAvailable: number): BodyPartConstant[] {
 		return ([CARRY] as BodyPartConstant[]).concat(
 			bodyFromSegments([MOVE, WORK, WORK], energy - BODYPART_COST[CARRY]),
 		);
-	} else {
-		// Prioritize work parts over move parts
-		energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
-		const body: BodyPartConstant[] = [CARRY, MOVE];
-		// The capacity minus the carry and move part cost divided by the work part cost
-		const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
-		energy -= workParts * BODYPART_COST[WORK];
-		const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
-		for (let i = 0; i < additionalMoves; i++) {
-			body.push(MOVE);
-		}
-		for (let i = 0; i < workParts; i++) {
-			body.push(WORK);
-		}
-		return body;
 	}
+
+	// Prioritize work parts over move parts
+	energy -= BODYPART_COST[MOVE] + BODYPART_COST[CARRY];
+	const body: BodyPartConstant[] = [CARRY, MOVE];
+	// The capacity minus the carry and move part cost divided by the work part cost
+	const workParts = Math.min(7, Math.floor(energy / BODYPART_COST[WORK]));
+	energy -= workParts * BODYPART_COST[WORK];
+	const additionalMoves = Math.floor(energy / BODYPART_COST[MOVE]);
+	for (let i = 0; i < additionalMoves; i++) {
+		body.push(MOVE);
+	}
+	for (let i = 0; i < workParts; i++) {
+		body.push(WORK);
+	}
+	return body;
 }
 
 export class Defence extends RoomProcess {
@@ -1501,8 +1496,7 @@ export class Defence extends RoomProcess {
 			const trackedHits = Iterators.sum(this.trackedHostiles.values());
 
 			this.info(
-				`Hostile hits: ${hostileHits} tracked: ${trackedHits}!!${
-					trackedHits - hostileHits
+				`Hostile hits: ${hostileHits} tracked: ${trackedHits}!!${trackedHits - hostileHits
 				} !!`,
 			);
 
@@ -1535,8 +1529,7 @@ export class Defence extends RoomProcess {
 					defender.moveTo(target);
 				} else if (response !== OK) {
 					this.info(
-						`Creep ${defenderName} attacking ${
-							target.pos
+						`Creep ${defenderName} attacking ${target.pos
 						} with response ${errorConstant(response)} `,
 					);
 				}
@@ -1724,9 +1717,9 @@ export class ManageLinks extends RoomProcess {
 			[0, StructureLink | null, number],
 			[1, StructureLink | null, number],
 		] = [
-			[0, controllerLink, controllerLinkEnergy],
-			[1, storageLink, storageLinkEnergy],
-		];
+				[0, controllerLink, controllerLinkEnergy],
+				[1, storageLink, storageLinkEnergy],
+			];
 
 		// Iterate through source links
 		for (const [link, linkEnergy] of sourceLinks) {

@@ -58,12 +58,13 @@ export class Kernel {
 		this.processTable.nextId = serializedProcesses[0];
 		this.messenger = Messenger.fromSerialized(serializedProcesses[1]);
 		wrapper(
-			() =>
-				serializedProcesses[2].map(deserializeProcess).forEach((process) => {
+			() => {
+				for (const process of serializedProcesses[2].map(deserializeProcess)) {
 					if (process != null) {
 						this.spawnProcess(process);
 					}
-				}),
+				}
+			},
 			"Error deserializing processes",
 			() => {
 				Memory.processesBackup = Memory.processes;
@@ -78,7 +79,7 @@ export class Kernel {
 				continue;
 			}
 
-			const manageRoomId = processes?.["ManageRoom"];
+			const manageRoomId = processes?.ManageRoom;
 			if (!this.hasProcess(manageRoomId || -1)) {
 				warn(`Spawning new ManageRoom for ${roomName}`);
 				// Will recreate ManageRoom, kill other room processes for recreation
