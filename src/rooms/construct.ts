@@ -126,7 +126,7 @@ export class Construct extends RoomProcess {
 				// If there are urgent repairs or construction sites, desire at least 1
 				this.urgentRepairs.length > 0 ? 1 : this.sites.length > 0 ? 1 : 0,
 				// No more than three constructors
-				Math.min(3, Math.floor(siteEnergy / 50000)),
+				Math.min(3, Math.floor(siteEnergy / 10000 * (this.room.controller?.level || 5))),
 			);
 
 			// Spawn more constructors
