@@ -1,6 +1,6 @@
 import { errorConstant } from "./../utils/logger";
 import { IMessage, MessageId } from "./../messenger";
-import { bodyFromSegments, genericBody, haulerBody } from "./../creeps/bodies";
+import { bodyFromSegments, genericBody, haulerBody, countBodyPart } from "./../creeps/bodies";
 import * as Iterators from "./../utils/iterators";
 import {
 	IBlueprint,
@@ -752,10 +752,26 @@ export class Economy extends RoomProcess {
 
 		while (true) {
 			// Maintain desired number of upgraders
-			const desiredUpgraders =
-				this.room.controller.level === 8
-					? Math.floor(this.energyAvailable / 200000)
-					: Math.min(5, Math.max(1, Math.floor(this.energyAvailable / 55000)));
+			let desiredUpgraders = 1;
+			if (this.room.controller.level === 8) {
+				desiredUpgraders = Math.floor(this.energyAvailable / 200000);
+			} else if (this.energyAvailable === this.energyCapacityAvailable) {
+				// If we are at energy storage capacity, we want three upgrader work
+				// parts per miner work part, so base the desiredUpgraders on that ratio.
+
+				let minerWorkParts = 0;
+				for (const [, [, minerName,]] of this.sources) {
+					const miner = Game.creeps[minerName ?? ""];
+					if (miner != null) {
+						minerWorkParts += countBodyPart(miner.body, WORK);
+					}
+				}
+
+				const upgraderWorkParts = countBodyPart(genericBody(this.room.energyCapacityAvailable), WORK);
+				desiredUpgraders = 3 * Math.floor(minerWorkParts / upgraderWorkParts);
+			} else {
+				desiredUpgraders = Math.min(5, Math.max(1, Math.floor(this.energyAvailable / 55000)));
+			}
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
 					this.info(
