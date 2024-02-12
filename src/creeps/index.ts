@@ -33,34 +33,53 @@ export function* getEnergy(
 			| StructureLink
 			| Resource<RESOURCE_ENERGY>
 			| Tombstone
-		> = [];
-		// Find storage structures
-		this.creep.room
-			.find(FIND_STRUCTURES)
-			.filter(
-				(s): s is StructureStorage | StructureContainer | StructureLink =>
-					((s.structureType === STRUCTURE_STORAGE && options.allowStorage) ||
-						s.structureType === STRUCTURE_CONTAINER ||
-						(s.structureType === STRUCTURE_LINK &&
-							(options.allowControllerLink ||
-								s.pos.getRangeTo(this.creep.room.controller?.pos || s.pos) >
-									2))) &&
-					s.store[RESOURCE_ENERGY] > 0,
-			)
-			.forEach((s) => targets.push(s));
-		// Find dropped resources
-		this.creep.room
-			.find(FIND_DROPPED_RESOURCES)
-			.filter(
-				(r): r is Resource<RESOURCE_ENERGY> =>
-					r.resourceType === RESOURCE_ENERGY,
-			)
-			.forEach((s) => targets.push(s));
-		// Find tombstones
-		this.creep.room
-			.find(FIND_TOMBSTONES)
-			.filter((t) => t.store[RESOURCE_ENERGY] > 0)
-			.forEach((t) => targets.push(t));
+		> = [
+				// Find storage structures
+				...this.creep.room
+					.find(FIND_STRUCTURES)
+					.filter(
+						(s): s is StructureStorage | StructureContainer | StructureLink =>
+							((s.structureType === STRUCTURE_STORAGE && options.allowStorage) ||
+								s.structureType === STRUCTURE_CONTAINER ||
+								(s.structureType === STRUCTURE_LINK &&
+									(options.allowControllerLink ||
+										s.pos.getRangeTo(this.creep.room.controller?.pos || s.pos) >
+										2))) &&
+							s.store[RESOURCE_ENERGY] > 0,
+					),
+				// Find dropped resources
+				...this.creep.room
+					.find(FIND_DROPPED_RESOURCES)
+					.filter(
+						(r): r is Resource<RESOURCE_ENERGY> =>
+							r.resourceType === RESOURCE_ENERGY,
+					),
+				// Find tombstones
+				...this.creep.room
+					.find(FIND_TOMBSTONES)
+					.filter((t) => t.store[RESOURCE_ENERGY] > 0)
+			];
+
+		// Sort the targets lowest energy to highest energy, so that if there is a
+		// tie, always choose the target with more energy.
+		// findClosestByPath will prefer the element closest to the end in case of
+		// a tie.
+		targets.sort((a, b) => {
+			let aAmount = 0;
+			let bAmount = 0;
+			if (a instanceof Resource) {
+				aAmount = a.amount;
+			} else {
+				aAmount = a.store[RESOURCE_ENERGY];
+			}
+			if (b instanceof Resource) {
+				bAmount = b.amount;
+			} else {
+				bAmount = b.store[RESOURCE_ENERGY];
+			}
+
+			return aAmount - bAmount;
+		});
 
 		const target = this.creep.pos.findClosestByPath(targets, { range: 1 });
 		if (target == null) {
