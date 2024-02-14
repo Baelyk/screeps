@@ -770,7 +770,7 @@ export class Economy extends RoomProcess {
 				const upgraderWorkParts = countBodyPart(genericBody(this.room.energyCapacityAvailable), WORK);
 				desiredUpgraders = 3 * Math.floor(minerWorkParts / upgraderWorkParts);
 			} else {
-				desiredUpgraders = Math.min(5, Math.max(1, Math.floor(this.energyAvailable / 55000)));
+				desiredUpgraders = Math.min(5, Math.max(1, Math.floor(this.energyAvailable / 20000)));
 			}
 			if (this.upgraders.size < desiredUpgraders) {
 				if (!Iterators.some(this.spawnRequests, ([_, v]) => v === "upgrader")) {
