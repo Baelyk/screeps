@@ -9,3 +9,4 @@ dist
 .screeps.yaml
 *.log
 server/.env
+**/target

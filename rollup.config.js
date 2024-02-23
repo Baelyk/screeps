@@ -1,10 +1,11 @@
 "use strict";
 
 import clear from "rollup-plugin-clear";
-import resolve from "rollup-plugin-node-resolve";
-import commonjs from "rollup-plugin-commonjs";
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
 import typescript from "rollup-plugin-typescript2";
 import screeps from "rollup-plugin-screeps";
+import rust from "@wasm-tool/rollup-plugin-rust";
 
 let cfg;
 const dest = process.env.DEST;
@@ -22,19 +23,29 @@ export default {
 		file: "dist/main.js",
 		format: "cjs",
 		sourcemap: true,
+		// No `asset` directory
+		assetFileNames: "[name]-[hash][extname]",
+	},
+
+	// Silence the "(!) `this` has been rewritten to `undefined`" error
+	moduleContext: {
+		"node_modules/fastestsmallesttextencoderdecoder-encodeinto/EncoderDecoderTogether.min.js": "this",
 	},
 
 	plugins: [
 		clear({ targets: ["dist"] }),
-		resolve(),
-		commonjs({
-			namedExports: {
-				"node_modules/lz-string/libs/lz-string.js": [
-					"compressToEncodedURIComponent",
-				],
-			},
+		rust({
+			useRequire: true,
+			typescriptDeclarations: true,
+			experimental: {
+				directExports: true,
+			}
 		}),
-		typescript({ tsconfig: "./tsconfig.json" }),
+		resolve(),
+		commonjs(),
+		// Don't abort on error so that WASM types can be generated (plugin
+		// order is not respected).
+		typescript({ abortOnError: false }),
 		screeps({ config: cfg, dryRun: cfg == null }),
 	],
 };
