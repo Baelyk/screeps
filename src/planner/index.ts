@@ -288,12 +288,12 @@ export class RoomPlanner extends Blueprint {
 	spawnStamp(
 		spawnSpot: RoomPosition,
 	): [
-		RoomPosition[],
-		RoomPosition[],
-		RoomPosition,
-		RoomPosition,
-		RoomPosition,
-	] {
+			RoomPosition[],
+			RoomPosition[],
+			RoomPosition,
+			RoomPosition,
+			RoomPosition,
+		] {
 		const area = getTilesInRange(spawnSpot, 2);
 		this.occupy(area);
 		const spawns = [area[6], area[8], area[18]];
@@ -439,7 +439,7 @@ export class RoomPlanner extends Blueprint {
 
 	placeExtensions(spawnSpot: RoomPosition): [RoomPosition[], RoomPosition[]] {
 		const temporarilyOccupied: Set<Index> = new Set();
-		const tilePathable = function (
+		const tilePathable = function(
 			this: RoomPlanner,
 			coord: RoomCoord,
 		): boolean {
@@ -449,7 +449,7 @@ export class RoomPlanner extends Blueprint {
 				this.exitPaths.has(coordToIndex(coord))
 			);
 		}.bind(this);
-		const tileOpen = function (this: RoomPlanner, coord: RoomCoord): boolean {
+		const tileOpen = function(this: RoomPlanner, coord: RoomCoord): boolean {
 			return (
 				!this.occupied.has(coordToIndex(coord)) &&
 				!temporarilyOccupied.has(coordToIndex(coord))
