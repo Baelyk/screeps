@@ -6,14 +6,17 @@ import commonjs from "@rollup/plugin-commonjs";
 import typescript from "rollup-plugin-typescript2";
 import screeps from "rollup-plugin-screeps";
 import rust from "@wasm-tool/rollup-plugin-rust";
+import yaml from "js-yaml";
+import fs from "node:fs";
 
-let cfg;
 const dest = process.env.DEST;
 if (!dest) {
 	console.log(
 		"No destination specified - code will be compiled but not uploaded",
 	);
-} else if ((cfg = require("./screeps.json")[dest]) == null) {
+}
+const cfg = yaml.load(fs.readFileSync(".screeps.yaml")).servers[dest];
+if (cfg == null) {
 	throw new Error("Invalid upload destination");
 }
 
@@ -29,7 +32,8 @@ export default {
 
 	// Silence the "(!) `this` has been rewritten to `undefined`" error
 	moduleContext: {
-		"node_modules/fastestsmallesttextencoderdecoder-encodeinto/EncoderDecoderTogether.min.js": "this",
+		"node_modules/fastestsmallesttextencoderdecoder-encodeinto/EncoderDecoderTogether.min.js":
+			"this",
 	},
 
 	plugins: [
@@ -41,7 +45,7 @@ export default {
 			typescriptDeclarations: true,
 			experimental: {
 				directExports: true,
-			}
+			},
 		}),
 		resolve(),
 		commonjs(),

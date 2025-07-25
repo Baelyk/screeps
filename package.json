@@ -67,7 +67,8 @@
 		"sinon-chai": "^3.2.0",
 		"source-map": "~0.6.1",
 		"ts-node": "^10.2.0",
-		"typescript": "^4.7.4"
+		"typescript": "^4.7.4",
+		"js-yaml": "4.1.0"
 	},
 	"dependencies": {
 		"fastestsmallesttextencoderdecoder-encodeinto": "^1.0.22",
