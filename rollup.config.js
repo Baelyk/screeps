@@ -36,7 +36,7 @@ export default {
 		clear({ targets: ["dist"] }),
 		rust({
 			// https://github.com/rustyscreeps/screeps-game-api/issues/391
-			wasmOptArgs: ["-O4", "--signext-lowering", "-g"],
+			wasmOptArgs: ["-O4", "-g"],
 			useRequire: true,
 			typescriptDeclarations: true,
 			experimental: {

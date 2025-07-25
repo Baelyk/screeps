@@ -10,3 +10,4 @@ dist
 *.log
 server/.env
 **/target
+server/data
