@@ -102,6 +102,7 @@
         biome
       ];
 
+      LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.openssl];
       CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_LINKER = "lld";
 
       shellHook = ''
