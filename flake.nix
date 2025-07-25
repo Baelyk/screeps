@@ -98,6 +98,8 @@
         openssl
         pkg-config
         llvmPackages.bintools
+        typescript-language-server
+        biome
       ];
 
       CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_LINKER = "lld";
