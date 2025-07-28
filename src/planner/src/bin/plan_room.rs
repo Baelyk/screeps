@@ -2,13 +2,21 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 use planner::{architect::plan_room, room_data::RoomData};
-use screeps::{RoomXY, StructureType};
+use screeps::{
+    Position, RoomCoordinate, RoomName, RoomXY, StructureType, Terrain, XMajor, MOVE_COST_PLAIN,
+    ROOM_AREA, ROOM_USIZE,
+};
 
 fn main() -> Result<(), &'static str> {
     let shard = "shard0";
     let name = "E24S1";
     let room = RoomData::from_api(shard, name)?;
+
     let buildings = plan_room(&room)?;
+    let buildings = buildings
+        .into_iter()
+        .map(|(s, xys)| (s, xys.into_iter().map(|pos| pos.xy()).collect()))
+        .collect();
     let blueprint = EncodedBlueprint {
         name: Some(name.into()),
         shard: Some(shard.into()),

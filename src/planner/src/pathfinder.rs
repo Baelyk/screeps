@@ -1,6 +1,6 @@
-use std::collections::BinaryHeap;
+use std::collections::{hash_map::Entry, BinaryHeap, HashMap};
 
-use screeps::{RoomXY, XMajor, ROOM_USIZE};
+use screeps::{Direction, Position, ROOM_AREA};
 
 #[derive(Copy, Clone)]
 pub struct Options {
@@ -17,37 +17,18 @@ impl Default for Options {
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum TileCost {
-    Plain,
-    Road,
-    Swamp,
-    Unwalkable,
-}
-
-impl TileCost {
-    fn cost(&self) -> Cost {
-        match self {
-            TileCost::Plain => 2,
-            TileCost::Road => 1,
-            TileCost::Swamp => 10,
-            TileCost::Unwalkable => 255,
-        }
-    }
-}
-
 type Cost = u32;
 
 #[derive(Copy, Clone, Debug)]
 struct OpenSetItem {
-    node: RoomXY,
+    node: Position,
+    direction: Direction,
     cost: Cost,
-    heuristic: Cost,
 }
 
 impl std::cmp::PartialEq for OpenSetItem {
     fn eq(&self, other: &Self) -> bool {
-        self.cost + self.heuristic == other.cost + other.heuristic
+        self.cost == other.cost
     }
 }
 
@@ -55,13 +36,10 @@ impl Eq for OpenSetItem {}
 
 impl std::cmp::Ord for OpenSetItem {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let self_cost = self.cost + self.heuristic;
-        let other_cost = other.cost + other.heuristic;
-
         // Want to sort lower costs as greater for the BinaryHeap
-        if self_cost == other_cost {
+        if self.cost == other.cost {
             std::cmp::Ordering::Equal
-        } else if self_cost < other_cost {
+        } else if self.cost < other.cost {
             std::cmp::Ordering::Greater
         } else {
             std::cmp::Ordering::Less
@@ -75,68 +53,167 @@ impl std::cmp::PartialOrd for OpenSetItem {
     }
 }
 
-pub fn a_star(
-    costs: &XMajor<Cost>,
-    start: RoomXY,
-    goal: RoomXY,
+fn jump<F1, F2>(
+    cost_fn: F1,
+    dest_fn: F2,
+    pos: Position,
+    direction: Direction,
+) -> Option<(Position, Cost)>
+where
+    F1: Copy + Fn(Position) -> Cost,
+    F2: Copy + Fn(Position) -> bool,
+{
+    let cost = cost_fn(pos);
+    let mut current = pos;
+    let mut jumps = 0;
+    loop {
+        // Stop jumping if the next tile is out of bounds
+        let next = current.checked_add_direction(direction).ok()?;
+        let next_cost = cost_fn(next);
+        // TODO Stop jumping if the next tile is a wall
+        if next_cost == ROOM_AREA as u32 {
+            return None;
+        }
+        // If the next tile has a different cost, stop jumping and add the current tile to the open
+        // set
+        if next_cost != cost {
+            // TODO: actually returning `next` not `current` to handle paths starting on unpathable
+            // tiles, is that okay?
+            return Some((next, cost * jumps));
+        }
+        jumps += 1;
+        // If the next tile is the goal, stop jumping and add the the next tile to the open set
+        if dest_fn(next) {
+            return Some((next, cost * jumps));
+        }
+        // If the tiles above or below the next have a different cost, stop jumping and add the
+        // next tile to the open set. Rotating the direction twice clockwise and counterclockwise
+        // provide the correct analogies for above and below for any direction.
+        if let Ok(next_below) = next.checked_add_direction(direction.multi_rot(2)) {
+            if cost_fn(next_below) != cost {
+                return Some((next, cost * jumps));
+            }
+        }
+        if let Ok(next_above) = next.checked_add_direction(direction.multi_rot(-2)) {
+            if cost_fn(next_above) != cost {
+                return Some((next, cost * jumps));
+            }
+        }
+
+        // If the direction is diagonal, check jumping in the horizontal and vertical components
+        // and add the next tile to the open set if they run in to anything.
+        if direction.is_diagonal() {
+            let horizontal = jump(cost_fn, dest_fn, next, direction.multi_rot(1));
+            if horizontal.is_some() {
+                return Some((next, cost * jumps));
+            }
+            let vertical = jump(cost_fn, dest_fn, next, direction.multi_rot(-1));
+            if vertical.is_some() {
+                return Some((next, cost * jumps));
+            }
+        }
+
+        // Keep jumping
+        current = next;
+    }
+}
+
+pub fn a_star<F1, F2>(
+    cost_fn: F1,
+    dest_fn: F2,
+    start: Position,
+    goal: Position,
     options: Options,
-) -> Result<Vec<RoomXY>, &'static str> {
+) -> Result<Vec<Position>, &'static str>
+where
+    F1: Fn(Position) -> Cost,
+    F2: Fn(Position) -> bool,
+{
     let mut open_set = BinaryHeap::new();
-    let mut previous = XMajor([[None; ROOM_USIZE]; ROOM_USIZE]);
+    let mut previous = HashMap::new();
     open_set.push(OpenSetItem {
         node: start,
-        cost: 0,
-        heuristic: start.get_range_to(goal) as u32,
+        direction: Direction::Top,
+        cost: start.get_range_to(goal),
     });
 
     let mut iters = 0;
     while let Some(OpenSetItem {
         node,
+        direction,
         cost,
-        heuristic: _,
     }) = open_set.pop()
     {
         iters += 1;
         if iters > options.max_iters {
-            break;
+            return Err("Too many iters");
         }
-        if node == goal || node.get_range_to(goal) as u32 <= options.range {
+        if dest_fn(node) {
             let mut path = Vec::with_capacity(cost as usize);
-            let mut current = node;
+            let mut next = node;
             loop {
-                path.push(current);
+                let current = next;
                 if current == start {
                     break;
                 }
-                current = previous[current].unwrap();
+                next = *previous.get(&current).unwrap();
+                let Some(direction) = current.get_direction_to(next) else {
+                    return Err("Unable to get jump direction");
+                };
+                let mut jump_next = current;
+                while jump_next != next {
+                    path.push(jump_next);
+                    jump_next = jump_next + direction;
+                }
             }
+            path.push(start);
             path.reverse();
             return Ok(path);
         }
 
-        node.neighbors()
-            .into_iter()
-            .map(|neighbor| OpenSetItem {
-                node: neighbor,
-                cost: cost + costs[neighbor],
-                heuristic: neighbor.get_range_to(goal) as u32,
-            })
-            .for_each(|item| {
-                if previous[item.node].is_none() {
-                    previous[item.node] = Some(node);
-                    open_set.push(item);
-                }
-            })
+        [
+            Direction::Top,
+            Direction::Right,
+            Direction::Bottom,
+            Direction::Left,
+            Direction::TopRight,
+            Direction::BottomRight,
+            Direction::BottomLeft,
+            Direction::TopLeft,
+        ]
+        .into_iter()
+        .filter_map(|direction| {
+            jump(&cost_fn, &dest_fn, node, direction).map(|(next, cost)| (next, cost, direction))
+        })
+        .map(|(next, jump_cost, next_direction)| {
+            let previous_cost = cost - node.get_range_to(goal);
+            let next_cost = previous_cost + jump_cost + next.get_range_to(goal);
+            OpenSetItem {
+                node: next,
+                direction: next_direction,
+                cost: next_cost,
+            }
+        })
+        .for_each(|item| {
+            if let Entry::Vacant(e) = previous.entry(item.node) {
+                e.insert(node);
+                open_set.push(item);
+            }
+        })
     }
 
     Err("Unable to reach goal")
 }
 
-pub fn find_path(
-    costs: &XMajor<Cost>,
-    start: RoomXY,
-    goal: RoomXY,
+pub fn find_path<F>(
+    cost_fn: F,
+    start: Position,
+    goal: Position,
     options: Options,
-) -> Result<Vec<RoomXY>, &'static str> {
-    a_star(costs, start, goal, options)
+) -> Result<Vec<Position>, &'static str>
+where
+    F: Fn(Position) -> Cost,
+{
+    let dest_fn = |pos: Position| pos == goal || pos.get_range_to(goal) <= options.range;
+    a_star(cost_fn, dest_fn, start, goal, options)
 }
