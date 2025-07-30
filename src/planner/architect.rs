@@ -92,6 +92,7 @@ impl Costs {
 fn neighbors(pos: Position) -> impl Iterator<Item = Position> {
     screeps::Direction::iter()
         .filter_map(move |&direction| pos.checked_add_direction(direction).ok())
+        .filter(move |neighbor| neighbor.room_name() == pos.room_name())
 }
 
 pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>>, &'static str> {
@@ -293,6 +294,7 @@ pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>
             middle,
             pathfinder::Options {
                 range: 22,
+                multiroom: true,
                 ..Default::default()
             },
         ) {
@@ -318,6 +320,12 @@ pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>
     let mut queue = VecDeque::from([spawn_spot]);
     let mut visited = XMajor([[false; ROOM_USIZE]; ROOM_USIZE]);
     let mut extensions = Vec::new();
+
+    let middle = Position::new(
+        RoomCoordinate::new(24).unwrap(),
+        RoomCoordinate::new(24).unwrap(),
+        room.room_name,
+    );
 
     while let Some(current) = queue.pop_front() {
         // Stop at 60 extensions
@@ -346,6 +354,9 @@ pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>
                         && !path.contains(&xy)
                         // Don't place extensions within two tiles of the controller
                         && !xy.in_range_to(controller, 2)
+                        // Don't place extensions within two tiles of the room edge
+                        && xy.x().u8() != 0 && xy.x().u8() != 1 && xy.x().u8() != 48 && xy.x().u8() != 49
+                        && xy.y().u8() != 0 && xy.y().u8() != 1 && xy.y().u8() != 48 && xy.y().u8() != 49
                 })
                 .collect();
             // Place extensions if there are at least six spots

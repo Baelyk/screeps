@@ -4,6 +4,8 @@ use screeps::{game, LocalRoomTerrain, Position, RoomName};
 
 #[cfg(feature = "offline")]
 use crate::planner::api;
+#[cfg(feature = "offline")]
+use screeps::RoomCoordinate;
 
 pub struct RoomData {
     pub room_name: RoomName,

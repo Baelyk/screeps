@@ -6,6 +6,7 @@ use screeps::{Direction, Position, ROOM_AREA};
 pub struct Options {
     pub range: u32,
     pub max_iters: u32,
+    pub multiroom: bool,
 }
 
 impl Default for Options {
@@ -13,6 +14,7 @@ impl Default for Options {
         Self {
             range: 0,
             max_iters: u32::MAX,
+            multiroom: false,
         }
     }
 }
@@ -185,6 +187,7 @@ where
         .filter_map(|direction| {
             jump(&cost_fn, &dest_fn, node, direction).map(|(next, cost)| (next, cost, direction))
         })
+        .filter(|(next, _, _)| options.multiroom || next.room_name() == start.room_name())
         .map(|(next, jump_cost, next_direction)| {
             let previous_cost = cost - node.get_range_to(goal);
             let next_cost = previous_cost + jump_cost + next.get_range_to(goal);
