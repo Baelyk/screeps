@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use screeps::{LocalRoomTerrain, Position, RoomCoordinate, RoomName, RoomXY};
+use screeps::{game, LocalRoomTerrain, Position, RoomCoordinate, RoomName, RoomXY};
 
+#[cfg(feature = "offline")]
 use crate::api;
 
 pub struct RoomData {
     pub room_name: RoomName,
-    pub shard: String,
+    pub shard: Option<String>,
     pub sources: Vec<Position>,
     pub controller: Option<Position>,
     pub terrain: HashMap<RoomName, LocalRoomTerrain>,
@@ -15,6 +16,51 @@ pub struct RoomData {
 }
 
 impl RoomData {
+    pub fn from_game(name: &str) -> Result<RoomData, &'static str> {
+        let Ok(room_name) = RoomName::new(name) else {
+            return Err("Unable to parse room name");
+        };
+        let mut exits = vec![];
+        let mut terrain: HashMap<RoomName, LocalRoomTerrain> = game::map::describe_exits(room_name)
+            .values()
+            .filter_map(|name| {
+                exits.push(name);
+                game::map::get_room_terrain(name).map(|terrain| (name, terrain.into()))
+            })
+            .collect();
+        let Some(room_terrain) = game::map::get_room_terrain(room_name) else {
+            return Err("Unable to get room terrain");
+        };
+        terrain.insert(room_name, room_terrain.into());
+
+        let Some(room) = game::rooms().get(room_name) else {
+            return Err("Unable to get room");
+        };
+        let sources = room
+            .find(screeps::find::SOURCES, None)
+            .into_iter()
+            .map(|source| source.js_pos().into())
+            .collect();
+        let controller = room
+            .controller()
+            .map(|controller| controller.js_pos().into());
+        let mineral = room
+            .find(screeps::find::MINERALS, None)
+            .first()
+            .map(|controller| controller.js_pos().into());
+
+        Ok(RoomData {
+            room_name,
+            shard: None,
+            sources,
+            controller,
+            terrain,
+            mineral,
+            exits,
+        })
+    }
+
+    #[cfg(feature = "offline")]
     pub fn from_api(shard: &str, name: &str) -> Result<RoomData, &'static str> {
         let Ok(room_name) = RoomName::new(name) else {
             return Err("Unable to parse room name");
@@ -70,7 +116,7 @@ impl RoomData {
 
         Ok(RoomData {
             room_name,
-            shard: shard.into(),
+            shard: Some(shard.into()),
             sources,
             controller,
             terrain,

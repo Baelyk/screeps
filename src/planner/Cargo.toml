@@ -6,6 +6,13 @@ autobins = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+offline = []
+
+[[bin]]
+name = "plan_room"
+required-features = ["offline"]
+
 [dependencies]
 wasm-bindgen = "0.2.100"
 screeps-game-api = "0.23.0"

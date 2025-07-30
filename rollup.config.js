@@ -46,6 +46,7 @@ export default {
 			experimental: {
 				directExports: true,
 			},
+			verbose: true,
 		}),
 		resolve(),
 		commonjs(),
