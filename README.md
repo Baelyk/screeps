@@ -4,4 +4,4 @@ My Screeps AI
 
 [TODO](TODO.md)
 
-<sub>Based on [Screeps Typescript Starter](https://github.com/screepers/screeps-typescript-starter).</sub>
+<sub>Based on [Screeps Rust Starter](https://github.com/rustyscreeps/screeps-starter-rust).</sub>

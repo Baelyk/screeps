@@ -1,69 +1,33 @@
 {
-	"name": "screeps-typescript-starter",
-	"version": "3.0.0",
-	"description": "",
-	"main": "index.js",
-	"//": "If you add or change the names of destinations in screeps.json, make sure you update these scripts to reflect the changes",
-	"scripts": {
-		"lint": "tslint -p tsconfig.json \"src/**/*.ts\"",
-		"build": "rollup -c",
-		"push-main": "rollup -c --environment DEST:main",
-		"push-private": "rollup -c --environment DEST:private",
-		"push-sim": "rollup -c --environment DEST:sim"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/screepers/screeps-typescript-starter.git"
-	},
-	"author": "",
-	"license": "Unlicense",
-	"bugs": {
-		"url": "https://github.com/screepers/screeps-typescript-starter/issues"
-	},
-	"homepage": "https://github.com/screepers/screeps-typescript-starter#readme",
-	"engines": {
-		"node": "10.x || 12.x"
-	},
-	"devDependencies": {
-		"@rollup/plugin-commonjs": "^25.0.7",
-		"@rollup/plugin-node-resolve": "^15.2.3",
-		"@rollup/plugin-typescript": "^11.1.6",
-		"@types/chai": "^4.1.6",
-		"@types/lodash": "3.10.2",
-		"@types/mocha": "^5.2.5",
-		"@types/node": "^10.5.5",
-		"@types/screeps": "^3.2.4",
-		"@types/sinon": "^5.0.5",
-		"@types/sinon-chai": "^3.2.0",
-		"@typescript-eslint/eslint-plugin": "^4.14.0",
-		"@typescript-eslint/parser": "^4.14.0",
-		"@wasm-tool/rollup-plugin-rust": "github:Baelyk/rollup-plugin-rust",
-		"chai": "^4.2.0",
-		"eslint": "^7.18.0",
-		"eslint-config-prettier": "^7.2.0",
-		"eslint-plugin-import": "^2.22.1",
-		"eslint-plugin-jsdoc": "^31.0.8",
-		"eslint-plugin-prefer-arrow": "^1.2.2",
-		"eslint-plugin-react": "^7.22.0",
-		"fp-ts": "^2.12.1",
-		"lodash": "^3.10.1",
-		"mocha": "^8.2.1",
-		"prettier": "^2.7.1",
-		"rollup": "^2.56.0",
-		"rollup-plugin-clear": "^2.0.7",
-		"rollup-plugin-screeps": "^1.0.0",
-		"rollup-plugin-typescript2": "^0.36.0",
-		"screeps-multimeter": "^2.1.0",
-		"screeps-steamless-client": "^1",
-		"sinon": "^6.3.5",
-		"sinon-chai": "^3.2.0",
-		"source-map": "~0.6.1",
-		"ts-node": "^10.2.0",
-		"typescript": "^4.7.4",
-		"js-yaml": "4.1.0"
-	},
-	"dependencies": {
-		"fastestsmallesttextencoderdecoder-encodeinto": "^1.0.22",
-		"lz-string": "^1.5.0"
-	}
+  "name": "baelyks-screeps",
+  "version": "0.1.0",
+  "description": "",
+  "files": [
+    "dist/"
+  ],
+  "main": "dist/main.js",
+  "scripts": {
+    "deploy": "node js/deploy.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baelyk/screeps.git"
+  },
+  "homepage": "https://github.com/baelyk/screeps",
+  "screeps_bot": true,
+  "dependencies": {
+    "fastestsmallesttextencoderdecoder-encodeinto": "^1.0.22"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.25.3",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "rollup": "^4.21.0",
+    "rollup-plugin-copy": "^3.5.0",
+    "screeps-api": "^1.16.0",
+    "yamljs": "^0.3.0",
+    "yargs": "^17.7.2"
+  }
 }

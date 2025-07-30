@@ -100,6 +100,8 @@
         llvmPackages.bintools
         typescript-language-server
         biome
+        wasm-pack
+        binaryen
       ];
 
       LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.openssl];

@@ -1,11 +1,11 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 use screeps::{
     LocalRoomTerrain, Position, RoomCoordinate, RoomName, RoomXY, StructureType, Terrain, XMajor,
     MOVE_COST_PLAIN, MOVE_COST_ROAD, ROOM_AREA, ROOM_USIZE,
 };
 
-use crate::{pathfinder, room_data::RoomData};
+use crate::planner::{pathfinder, room_data::RoomData};
 
 const COST_UNWALKABLE: u32 = ROOM_AREA as u32;
 const COST_ROAD: u32 = MOVE_COST_ROAD;

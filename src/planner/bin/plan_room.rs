@@ -1,15 +1,15 @@
 use serde::Serialize;
 use std::collections::HashMap;
 
-use planner::{architect::plan_room, room_data::RoomData};
+use baelyks_screeps::planner::{architect::plan_room, room_data::RoomData};
 use screeps::{
     Position, RoomCoordinate, RoomName, RoomXY, StructureType, Terrain, XMajor, MOVE_COST_PLAIN,
     ROOM_AREA, ROOM_USIZE,
 };
 
 fn main() -> Result<(), &'static str> {
-    let shard = "shard0";
-    let name = "E24S1";
+    let shard = "shard3";
+    let name = "W6S2";
     let room = RoomData::from_api(shard, name)?;
 
     let buildings = plan_room(&room)?;

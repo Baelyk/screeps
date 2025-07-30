@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use screeps::{game, LocalRoomTerrain, Position, RoomCoordinate, RoomName, RoomXY};
+use screeps::{game, LocalRoomTerrain, Position, RoomName};
 
 #[cfg(feature = "offline")]
-use crate::api;
+use crate::planner::api;
 
 pub struct RoomData {
     pub room_name: RoomName,
