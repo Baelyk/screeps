@@ -321,12 +321,6 @@ pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>
     let mut visited = XMajor([[false; ROOM_USIZE]; ROOM_USIZE]);
     let mut extensions = Vec::new();
 
-    let middle = Position::new(
-        RoomCoordinate::new(24).unwrap(),
-        RoomCoordinate::new(24).unwrap(),
-        room.room_name,
-    );
-
     while let Some(current) = queue.pop_front() {
         // Stop at 60 extensions
         if extensions.len() == 60 {

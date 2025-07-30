@@ -24,7 +24,6 @@ type Cost = u32;
 #[derive(Copy, Clone, Debug)]
 struct OpenSetItem {
     node: Position,
-    direction: Direction,
     cost: Cost,
 }
 
@@ -135,17 +134,11 @@ where
     let mut previous = HashMap::new();
     open_set.push(OpenSetItem {
         node: start,
-        direction: Direction::Top,
         cost: start.get_range_to(goal),
     });
 
     let mut iters = 0;
-    while let Some(OpenSetItem {
-        node,
-        direction,
-        cost,
-    }) = open_set.pop()
-    {
+    while let Some(OpenSetItem { node, cost }) = open_set.pop() {
         iters += 1;
         if iters > options.max_iters {
             return Err("Too many iters");
@@ -184,16 +177,13 @@ where
             Direction::TopLeft,
         ]
         .into_iter()
-        .filter_map(|direction| {
-            jump(&cost_fn, &dest_fn, node, direction).map(|(next, cost)| (next, cost, direction))
-        })
-        .filter(|(next, _, _)| options.multiroom || next.room_name() == start.room_name())
-        .map(|(next, jump_cost, next_direction)| {
+        .filter_map(|direction| jump(&cost_fn, &dest_fn, node, direction))
+        .filter(|(next, _)| options.multiroom || next.room_name() == start.room_name())
+        .map(|(next, jump_cost)| {
             let previous_cost = cost - node.get_range_to(goal);
             let next_cost = previous_cost + jump_cost + next.get_range_to(goal);
             OpenSetItem {
                 node: next,
-                direction: next_direction,
                 cost: next_cost,
             }
         })
