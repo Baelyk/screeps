@@ -103,8 +103,8 @@ impl Core {
         }
     }
 
-    pub fn new_actor<T>(&self) -> Actor<T> {
-        Actor::new(&self.maker, self.queue.clone(), self.timers.clone())
+    pub fn new_actor<T>(&self, ret: Ret<StopCause>) -> Actor<T> {
+        Actor::new(&self.maker, self.queue.clone(), self.timers.clone(), ret)
     }
 
     pub fn defer(&self, f: impl FnOnce(&mut Runtime) + 'static) {
@@ -143,8 +143,32 @@ impl<'a, T> Context<'a, T> {
 
 pub struct Actor<T: 'static> {
     actor: Rc<QCell<Inner<T>>>,
+    ret: Rc<QCell<Ret<StopCause>>>,
     queue: Rc<RefCell<MessageQueue>>,
     timers: Rc<RefCell<TimerHeap>>,
+}
+
+pub enum StopCause {
+    Stopped,
+    Failed(Box<dyn std::error::Error>),
+}
+
+pub struct Ret<M: 'static>(Option<Box<dyn FnOnce(M) + 'static>>);
+
+impl<M> Ret<M> {
+    pub fn new(message: impl FnOnce(M) + 'static) -> Self {
+        Ret(Some(Box::new(message)))
+    }
+
+    pub fn none() -> Self {
+        Ret(None)
+    }
+
+    pub fn call(self, message: M) {
+        if let Some(f) = self.0 {
+            f(message)
+        }
+    }
 }
 
 struct Pre(MessageQueue);
@@ -152,12 +176,14 @@ struct Pre(MessageQueue);
 enum Inner<T> {
     Pre(Pre),
     Ready(T),
+    Stopped,
 }
 
 impl<T> Clone for Actor<T> {
     fn clone(&self) -> Self {
         Self {
             actor: self.actor.clone(),
+            ret: self.ret.clone(),
             queue: self.queue.clone(),
             timers: self.timers.clone(),
         }
@@ -169,9 +195,11 @@ impl<T> Actor<T> {
         owner: &QCellOwnerID,
         queue: Rc<RefCell<MessageQueue>>,
         timers: Rc<RefCell<TimerHeap>>,
+        ret: Ret<StopCause>,
     ) -> Self {
         Actor {
             actor: Rc::new(owner.cell(Inner::Pre(Pre(VecDeque::new())))),
+            ret: Rc::new(owner.cell(ret)),
             queue,
             timers,
         }
@@ -219,6 +247,14 @@ impl<T> Actor<T> {
                 _ => panic!("Actor already ready"),
             }
         }
+    }
+
+    pub fn stop(&self, runtime: &mut Runtime) {
+        *runtime.owner.rw(&self.actor) = Inner::Stopped;
+
+        let ret = runtime.owner.rw(&self.ret);
+        let ret = std::mem::replace(ret, Ret(None));
+        ret.call(StopCause::Stopped);
     }
 
     pub fn apply(
@@ -293,9 +329,35 @@ macro_rules! timer {
 
 #[macro_export]
 macro_rules! actor {
-    ($core:expr, $type:ident :: $init:ident($($x:expr),* $(,)? )) => {{
-        let actor = $core.new_actor();
+    ($core:expr, $type:ident :: $init:ident($($x:expr),* $(,)? ), $ret:expr ) => {{
+        let actor = $core.new_actor($ret);
         $crate::call!([actor], <$type>::$init($($x),*));
         actor
     }};
+}
+
+#[macro_export]
+macro_rules! ret_to {
+    // Method syntax
+    ([$actor_or_context:expr], $method:ident ( $($x:expr),* $(,)? )) => {{
+        let actor1 = $actor_or_context.actor();
+        $crate::actor::Ret::new(move |message| {
+            let actor2 = actor1.actor();
+            actor1.defer(move |runtime| actor2.apply(runtime, move |a, ctx| a.$method(ctx $(,$x)*, message)));
+        })
+    }};
+}
+
+#[macro_export]
+macro_rules! ret_do {
+    // Closure syntax
+    (|$message:pat_param| $body:expr) => {{ Ret::new(move |$message| $body) }};
+}
+
+#[macro_export]
+macro_rules! ret {
+    // No ret
+    (None) => {{ $crate::actor::Ret::none() }};
+    // Call ret
+    ([$ret:expr],  $message:expr ) => {{ $ret.call($message) }};
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::{debug, error};
-use screeps::RoomName;
+use screeps::{ObjectId, Position, RoomName, Source};
 use serde::{Deserialize, Serialize};
 
 use crate::planner::architect::RoomPlan;
@@ -14,6 +14,7 @@ pub struct Memory {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct RoomMemory {
     pub plan: Option<RoomPlan>,
+    pub miners: Vec<(Position, ObjectId<Source>, Option<String>)>,
 }
 
 impl Memory {

@@ -1,21 +1,23 @@
 #![feature(lazy_get)]
 
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::VecDeque};
 
 use log::*;
 use screeps::{
-    constants::Part, find, game, objects::Creep, prelude::*, Position, Room, RoomName, RoomXY,
-    StructureSpawn, StructureType,
+    ConstructionSite, ObjectId, Position, Room, RoomName, Source, StructureSpawn, StructureType,
+    constants::Part, find, game, prelude::*,
 };
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    actor::{Actor, Context, Runtime},
+    actor::{Actor, Context, Ret, Runtime},
+    creeps::{Builder, Miner},
     memory::Memory,
     planner::{architect::RoomPlan, room_data::RoomData},
 };
 
 pub mod actor;
+mod creeps;
 mod logging;
 mod memory;
 pub mod planner;
@@ -42,115 +44,17 @@ impl Spawn {
         game::spawns().get(self.spawn_name.clone()).unwrap()
     }
 
-    fn spawn_creep(&self, ctx: &mut Context<'_, Self>) {
+    fn spawn_creep(&self, _ctx: &mut Context<'_, Self>, body: &[Part], ret: Ret<Option<String>>) {
         let spawn = self.spawn();
-        let body = [Part::Move, Part::Move, Part::Carry, Part::Work];
         if spawn.room().unwrap().energy_available() >= body.iter().map(|p| p.cost()).sum() {
             // create a unique name, spawn.
             let name_base = game::time();
             let name = format!("{name_base}");
-            match spawn.spawn_creep(&body, &name) {
-                Ok(()) => {
-                    let creep: Actor<CreepActor> = actor!(ctx, CreepActor::init(name));
-                    call!([creep], build());
-                }
-                Err(e) => warn!("couldn't spawn: {e:?}"),
+            match spawn.spawn_creep(body, &name) {
+                Ok(_) => ret!([ret], Some(name)),
+                Err(_) => ret!([ret], None),
             }
         }
-    }
-}
-
-struct CreepActor {
-    creep_name: String,
-}
-
-impl CreepActor {
-    fn init(ctx: &mut Context<'_, Self>, creep_name: String) -> Option<Self> {
-        if let Some(creep) = game::creeps().get(creep_name.clone()) {
-            if !creep.spawning() {
-                // Create exists and is not spawning, so we're ready
-                info!("Creep {creep_name} ready");
-                return Some(Self { creep_name });
-            }
-        }
-        info!("Creep {creep_name} not ready");
-        timer!([ctx], game::time() + 1, CreepActor::init(creep_name));
-        None
-    }
-
-    fn creep(&self) -> Creep {
-        game::creeps().get(self.creep_name.clone()).unwrap()
-    }
-
-    fn move_to(&self, _ctx: &mut Context<'_, Self>, pos: Position) {
-        trace!("Creep {} moving to {}", self.creep_name, pos);
-        if let Err(err) = self.creep().move_to(pos) {
-            warn!("Creep move err {err}");
-        }
-    }
-
-    fn upgrade(&self, ctx: &mut Context<'_, Self>) {
-        trace!("Creep {} upgrading", self.creep_name);
-        let creep = self.creep();
-        if creep.store().get_used_capacity(None) == 0 {
-            call!([ctx], harvest());
-            return;
-        }
-
-        let room = creep.room().unwrap();
-        let controller = room.controller().unwrap();
-        if !creep.pos().is_near_to(controller.pos()) {
-            call!([ctx], move_to(controller.pos()));
-        } else {
-            creep.upgrade_controller(&controller).unwrap();
-        }
-        timer!([ctx], game::time() + 1, upgrade());
-    }
-
-    fn harvest(&self, ctx: &mut Context<'_, Self>) {
-        trace!("Creep {} harvesting", self.creep_name);
-        let creep = self.creep();
-        if creep.store().get_free_capacity(None) == 0 {
-            call!([ctx], build());
-            return;
-        }
-
-        let room = creep.room().unwrap();
-        let source = room
-            .find(find::SOURCES_ACTIVE, None)
-            .first()
-            .unwrap()
-            .clone();
-        if !creep.pos().is_near_to(source.pos()) {
-            call!([ctx], move_to(source.pos()));
-        } else {
-            creep.harvest(&source).unwrap();
-        }
-        timer!([ctx], game::time() + 1, harvest());
-    }
-
-    fn build(&self, ctx: &mut Context<'_, Self>) {
-        trace!("Creep {} building", self.creep_name);
-        let creep = self.creep();
-        if creep.store().get_used_capacity(None) == 0 {
-            call!([ctx], harvest());
-            return;
-        }
-
-        let room = creep.room().unwrap();
-        let site = match room.find(find::CONSTRUCTION_SITES, None).first() {
-            Some(site) => site.clone(),
-            None => {
-                call!([ctx], upgrade());
-                return;
-            }
-        };
-        if !creep.pos().is_near_to(site.pos()) {
-            call!([ctx], move_to(site.pos()));
-        } else {
-            creep.build(&site).unwrap();
-        }
-        timer!([ctx], game::time() + 1, build());
     }
 }
 
@@ -158,24 +62,110 @@ struct RoomActor {
     room_name: RoomName,
     spawns: Vec<Actor<Spawn>>,
     plan: Option<RoomPlan>,
+    miners: Vec<(Position, ObjectId<Source>, Option<String>)>,
+    spawn_queue: VecDeque<(Vec<Part>, Ret<String>)>,
 }
 
 impl RoomActor {
     fn init(ctx: &mut Context<'_, Self>, room_name: RoomName) -> Option<Self> {
+        let Some(room) = game::rooms().get(room_name) else {
+            warn!("Room {room_name} not visible, not creating actor");
+            return None;
+        };
+
+        room.find(find::MY_CREEPS, None).iter().for_each(|creep| {
+            let actor = ctx.actor();
+            let name = creep.name().clone();
+            if creep.store().get_capacity(None) > 0 {
+                actor!(ctx, Builder::init(name, actor), ret!(None));
+            }
+        });
+
         call!([ctx], get_spawns());
         call!([ctx], plan_room());
+        call!([ctx], mine());
         Some(Self {
             room_name,
             spawns: vec![],
             plan: None,
+            miners: vec![],
+            spawn_queue: VecDeque::new(),
         })
+    }
+
+    fn mine(&mut self, ctx: &mut Context<'_, Self>) {
+        debug!("mining...");
+        let Some(room) = game::rooms().get(self.room_name) else {
+            warn!("Room {} not visible, not mining", self.room_name);
+            return;
+        };
+        debug!("mining still...");
+
+        if self.miners.is_empty() {
+            if let Some(miners) = MEMORY.with_borrow(|memory| {
+                memory
+                    .rooms
+                    .get(&self.room_name)
+                    .map(|memory| memory.miners.clone())
+            }) && !miners.is_empty()
+            {
+                self.miners = miners;
+            } else {
+                self.miners = room
+                    .find(find::STRUCTURES, None)
+                    .into_iter()
+                    .filter_map(|s| {
+                        if s.structure_type() == StructureType::Container {
+                            debug!("c: {}", s.pos());
+                            if let Some(source) = s
+                                .pos()
+                                .find_in_range(find::SOURCES, 1)
+                                .first()
+                                .map(|s| s.id())
+                            {
+                                return Some((s.pos(), source, None));
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+
+                MEMORY.with_borrow_mut(|memory| {
+                    memory.rooms.entry(self.room_name).or_default().miners = self.miners.clone();
+                });
+            }
+        }
+
+        self.miners.iter().for_each(|(spot, source, name)| {
+            let spot = *spot;
+            let source = *source;
+
+            // Validate the existence of the creep
+            let Some(creep) = name.clone().and_then(|name| game::creeps().get(name)) else {
+                // Spawn a new miner
+                let ret = ret_to!([ctx], spawned_miner(spot, source));
+                call!(
+                    [ctx],
+                    queue_spawn(vec![Part::Move, Part::Work, Part::Work], ret)
+                );
+                return;
+            };
+
+            // Create the miner actor
+            let name = creep.name();
+            call!([ctx], spawned_miner(spot, source, name));
+        });
+    }
+
+    fn queue_spawn(&mut self, _ctx: &mut Context<'_, Self>, body: Vec<Part>, ret: Ret<String>) {
+        self.spawn_queue.push_back((body, ret));
     }
 
     fn get_spawns(&mut self, ctx: &mut Context<'_, Self>) {
         debug!("Getting spawns in {}", self.room_name);
         self.spawns = game::spawns()
             .keys()
-            .map(|spawn_name| actor!(ctx, Spawn::init(spawn_name)))
+            .map(|spawn_name| actor!(ctx, Spawn::init(spawn_name), ret!(None)))
             .collect();
     }
 
@@ -243,20 +233,95 @@ impl RoomActor {
                     {
                         trace!(
                             "Error building {} site at {} in {}: {}",
-                            ty,
-                            xy,
-                            self.room_name,
-                            err
+                            ty, xy, self.room_name, err
                         );
                     }
                 })
         }
     }
 
+    fn assign_site(&mut self, ctx: &mut Context<'_, Self>, ret: Ret<Option<ConstructionSite>>) {
+        let Some(room) = game::rooms().get(self.room_name) else {
+            warn!("Room {} not visible, not assigning site", self.room_name);
+            ret!([ret], None);
+            return;
+        };
+        let site = room.find(find::CONSTRUCTION_SITES, None).first().cloned();
+        ret!([ret], site);
+    }
+
+    fn spawned_miner(
+        &mut self,
+        ctx: &mut Context<'_, Self>,
+        spot: Position,
+        source: ObjectId<Source>,
+        name: String,
+    ) {
+        self.miners
+            .iter_mut()
+            .find(|(miners_spot, _, _)| *miners_spot == spot)
+            .unwrap()
+            .2 = Some(name.clone());
+        let spawn_ret = ret_to!([ctx], spawned_miner(spot, source));
+        let actor = ctx.actor();
+        let death_ret = ret_do!(|_| call!(
+            [actor],
+            queue_spawn(vec![Part::Move, Part::Work, Part::Work], spawn_ret)
+        ));
+        actor!(ctx, Miner::init(name, spot, source), death_ret);
+    }
+
+    fn builder_spawned(&mut self, ctx: &mut Context<'_, Self>, name: String) {
+        let actor = ctx.actor();
+        actor!(ctx, Builder::init(name, actor), ret!(None));
+    }
+
+    fn spawn(&mut self, ctx: &mut Context<'_, Self>) {
+        let Some((body, _)) = self.spawn_queue.front() else {
+            return;
+        };
+
+        let body = body.clone();
+        let ret = ret_to!([ctx], spawned());
+
+        trace!("Spawning {body:?}...?");
+
+        call!([self.spawns[0]], spawn_creep(&body, ret));
+    }
+
+    fn spawned(&mut self, _ctx: &mut Context<'_, Self>, name: Option<String>) {
+        let Some(name) = name else {
+            return;
+        };
+
+        let Some((_, ret)) = self.spawn_queue.pop_front() else {
+            error!("Spawn queue unexpectedly empty");
+            return;
+        };
+
+        ret!([ret], name);
+    }
+
     fn tick(&self, ctx: &mut Context<'_, Self>) {
-        self.spawns
-            .iter()
-            .for_each(|spawn| call!([spawn], spawn_creep()));
+        let Some(room) = game::rooms().get(self.room_name) else {
+            warn!("Room {} not visible, not ticking", self.room_name);
+            return;
+        };
+
+        debug!("miners: {:?}", self.miners);
+
+        if !self.spawn_queue.is_empty() {
+            call!([ctx], spawn());
+        }
+
+        let sites = room.find(find::CONSTRUCTION_SITES, None);
+        if game::time().is_multiple_of(10) && !sites.is_empty() && self.spawn_queue.is_empty() {
+            // Spawn a builder
+            let body = vec![Part::Move, Part::Move, Part::Work, Part::Carry];
+            let ret = ret_to!([ctx], builder_spawned());
+            call!([ctx], queue_spawn(body, ret));
+        }
+
         if game::time().is_multiple_of(100) {
             call!([ctx], build());
         }
@@ -277,15 +342,8 @@ pub fn game_loop() {
         for room_name in game::rooms().keys() {
             //let room = RoomActor::new(room_name);
             RUNTIME.with_borrow_mut(|runtime| {
-                let room_actor = actor!(runtime, RoomActor::init(room_name));
+                let room_actor = actor!(runtime, RoomActor::init(room_name), ret!(None));
                 call!([room_actor], tick())
-            });
-        }
-
-        for creep_name in game::creeps().keys() {
-            RUNTIME.with_borrow_mut(|runtime| {
-                let creep = actor!(runtime, CreepActor::init(creep_name));
-                call!([creep], build());
             });
         }
     });
