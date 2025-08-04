@@ -1,17 +1,19 @@
+use std::collections::HashMap;
+
 use log::{debug, error};
+use screeps::RoomName;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+use crate::planner::architect::RoomPlan;
+
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Memory {
-    pub test: String,
+    pub rooms: HashMap<RoomName, RoomMemory>,
 }
 
-impl Default for Memory {
-    fn default() -> Self {
-        Self {
-            test: "Hello, memory!".into(),
-        }
-    }
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct RoomMemory {
+    pub plan: Option<RoomPlan>,
 }
 
 impl Memory {

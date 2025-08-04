@@ -18,10 +18,7 @@ pub struct RoomData {
 }
 
 impl RoomData {
-    pub fn from_game(name: &str) -> Result<RoomData, &'static str> {
-        let Ok(room_name) = RoomName::new(name) else {
-            return Err("Unable to parse room name");
-        };
+    pub fn from_game(room_name: RoomName) -> Result<RoomData, &'static str> {
         let mut exits = vec![];
         let mut terrain: HashMap<RoomName, LocalRoomTerrain> = game::map::describe_exits(room_name)
             .values()

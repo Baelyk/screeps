@@ -95,7 +95,8 @@ fn neighbors(pos: Position) -> impl Iterator<Item = Position> {
         .filter(move |neighbor| neighbor.room_name() == pos.room_name())
 }
 
-pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>>, &'static str> {
+pub type RoomPlan = HashMap<StructureType, Vec<RoomXY>>;
+pub fn plan_room(room: &RoomData) -> Result<RoomPlan, &'static str> {
     let mut structures = HashMap::new();
 
     // 0. Prepare cost function for the pathfinder
@@ -386,5 +387,8 @@ pub fn plan_room(room: &RoomData) -> Result<HashMap<StructureType, Vec<Position>
     }
     structures.insert(StructureType::Extension, extensions);
 
-    Ok(structures)
+    Ok(structures
+        .into_iter()
+        .map(|(s, xys)| (s, xys.into_iter().map(|xy| xy.xy()).collect()))
+        .collect())
 }
