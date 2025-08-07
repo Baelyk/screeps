@@ -406,7 +406,13 @@ impl RoomActor {
         }
 
         let sites = room.find(find::CONSTRUCTION_SITES, None);
-        if game::time().is_multiple_of(10) && !sites.is_empty() && self.spawn_queue.is_empty() {
+        // TODO: something better than only spawning builders when there's five or fewer creeps
+        let population = game::creeps().entries().count();
+        if game::time().is_multiple_of(10)
+            && !sites.is_empty()
+            && self.spawn_queue.is_empty()
+            && population <= 5
+        {
             // Spawn a builder
             let body = Builder::body(room.energy_capacity_available());
             let owner = ctx.actor();
