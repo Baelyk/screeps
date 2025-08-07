@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use log::*;
 use screeps::{
@@ -170,42 +170,42 @@ impl RoomActor {
             return;
         };
 
-        if self.miners.is_empty() {
-            if let Some(miners) = MEMORY.with_borrow(|memory| {
-                memory
-                    .rooms
-                    .get(&self.room_name)
-                    .map(|memory| memory.miners.clone())
-            }) && !miners.is_empty()
-            {
-                debug!("Loaded miners from memory");
-                self.miners = miners;
-            } else {
-                debug!("Building miners");
-                self.miners = room
-                    .find(find::STRUCTURES, None)
-                    .into_iter()
-                    .filter_map(|s| {
-                        if s.structure_type() == StructureType::Container {
-                            debug!("c: {}", s.pos());
-                            if let Some(source) = s
-                                .pos()
-                                .find_in_range(find::SOURCES, 1)
-                                .first()
-                                .map(|s| s.id())
-                            {
-                                return Some((s.pos(), source, None));
-                            }
-                        }
-                        None
-                    })
-                    .collect();
+        // Map of miner spot -> miner name from memory
+        let miners: HashMap<Position, String> = MEMORY
+            .with_borrow(|memory| {
+                memory.rooms.get(&self.room_name).map(|memory| {
+                    memory
+                        .miners
+                        .iter()
+                        .cloned()
+                        .filter_map(|(pos, _, name)| name.map(|name| (pos, name)))
+                        .collect()
+                })
+            })
+            .unwrap_or_default();
 
-                MEMORY.with_borrow_mut(|memory| {
-                    memory.rooms.entry(self.room_name).or_default().miners = self.miners.clone();
-                });
-            }
-        }
+        // Find source containers, and assign miners from memory
+        self.miners = room
+            .find(find::STRUCTURES, None)
+            .into_iter()
+            .filter_map(|s| {
+                if s.structure_type() == StructureType::Container {
+                    debug!("c: {}", s.pos());
+                    let pos = s.pos();
+                    if let Some(source) =
+                        pos.find_in_range(find::SOURCES, 1).first().map(|s| s.id())
+                    {
+                        return Some((pos, source, miners.get(&pos).cloned()));
+                    }
+                }
+                None
+            })
+            .collect();
+
+        // Update memory
+        MEMORY.with_borrow_mut(|memory| {
+            memory.rooms.entry(self.room_name).or_default().miners = self.miners.clone();
+        });
 
         self.miners.iter().for_each(|(spot, source, name)| {
             let spot = *spot;
@@ -348,23 +348,18 @@ impl RoomActor {
         source: ObjectId<Source>,
         name: String,
     ) {
-        let Some(room) = game::rooms().get(self.room_name) else {
-            warn!(
-                "Room {} not visible when trying to spawn miner",
-                self.room_name
-            );
-            return;
-        };
-
+        // Update self.miners and memory
         self.miners
             .iter_mut()
             .find(|(miners_spot, _, _)| *miners_spot == spot)
             .unwrap()
             .2 = Some(name.clone());
-        let spawn_ret = ret_to!([ctx], spawned_miner(spot, source));
+        MEMORY.with_borrow_mut(|memory| {
+            memory.rooms.entry(self.room_name).or_default().miners = self.miners.clone();
+        });
+
         let actor = ctx.actor();
-        let body = Miner::body(room.energy_capacity_available());
-        let death_ret = ret_do!(|_| call!([actor], queue_spawn(body, spawn_ret)));
+        let death_ret = ret_do!(|_| call!([actor], mine()));
         actor!(ctx, Miner::init(name, spot, source), death_ret);
     }
 

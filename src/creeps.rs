@@ -332,8 +332,6 @@ impl Miner {
     }
 
     fn mine(&self, _ctx: &mut Context<'_, Self>, creep: CreepObject) {
-        trace!("Creep {} mining", self.name);
-
         let Some(source) = self.source.resolve() else {
             warn!("Creep {}'s source {} missing", self.name, self.source);
             return;
