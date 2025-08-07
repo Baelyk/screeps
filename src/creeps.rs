@@ -6,8 +6,8 @@ use crate::{
 use log::*;
 use screeps::{
     ConstructionSite, ObjectId, Position, RoomName, Source, Structure, StructureObject,
-    StructureType, TransferableObject, constants::Part, find, game, objects::Creep as CreepObject,
-    prelude::*,
+    StructureType, TransferableObject, action_error_codes::HarvestErrorCode, constants::Part, find,
+    game, look, objects::Creep as CreepObject, prelude::*,
 };
 
 trait Creep
@@ -339,8 +339,18 @@ impl Miner {
             return;
         };
 
-        if let Err(err) = creep.harvest(&source) {
-            warn!("Creep {} harvested with {err}", self.name);
+        match creep.harvest(&source) {
+            Ok(_) => {}
+            Err(HarvestErrorCode::NotEnoughResources) => {
+                if let Some(container) = self.spot.look_for(look::STRUCTURES).ok().and_then(|s| {
+                    s.into_iter()
+                        .find(|s| s.structure_type() == StructureType::Container)
+                }) && let Some(container) = container.as_repairable()
+                {
+                    let _ = creep.repair(container);
+                }
+            }
+            Err(err) => warn!("Creep {} harvested with {err}", self.name),
         }
     }
 }
