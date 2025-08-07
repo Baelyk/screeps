@@ -160,6 +160,16 @@ impl<M> Ret<M> {
         Ret(Some(Box::new(message)))
     }
 
+    pub fn to_actor<T: 'static>(
+        actor: Actor<T>,
+        f: impl FnOnce(&mut T, &mut Context<'_, T>, M) + 'static,
+    ) -> Self {
+        Self::new(move |message| {
+            let actor2 = actor.clone();
+            actor.defer(move |runtime| actor2.apply(runtime, move |a, ctx| f(a, ctx, message)));
+        })
+    }
+
     pub fn none() -> Self {
         Ret(None)
     }
@@ -346,6 +356,16 @@ macro_rules! ret_to {
             actor1.defer(move |runtime| actor2.apply(runtime, move |a, ctx| a.$method(ctx $(,$x)*, message)));
         })
     }};
+    // Closure syntax
+    ([$actor_or_context:expr], |$self:pat_param, $ctx:pat_param, $message:pat_param| $body:expr) => {{
+        let actor = $actor_or_context.actor();
+        $crate::actor::Ret::to_actor(actor, move |$self, $ctx, $message| $body)
+    }};
+    // Closure syntax with message type
+    ([$actor_or_context:expr], |$self:pat_param, $ctx:pat_param, $message:ident: $m:ty| $body:expr) => {{
+        let actor = $actor_or_context.actor();
+        $crate::actor::Ret::to_actor(actor, move |$self, $ctx, $message: $m| $body)
+    }};
 }
 
 #[macro_export]
@@ -361,3 +381,19 @@ macro_rules! ret {
     // Call ret
     ([$ret:expr],  $message:expr ) => {{ $ret.call($message) }};
 }
+
+#[macro_export]
+macro_rules! stop {
+    ([$actor_or_context:expr]) => {{
+        let actor = $actor_or_context.actor();
+        $actor_or_context.defer(move |runtime| actor.stop(runtime))
+    }};
+}
+
+pub(crate) use actor;
+pub(crate) use call;
+pub(crate) use ret;
+pub(crate) use ret_do;
+pub(crate) use ret_to;
+pub(crate) use stop;
+pub(crate) use timer;

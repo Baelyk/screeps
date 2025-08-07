@@ -15,6 +15,7 @@ pub struct Memory {
 pub struct RoomMemory {
     pub plan: Option<RoomPlan>,
     pub miners: Vec<(Position, ObjectId<Source>, Option<String>)>,
+    pub tender: String,
 }
 
 impl Memory {
