@@ -457,7 +457,10 @@ impl Tender {
                 }
 
                 match s.structure_type() {
-                    StructureType::Spawn | StructureType::Extension | StructureType::Tower => {}
+                    StructureType::Spawn
+                    | StructureType::Extension
+                    | StructureType::Tower
+                    | StructureType::Storage => {}
                     _ => return false,
                 }
 
@@ -472,7 +475,9 @@ impl Tender {
             })
             .collect();
         targets.sort_by_key(|s| match s.structure_type() {
-            StructureType::Spawn | StructureType::Extension => 1,
+            StructureType::Spawn | StructureType::Extension => 2,
+            StructureType::Tower => 1,
+            StructureType::Storage => 0,
             _ => 0,
         });
 
