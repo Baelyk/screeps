@@ -371,7 +371,7 @@ macro_rules! ret_to {
 #[macro_export]
 macro_rules! ret_do {
     // Closure syntax
-    (|$message:pat_param| $body:expr) => {{ Ret::new(move |$message| $body) }};
+    (|$message:pat_param| $body:expr) => {{ $crate::actor::Ret::new(move |$message| $body) }};
 }
 
 #[macro_export]

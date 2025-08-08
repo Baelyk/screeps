@@ -1,7 +1,8 @@
 use crate::{
-    RoomActor,
     actor::{Actor, Context},
-    call, ret_to, stop, timer,
+    call, ret_to,
+    rooms::construct::Construct,
+    stop, timer,
 };
 use log::*;
 use screeps::{
@@ -109,7 +110,7 @@ pub enum BuilderTarget {
 }
 
 pub struct Builder {
-    owner: Actor<RoomActor>,
+    owner: Actor<Construct>,
     name: String,
     target: BuilderTarget,
     state: CreepState,
@@ -125,7 +126,7 @@ impl Builder {
     pub fn init(
         ctx: &mut Context<'_, Self>,
         name: String,
-        owner: Actor<RoomActor>,
+        owner: Actor<Construct>,
     ) -> Option<Self> {
         if let Some(creep) = game::creeps().get(name.clone())
             && !creep.spawning()
@@ -181,7 +182,7 @@ impl Builder {
                         BuilderTarget::Build(target) => self.build(creep, target),
                         BuilderTarget::None => {
                             let ret = ret_to!([ctx], assign_site(creep));
-                            call!([self.owner], assign_site(ret));
+                            call!([self.owner], assign_target(ret));
                         }
                     }
                 } else {

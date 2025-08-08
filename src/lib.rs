@@ -3,14 +3,10 @@
 use std::cell::RefCell;
 
 use log::*;
-use screeps::{StructureSpawn, constants::Part, game};
+use screeps::game;
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    actor::{Context, Ret, Runtime},
-    memory::Memory,
-    rooms::RoomActor,
-};
+use crate::{actor::Runtime, memory::Memory, rooms::RoomActor};
 
 pub mod actor;
 mod creeps;
@@ -28,33 +24,6 @@ thread_local! {
 
 static INIT: std::sync::Once = std::sync::Once::new();
 
-struct Spawn {
-    spawn_name: String,
-}
-
-impl Spawn {
-    fn init(_ctx: &mut Context<'_, Self>, spawn_name: String) -> Option<Self> {
-        Some(Self { spawn_name })
-    }
-
-    fn spawn(&self) -> StructureSpawn {
-        game::spawns().get(self.spawn_name.clone()).unwrap()
-    }
-
-    fn spawn_creep(&self, _ctx: &mut Context<'_, Self>, body: &[Part], ret: Ret<Option<String>>) {
-        let spawn = self.spawn();
-        if spawn.room().unwrap().energy_available() >= body.iter().map(|p| p.cost()).sum() {
-            // create a unique name, spawn.
-            let name_base = game::time();
-            let name = format!("{name_base}");
-            match spawn.spawn_creep(body, &name) {
-                Ok(_) => ret!([ret], Some(name)),
-                Err(_) => ret!([ret], None),
-            }
-        }
-    }
-}
-
 #[wasm_bindgen(js_name = loop)]
 pub fn game_loop() {
     let cpu = game::cpu::get_used();
@@ -68,8 +37,7 @@ pub fn game_loop() {
         for room_name in game::rooms().keys() {
             //let room = RoomActor::new(room_name);
             RUNTIME.with_borrow_mut(|runtime| {
-                let room_actor = actor!(runtime, RoomActor::init(room_name), ret!(None));
-                call!([room_actor], tick())
+                actor!(runtime, RoomActor::init(room_name), ret!(None));
             });
         }
     });
