@@ -249,6 +249,17 @@ impl Builder {
             self.target = BuilderTarget::None;
             return;
         };
+
+        if target.as_structure().hits() == target.as_structure().hits_max() {
+            trace!(
+                "Creep {}'s target {} fully repaired",
+                self.name,
+                target.pos()
+            );
+            self.target = BuilderTarget::None;
+            return;
+        }
+
         let pos = target.pos();
         let Some(target) = target.as_repairable() else {
             warn!(

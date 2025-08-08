@@ -90,10 +90,17 @@ impl Construct {
                     .collect();
                 if living.len() < 2
                     && let Some(room) = game::rooms().get(self.room_name)
-                    && !room.find(find::CONSTRUCTION_SITES, None).is_empty()
                 {
-                    // Spawn a builder
-                    call!([ctx], spawn());
+                    let has_sites = !room.find(find::CONSTRUCTION_SITES, None).is_empty();
+                    let has_urgent_repairs = room
+                        .find(find::STRUCTURES, None)
+                        .into_iter()
+                        .filter(|s| s.as_structure().hits_max() > 0)
+                        .any(|s| s.as_structure().hits() < s.as_structure().hits_max() / 4);
+                    if has_sites || has_urgent_repairs {
+                        // Spawn a builder
+                        call!([ctx], spawn());
+                    }
                 }
                 self.builders = Builders::Intialized(living);
             }
@@ -139,22 +146,23 @@ impl Construct {
             .collect();
         repairables.sort_by_key(|s| s.as_structure().hits() * 100 / s.as_structure().hits_max());
 
-        let lowest = &repairables[0];
-        if lowest.as_structure().hits() < lowest.as_structure().hits() / 4 {
+        if let Some(lowest) = repairables.first()
+            && lowest.as_structure().hits() < lowest.as_structure().hits_max() / 4
+        {
             ret!([ret], BuilderTarget::Repair(lowest.as_structure().id()));
-            return;
-        }
-
-        if let Some(site) = room
+        } else if let Some(site) = room
             .find(find::CONSTRUCTION_SITES, None)
             .into_iter()
             .find_map(|s| s.try_id())
         {
             ret!([ret], BuilderTarget::Build(site));
-            return;
+        } else if let Some(lowest) = repairables.first()
+            && lowest.as_structure().hits() < 3 * lowest.as_structure().hits_max() / 4
+        {
+            ret!([ret], BuilderTarget::Repair(lowest.as_structure().id()));
+        } else {
+            ret!([ret], BuilderTarget::None);
         }
-
-        ret!([ret], BuilderTarget::None);
     }
 
     fn plan_room(&mut self, _ctx: &mut Context<'_, Self>) {
