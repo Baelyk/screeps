@@ -6,9 +6,9 @@ use crate::{
 };
 use log::*;
 use screeps::{
-    ConstructionSite, ObjectId, Position, RoomName, Source, Structure, StructureObject,
-    StructureType, TransferableObject, action_error_codes::HarvestErrorCode, constants::Part, find,
-    game, look, objects::Creep as CreepObject, prelude::*,
+    ConstructionSite, ObjectId, Position, Resource, ResourceType, RoomName, Source, Structure,
+    StructureObject, StructureType, TransferableObject, action_error_codes::HarvestErrorCode,
+    constants::Part, find, game, look, objects::Creep as CreepObject, prelude::*,
 };
 
 trait Creep
@@ -26,14 +26,17 @@ where
 
     fn get_energy(&self, creep: CreepObject) {
         let room = creep.room().unwrap();
-        if let Some(target) = room
+        let mut dropped: Vec<Resource> = room
             .find(find::DROPPED_RESOURCES, None)
             .into_iter()
-            .find(|r| r.resource_type() == screeps::ResourceType::Energy)
-        {
+            .filter(|r| r.resource_type() == ResourceType::Energy)
+            .collect();
+        dropped.sort_by_key(|r| r.pos().get_range_to(creep.pos()));
+
+        if let Some(target) = dropped.first() {
             let pos = target.pos();
             if creep.pos().is_near_to(pos) {
-                if let Err(err) = creep.pickup(&target) {
+                if let Err(err) = creep.pickup(target) {
                     warn!("Creep {} target {} withdraw err: {}", self.name(), pos, err);
                 }
             } else {
