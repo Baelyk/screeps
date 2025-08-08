@@ -6,9 +6,13 @@ use crate::{
 };
 use log::*;
 use screeps::{
-    ConstructionSite, ObjectId, Position, Resource, ResourceType, RoomName, Source, Structure,
-    StructureObject, StructureType, TransferableObject, action_error_codes::HarvestErrorCode,
-    constants::Part, find, game, look, objects::Creep as CreepObject, prelude::*,
+    ConstructionSite, ObjectId, Position, RawObjectId, Resource, ResourceType, RoomName, Source,
+    Structure, StructureObject, StructureStorage, StructureType, TransferableObject,
+    action_error_codes::{HarvestErrorCode, WithdrawErrorCode},
+    constants::Part,
+    find, game, look,
+    objects::Creep as CreepObject,
+    prelude::*,
 };
 
 trait Creep
@@ -86,6 +90,13 @@ where
             } else if let Err(err) = creep.harvest(&source) {
                 warn!("Builder {} failed to harvest: {}", self.name(), err);
             }
+        }
+    }
+
+    fn get_energy_from_storage(&self, creep: CreepObject, storage: &StructureStorage) {
+        if creep.withdraw(storage, ResourceType::Energy, None) == Err(WithdrawErrorCode::NotInRange)
+        {
+            self.move_to(creep, storage.pos())
         }
     }
 
@@ -444,7 +455,18 @@ impl Tender {
                     .get_free_capacity(Some(screeps::ResourceType::Energy))
                     > 0
                 {
-                    self.get_energy(creep);
+                    if let Some(storage) = creep.room().and_then(|room| room.storage())
+                        && storage
+                            .store()
+                            .get_used_capacity(Some(ResourceType::Energy))
+                            > 0
+                        && let Some(target) = self.target
+                        && RawObjectId::from(target) != storage.id()
+                    {
+                        self.get_energy_from_storage(creep, &storage);
+                    } else {
+                        self.get_energy(creep);
+                    }
                 } else {
                     self.state = CreepState::Work;
                     call!([ctx], tick());
