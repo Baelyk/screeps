@@ -22,6 +22,7 @@ pub struct Construct {
     plan: Option<architect::RoomPlan>,
     builders: Builders,
     spawner: Actor<Spawner>,
+    has_queued_spawn: bool,
 }
 
 impl Construct {
@@ -36,6 +37,7 @@ impl Construct {
             plan: None,
             builders: Builders::Unitialized,
             spawner,
+            has_queued_spawn: false,
         })
     }
 
@@ -91,12 +93,21 @@ impl Construct {
                     && !room.find(find::CONSTRUCTION_SITES, None).is_empty()
                 {
                     // Spawn a builder
-                    let body = Builder::body(room.energy_capacity_available());
-                    let ret = ret_to!([ctx], spawned_builder());
-                    call!([self.spawner], queue(body, ret, false));
+                    call!([ctx], spawn());
                 }
                 self.builders = Builders::Intialized(living);
             }
+        }
+    }
+
+    fn spawn(&mut self, ctx: &mut Context<'_, Self>) {
+        if !self.has_queued_spawn
+            && let Some(room) = game::rooms().get(self.room_name)
+        {
+            self.has_queued_spawn = true;
+            let body = Builder::body(room.energy_capacity_available());
+            let ret = ret_to!([ctx], spawned_builder());
+            call!([self.spawner], queue(body, ret, false));
         }
     }
 
@@ -108,6 +119,7 @@ impl Construct {
             );
             return;
         };
+        self.has_queued_spawn = false;
         builders.push(name.clone());
         let owner = ctx.actor();
         actor!(ctx, Builder::init(name, owner), ret!(None));
