@@ -105,6 +105,7 @@ impl Mine {
                 call!([ctx], spawned_miner(spot, source, name));
             }
         });
+        self.uninitialized = false;
     }
 
     fn spawned_miner(
