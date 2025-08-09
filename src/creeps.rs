@@ -460,8 +460,8 @@ impl Tender {
                             .store()
                             .get_used_capacity(Some(ResourceType::Energy))
                             > 0
-                        && let Some(target) = self.target
-                        && RawObjectId::from(target) != storage.id()
+                        && self.target.map(RawObjectId::from)
+                            != Some(RawObjectId::from(storage.id()))
                     {
                         self.get_energy_from_storage(creep, &storage);
                     } else {
