@@ -93,7 +93,10 @@ impl RoomActor {
             } else if !upgrader_assigned {
                 // One upgrader
                 upgrader_assigned = true;
-                actor!(ctx, Upgrader::init(name), ret!(None));
+                let death_ret = ret_to!([ctx], |this, ctx, _| {
+                    this.upgrade(ctx);
+                });
+                actor!(ctx, Upgrader::init(name), death_ret);
             } else {
                 // Rest as builders
                 let owner = construct.actor();
