@@ -6,12 +6,14 @@ use crate::{
 };
 use log::*;
 use screeps::{
-    ConstructionSite, ObjectId, Position, RawObjectId, Resource, ResourceType, RoomName, Source,
-    Structure, StructureObject, StructureStorage, StructureType, TransferableObject,
+    ConstructionSite, CostMatrix, ObjectId, Position, ROOM_AREA, ROOM_SIZE, ROOM_USIZE,
+    RawObjectId, Resource, ResourceType, RoomName, Source, Structure, StructureObject,
+    StructureStorage, StructureType, TransferableObject,
     action_error_codes::{HarvestErrorCode, WithdrawErrorCode},
     constants::Part,
     find, game, look,
     objects::Creep as CreepObject,
+    pathfinder::SingleRoomCostResult,
     prelude::*,
 };
 
@@ -439,7 +441,7 @@ impl Tender {
                     .get_used_capacity(Some(screeps::ResourceType::Energy))
                     > 0
                 {
-                    match self.target() {
+                    match self.target(&creep) {
                         Some(target) => self.tend(creep, target),
                         None => self.upgrade(creep),
                     }
@@ -455,6 +457,15 @@ impl Tender {
                     .get_free_capacity(Some(screeps::ResourceType::Energy))
                     > 0
                 {
+                    debug!(
+                        "Tender {} has target {:?} and storage is {:?}",
+                        self.name,
+                        self.target,
+                        creep
+                            .room()
+                            .and_then(|room| room.storage())
+                            .map(|storage| storage.id())
+                    );
                     if let Some(storage) = creep.room().and_then(|room| room.storage())
                         && storage
                             .store()
@@ -478,7 +489,7 @@ impl Tender {
         timer!([ctx], game::time() + 1, tick())
     }
 
-    fn target(&mut self) -> Option<TransferableObject> {
+    fn target(&mut self, creep: &CreepObject) -> Option<TransferableObject> {
         let Some(room) = game::rooms().get(self.room) else {
             warn!("Tender {}'s room not visible", self.name);
             return None;
@@ -488,6 +499,11 @@ impl Tender {
             id.into_type::<Structure>()
                 .resolve()
                 .map(StructureObject::from)
+                .filter(|s| {
+                    s.as_has_store()
+                        .map(|s| s.store().get_free_capacity(Some(ResourceType::Energy)) > 0)
+                        .unwrap_or_default()
+                })
                 .and_then(|s| TransferableObject::try_from(s).ok())
         }) {
             return Some(current);
@@ -519,11 +535,18 @@ impl Tender {
                     > 0
             })
             .collect();
-        targets.sort_by_key(|s| match s.structure_type() {
-            StructureType::Spawn | StructureType::Extension => 2,
-            StructureType::Tower => 1,
-            StructureType::Storage => 0,
-            _ => 0,
+        targets.sort_by_cached_key(|s| {
+            std::cmp::Reverse(
+                match creep.pos().find_path_to::<Position, Box<dyn FnMut(RoomName, CostMatrix) -> SingleRoomCostResult>, SingleRoomCostResult>(&s.pos(), None) {
+                    screeps::Path::Vectorized(path) => path.len(),
+                    screeps::Path::Serialized(_) => ROOM_AREA,
+                } + match s.structure_type() {
+                    StructureType::Spawn | StructureType::Extension => 0,
+                    StructureType::Tower => 1,
+                    StructureType::Storage => 2,
+                    _ => 3,
+                } * ROOM_USIZE,
+            )
         });
 
         self.target = targets.pop().and_then(|t| {
