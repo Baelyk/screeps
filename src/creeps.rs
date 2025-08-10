@@ -6,9 +6,9 @@ use crate::{
 };
 use log::*;
 use screeps::{
-    ConstructionSite, CostMatrix, ObjectId, Position, ROOM_AREA, ROOM_SIZE, ROOM_USIZE,
-    RawObjectId, Resource, ResourceType, RoomName, Source, Structure, StructureObject,
-    StructureStorage, StructureType, TransferableObject,
+    ConstructionSite, CostMatrix, ObjectId, Position, ROOM_AREA, ROOM_USIZE, RawObjectId, Resource,
+    ResourceType, RoomName, Source, Structure, StructureObject, StructureStorage, StructureType,
+    TransferableObject,
     action_error_codes::{HarvestErrorCode, WithdrawErrorCode},
     constants::Part,
     find, game, look,
@@ -16,6 +16,21 @@ use screeps::{
     pathfinder::SingleRoomCostResult,
     prelude::*,
 };
+
+#[derive(Copy, Clone, Debug)]
+struct GetEnergyOptions {
+    prioritize_storage: bool,
+    allow_storage: bool,
+}
+
+impl Default for GetEnergyOptions {
+    fn default() -> Self {
+        Self {
+            prioritize_storage: true,
+            allow_storage: true,
+        }
+    }
+}
 
 trait Creep
 where
@@ -30,8 +45,19 @@ where
         }
     }
 
-    fn get_energy(&self, creep: CreepObject) {
+    fn get_energy(&self, creep: CreepObject, options: GetEnergyOptions) {
         let room = creep.room().unwrap();
+        if options.prioritize_storage
+            && let Some(storage) = room.storage()
+            && storage
+                .store()
+                .get_used_capacity(Some(ResourceType::Energy))
+                > 0
+        {
+            self.get_energy_from_storage(creep, &storage);
+            return;
+        }
+
         let mut dropped: Vec<Resource> = room
             .find(find::DROPPED_RESOURCES, None)
             .into_iter()
@@ -56,7 +82,7 @@ where
             .into_iter()
             .filter(|s| {
                 (s.structure_type() == StructureType::Container
-                    || s.structure_type() == StructureType::Storage)
+                    || (options.allow_storage && s.structure_type() == StructureType::Storage))
                     && s.as_has_store()
                         .map(|target| {
                             target
@@ -213,7 +239,7 @@ impl Builder {
                     .get_free_capacity(Some(screeps::ResourceType::Energy))
                     > 0
                 {
-                    self.get_energy(creep);
+                    self.get_energy(creep, Default::default());
                 } else {
                     self.state = CreepState::Work;
                     call!([ctx], tick());
@@ -476,7 +502,13 @@ impl Tender {
                     {
                         self.get_energy_from_storage(creep, &storage);
                     } else {
-                        self.get_energy(creep);
+                        self.get_energy(
+                            creep,
+                            GetEnergyOptions {
+                                prioritize_storage: false,
+                                allow_storage: false,
+                            },
+                        );
                     }
                 } else {
                     self.state = CreepState::Work;
@@ -637,7 +669,7 @@ impl Upgrader {
                     .get_free_capacity(Some(screeps::ResourceType::Energy))
                     > 0
                 {
-                    self.get_energy(creep);
+                    self.get_energy(creep, Default::default());
                 } else {
                     self.state = CreepState::Work;
                     call!([ctx], tick());
