@@ -500,9 +500,13 @@ impl Tender {
                 .resolve()
                 .map(StructureObject::from)
                 .filter(|s| {
-                    s.as_has_store()
-                        .map(|s| s.store().get_free_capacity(Some(ResourceType::Energy)) > 0)
-                        .unwrap_or_default()
+                    // When the existing target is the storage, force checking again for other
+                    // targets
+                    s.as_structure().structure_type() != StructureType::Storage
+                        // Ensure the target needs energy
+                        && s.as_has_store()
+                            .map(|s| s.store().get_free_capacity(Some(ResourceType::Energy)) > 0)
+                            .unwrap_or_default()
                 })
                 .and_then(|s| TransferableObject::try_from(s).ok())
         }) {
