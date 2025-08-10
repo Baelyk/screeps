@@ -59,6 +59,17 @@ impl Mine {
             })
             .unwrap_or_default();
 
+        debug!(
+            "Running mine for {} with self.miners {:?} and memory {:?} and uninitialized {}",
+            self.room_name,
+            self.miners
+                .iter()
+                .filter_map(|(_, _, name)| name.clone())
+                .collect::<Vec<String>>(),
+            miners.values(),
+            self.uninitialized
+        );
+
         // Find source containers, and assign miners from memory
         self.miners = room
             .find(find::STRUCTURES, None)
@@ -94,6 +105,7 @@ impl Mine {
                 .is_none()
             {
                 // Spawn a new miner
+                debug!("Miner {name:?} does not exist, spawning new miner for {spot}");
                 let ret = ret_to!([ctx], spawned_miner(spot, source));
                 let body = Miner::body(room.energy_capacity_available());
                 call!([self.spawner], queue(body, ret, false));
@@ -101,6 +113,7 @@ impl Mine {
                 && let Some(name) = name
             {
                 // Create the miner actor
+                debug!("Creating new miner actor for {name} at {spot}");
                 let name = name.clone();
                 call!([ctx], spawned_miner(spot, source, name));
             }
