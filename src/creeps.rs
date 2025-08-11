@@ -491,7 +491,9 @@ impl Miner {
                         link.pos(),
                         creep.transfer(&link, ResourceType::Energy, None)
                     );
-                } else if let Some(container) = &container {
+                } else if pile.is_none()
+                    && let Some(container) = &container
+                {
                     trace!(
                         "Creep {} transfering to container {} with {:?}",
                         self.name(),
