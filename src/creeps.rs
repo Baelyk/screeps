@@ -577,7 +577,7 @@ impl Tender {
 
         (0..parts)
             .map(|i| {
-                if i <= parts / 3 {
+                if i < parts / 3 {
                     Part::Move
                 } else {
                     Part::Carry
