@@ -6,9 +6,9 @@ use crate::{
 };
 use log::*;
 use screeps::{
-    ConstructionSite, CostMatrix, ObjectId, Position, ROOM_AREA, ROOM_USIZE, RawObjectId, Resource,
-    ResourceType, RoomName, Source, Structure, StructureObject, StructureStorage, StructureType,
-    TransferableObject,
+    ConstructionSite, CostMatrix, LINK_CAPACITY, ObjectId, Position, ROOM_AREA, ROOM_USIZE,
+    RawObjectId, Resource, ResourceType, RoomName, Source, Structure, StructureContainer,
+    StructureLink, StructureObject, StructureStorage, StructureType, TransferableObject,
     action_error_codes::{HarvestErrorCode, WithdrawErrorCode},
     constants::Part,
     find, game, look,
@@ -92,6 +92,7 @@ where
                     .into_iter()
                     .filter(|s| {
                         (s.structure_type() == StructureType::Container
+                            || s.structure_type() == StructureType::Link
                             || (options.allow_storage
                                 && s.structure_type() == StructureType::Storage))
                             && s.as_has_store()
@@ -423,11 +424,92 @@ impl Miner {
             stop!([ctx]);
             return;
         };
+        let Some(source) = self.source.resolve() else {
+            warn!(
+                "Creep {}'s source {} missing, stopping",
+                self.name, self.source
+            );
+            stop!([ctx]);
+            return;
+        };
+        let container = self.spot.look_for(look::STRUCTURES).ok().and_then(|s| {
+            s.into_iter()
+                .find_map(|s| TryInto::<StructureContainer>::try_into(s).ok())
+        });
+        let link: Option<StructureLink> = self
+            .spot
+            .find_in_range(find::MY_STRUCTURES, 1)
+            .into_iter()
+            .find_map(|s| s.try_into().ok());
+        let pile = self.spot.look_for(look::RESOURCES).ok().and_then(|found| {
+            found
+                .into_iter()
+                .find(|r| r.resource_type() == ResourceType::Energy)
+        });
 
         trace!("Creep {} mining", self.name);
 
         if creep.pos() == self.spot {
-            call!([ctx], mine(creep));
+            // Repair container, or mine, transfer energy to link, and pickup dropped energy
+            if source.energy() == 0
+                && let Some(container) = &container
+                && container.hits() < container.hits_max()
+                && creep.store().get_used_capacity(Some(ResourceType::Energy)) > 0
+            {
+                match creep.repair(container) {
+                    Ok(()) => trace!(
+                        "Creep {} repairing container at {}",
+                        self.name(),
+                        container.pos()
+                    ),
+                    Err(err) => trace!(
+                        "Creep {} failed to repair container at {}: {}",
+                        self.name(),
+                        container.pos(),
+                        err
+                    ),
+                }
+            } else {
+                self.mine(&creep, &source);
+
+                // Transfer energy to the link
+                if let Some(link) = link
+                    && link.store().get_used_capacity(None) < LINK_CAPACITY
+                {
+                    // Get energy from the container
+                    if let Some(container) = &container {
+                        trace!(
+                            "Creep {} withdrawing from container {} with {:?}",
+                            self.name(),
+                            container.pos(),
+                            creep.withdraw(container, ResourceType::Energy, None)
+                        );
+                    }
+                    trace!(
+                        "Creep {} transfering to link {} with {:?}",
+                        self.name(),
+                        link.pos(),
+                        creep.transfer(&link, ResourceType::Energy, None)
+                    );
+                } else if let Some(container) = &container {
+                    trace!(
+                        "Creep {} transfering to container {} with {:?}",
+                        self.name(),
+                        container.pos(),
+                        creep.transfer(container, ResourceType::Energy, None)
+                    );
+                }
+
+                // Pickup energy from the floor, if any
+                if let Some(pile) = &pile {
+                    trace!(
+                        "Creep {} picking up from {} with {:?}",
+                        self.name(),
+                        pile.pos(),
+                        creep.pickup(pile)
+                    );
+                }
+            }
         } else {
             trace!("Creep {} moving", self.name);
             let pos = self.spot;
@@ -437,13 +519,8 @@ impl Miner {
         timer!([ctx], game::time() + 1, tick());
     }
 
-    fn mine(&self, _ctx: &mut Context<'_, Self>, creep: CreepObject) {
-        let Some(source) = self.source.resolve() else {
-            warn!("Creep {}'s source {} missing", self.name, self.source);
-            return;
-        };
-
-        match creep.harvest(&source) {
+    fn mine(&self, creep: &CreepObject, source: &Source) {
+        match creep.harvest(source) {
             Ok(_) => {}
             Err(HarvestErrorCode::NotEnoughResources) => {
                 if let Some(container) = self.spot.look_for(look::STRUCTURES).ok().and_then(|s| {

@@ -5,11 +5,14 @@ use crate::{
     MEMORY,
     actor::{Actor, Context, actor, call, ret, ret_to, stop, timer},
     creeps::{Builder, Tender, Upgrader},
-    rooms::{construct::Construct, defend::Defend, mine::Mine, spawner::Spawner, tend::Tend},
+    rooms::{
+        construct::Construct, defend::Defend, link::Link, mine::Mine, spawner::Spawner, tend::Tend,
+    },
 };
 
 pub mod construct;
 mod defend;
+mod link;
 mod mine;
 mod spawner;
 mod tend;
@@ -44,6 +47,8 @@ impl RoomActor {
 
         let defend_spawner = spawner.clone();
         actor!(ctx, Defend::init(room_name, defend_spawner), ret!(None));
+
+        actor!(ctx, Link::init(room_name), ret!(None));
 
         let unemployment_room = room.clone();
         call!([ctx], unemployment(unemployment_room, construct));
