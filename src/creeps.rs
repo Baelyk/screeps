@@ -64,9 +64,8 @@ where
     fn name(&self) -> &String;
 
     fn move_to(&self, creep: CreepObject, pos: Position) {
-        if let Err(err) = creep.move_to(pos) {
-            warn!("Creep {} move err {err}", self.name());
-        }
+        let result = creep.move_to(pos);
+        trace!("Creep {} moving to {} with {:?}", self.name(), pos, result)
     }
 
     fn get_energy(&self, creep: CreepObject, options: GetEnergyOptions) {
@@ -478,27 +477,30 @@ impl Miner {
                 {
                     // Get energy from the container
                     if let Some(container) = &container {
+                        let result = creep.withdraw(container, ResourceType::Energy, None);
                         trace!(
                             "Creep {} withdrawing from container {} with {:?}",
                             self.name(),
                             container.pos(),
-                            creep.withdraw(container, ResourceType::Energy, None)
+                            result
                         );
                     }
+                    let result = creep.transfer(&link, ResourceType::Energy, None);
                     trace!(
                         "Creep {} transfering to link {} with {:?}",
                         self.name(),
                         link.pos(),
-                        creep.transfer(&link, ResourceType::Energy, None)
+                        result
                     );
                 } else if pile.is_none()
                     && let Some(container) = &container
                 {
+                    let result = creep.transfer(container, ResourceType::Energy, None);
                     trace!(
                         "Creep {} transfering to container {} with {:?}",
                         self.name(),
                         container.pos(),
-                        creep.transfer(container, ResourceType::Energy, None)
+                        result
                     );
                 }
 

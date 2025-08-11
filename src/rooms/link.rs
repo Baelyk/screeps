@@ -67,24 +67,17 @@ impl Link {
             {
                 let amount = std::cmp::min(LINK_CAPACITY - *target_energy, *energy);
                 if amount > 1 {
-                    match link.transfer_energy(target, Some(amount)) {
-                        Ok(()) => {
-                            trace!(
-                                "Link at {} transfering {} energy to {}",
-                                link.pos(),
-                                amount,
-                                target.pos(),
-                            );
-                            *target_energy += amount;
-                        }
-                        Err(err) => trace!(
-                            "Link at {} failed to transfer {} energy to {}: {}",
-                            link.pos(),
-                            amount,
-                            target.pos(),
-                            err
-                        ),
+                    let result = link.transfer_energy(target, Some(amount));
+                    if result.is_ok() {
+                        *target_energy += amount;
                     }
+                    trace!(
+                        "Link at {} transfering {} energy to {} with {:?}",
+                        link.pos(),
+                        amount,
+                        target.pos(),
+                        result
+                    );
                 }
             }
         });
