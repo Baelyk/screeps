@@ -114,7 +114,10 @@ impl Construct {
             self.has_queued_spawn = true;
             let body = Builder::body(room.energy_capacity_available());
             let ret = ret_to!([ctx], spawned_builder());
-            call!([self.spawner], queue(body, ret, false));
+            call!(
+                [self.spawner],
+                queue(body, ret, Some("Builder".into()), false)
+            );
         }
     }
 

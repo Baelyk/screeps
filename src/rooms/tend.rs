@@ -68,7 +68,10 @@ impl Tend {
                 });
                 actor!(cx, Tender::init(name.clone(), room_name), tend_again);
             });
-            call!([self.spawner], queue(body, create_tender, true))
+            call!(
+                [self.spawner],
+                queue(body, create_tender, Some("Tender".into()), true)
+            )
         }
     }
 }

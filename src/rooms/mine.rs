@@ -108,7 +108,10 @@ impl Mine {
                 debug!("Miner {name:?} does not exist, spawning new miner for {spot}");
                 let ret = ret_to!([ctx], spawned_miner(spot, source));
                 let body = Miner::body(room.energy_capacity_available());
-                call!([self.spawner], queue(body, ret, false));
+                call!(
+                    [self.spawner],
+                    queue(body, ret, Some("Miner".into()), false)
+                );
             } else if self.uninitialized
                 && let Some(name) = name
             {
