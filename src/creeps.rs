@@ -26,7 +26,7 @@ struct GetEnergyOptions {
 impl Default for GetEnergyOptions {
     fn default() -> Self {
         Self {
-            prioritize_storage: true,
+            prioritize_storage: false,
             allow_storage: true,
         }
     }
@@ -612,30 +612,23 @@ impl Tender {
                     .get_free_capacity(Some(screeps::ResourceType::Energy))
                     > 0
                 {
-                    debug!(
-                        "Tender {} has target {:?} and storage is {:?}",
-                        self.name,
-                        self.target,
-                        creep
-                            .room()
-                            .and_then(|room| room.storage())
-                            .map(|storage| storage.id())
-                    );
                     if let Some(storage) = creep.room().and_then(|room| room.storage())
-                        && storage
-                            .store()
-                            .get_used_capacity(Some(ResourceType::Energy))
-                            > 0
                         && self.target.map(RawObjectId::from)
-                            != Some(RawObjectId::from(storage.id()))
+                            == Some(RawObjectId::from(storage.id()))
                     {
-                        self.get_energy_from_storage(creep, &storage);
-                    } else {
                         self.get_energy(
                             creep,
                             GetEnergyOptions {
                                 prioritize_storage: false,
                                 allow_storage: false,
+                            },
+                        );
+                    } else {
+                        self.get_energy(
+                            creep,
+                            GetEnergyOptions {
+                                prioritize_storage: false,
+                                allow_storage: true,
                             },
                         );
                     }
