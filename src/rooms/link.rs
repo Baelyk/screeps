@@ -66,23 +66,25 @@ impl Link {
                     sinks.iter_mut().find(|(_, energy)| *energy < LINK_CAPACITY)
             {
                 let amount = std::cmp::min(LINK_CAPACITY - *target_energy, *energy);
-                match link.transfer_energy(target, Some(amount)) {
-                    Ok(()) => {
-                        trace!(
-                            "Link at {} transfering {} energy to {}",
+                if amount > 1 {
+                    match link.transfer_energy(target, Some(amount)) {
+                        Ok(()) => {
+                            trace!(
+                                "Link at {} transfering {} energy to {}",
+                                link.pos(),
+                                amount,
+                                target.pos(),
+                            );
+                            *target_energy += amount;
+                        }
+                        Err(err) => trace!(
+                            "Link at {} failed to transfer {} energy to {}: {}",
                             link.pos(),
                             amount,
                             target.pos(),
-                        );
-                        *target_energy += amount;
+                            err
+                        ),
                     }
-                    Err(err) => trace!(
-                        "Link at {} failed to transfer {} energy to {}: {}",
-                        link.pos(),
-                        amount,
-                        target.pos(),
-                        err
-                    ),
                 }
             }
         });
