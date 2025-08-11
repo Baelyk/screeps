@@ -32,6 +32,30 @@ impl Default for GetEnergyOptions {
     }
 }
 
+enum GetEnergyTarget {
+    Structure(StructureObject),
+    Resource(Resource),
+}
+
+impl GetEnergyTarget {
+    fn pos(&self) -> Position {
+        match self {
+            GetEnergyTarget::Structure(s) => s.pos(),
+            GetEnergyTarget::Resource(r) => r.pos(),
+        }
+    }
+
+    fn energy(&self) -> u32 {
+        match self {
+            GetEnergyTarget::Structure(s) => s
+                .as_has_store()
+                .map(|s| s.store().get_used_capacity(Some(ResourceType::Energy)))
+                .unwrap_or_default(),
+            GetEnergyTarget::Resource(r) => r.amount(),
+        }
+    }
+}
+
 trait Creep
 where
     Self: Sized,
@@ -58,65 +82,93 @@ where
             return;
         }
 
-        let mut dropped: Vec<Resource> = room
+        let mut targets: Vec<GetEnergyTarget> = room
             .find(find::DROPPED_RESOURCES, None)
             .into_iter()
             .filter(|r| r.resource_type() == ResourceType::Energy)
+            .map(GetEnergyTarget::Resource)
+            .chain(
+                room.find(find::STRUCTURES, None)
+                    .into_iter()
+                    .filter(|s| {
+                        (s.structure_type() == StructureType::Container
+                            || (options.allow_storage
+                                && s.structure_type() == StructureType::Storage))
+                            && s.as_has_store()
+                                .map(|target| {
+                                    target
+                                        .store()
+                                        .get_used_capacity(Some(screeps::ResourceType::Energy))
+                                        > 0
+                                })
+                                .unwrap_or(false)
+                    })
+                    .map(GetEnergyTarget::Structure),
+            )
             .collect();
-        dropped.sort_by_key(|r| r.pos().get_range_to(creep.pos()));
-
-        if let Some(target) = dropped.first() {
-            let pos = target.pos();
-            if creep.pos().is_near_to(pos) {
-                if let Err(err) = creep.pickup(target) {
-                    warn!("Creep {} target {} withdraw err: {}", self.name(), pos, err);
-                }
-            } else {
-                self.move_to(creep, pos);
+        targets.sort_by_cached_key(|s| {
+            match creep.pos().find_path_to::<Position, Box<dyn FnMut(RoomName, CostMatrix) -> SingleRoomCostResult>, SingleRoomCostResult>(&s.pos(), None) {
+                screeps::Path::Vectorized(path) => path.len(),
+                screeps::Path::Serialized(_) => ROOM_AREA,
             }
-            return;
-        }
+        });
 
-        let targets = room.find(find::STRUCTURES, None);
-        let mut targets: Vec<StructureObject> = targets
-            .into_iter()
-            .filter(|s| {
-                (s.structure_type() == StructureType::Container
-                    || (options.allow_storage && s.structure_type() == StructureType::Storage))
-                    && s.as_has_store()
-                        .map(|target| {
-                            target
-                                .store()
-                                .get_used_capacity(Some(screeps::ResourceType::Energy))
-                                > 0
-                        })
-                        .unwrap_or(false)
-            })
-            .collect();
-        targets.sort_by_key(|s| s.pos().get_range_to(creep.pos()));
         if let Some(target) = targets.first() {
             let pos = target.pos();
             if creep.pos().is_near_to(pos) {
-                if let Err(err) = creep.withdraw(
-                    target.as_withdrawable().unwrap(),
-                    screeps::ResourceType::Energy,
-                    None,
-                ) {
-                    warn!("Creep {} target {} withdraw err: {}", self.name(), pos, err);
+                match target {
+                    GetEnergyTarget::Structure(s) => {
+                        if let Some(target) = s.as_withdrawable() {
+                            match creep.withdraw(target, ResourceType::Energy, None) {
+                                Ok(()) => {
+                                    trace!("Creep {} getting energy from {}", self.name(), pos)
+                                }
+                                Err(err) => trace!(
+                                    "Creep {} failed to get energy from {}: {}",
+                                    self.name(),
+                                    pos,
+                                    err
+                                ),
+                            }
+                        } else {
+                            error!(
+                                "Creep {} tried to get energy from non-withdrawable target at {}",
+                                self.name(),
+                                pos
+                            );
+                        }
+                    }
+                    GetEnergyTarget::Resource(r) => match creep.pickup(r) {
+                        Ok(()) => trace!("Creep {} picking up energy from {}", self.name(), pos),
+                        Err(err) => trace!(
+                            "Creep {} failed to pick up energy from {}: {}",
+                            self.name(),
+                            pos,
+                            err
+                        ),
+                    },
                 }
             } else {
+                trace!("Creep {} moving to {} to get energy", self.name(), pos);
                 self.move_to(creep, pos);
             }
-        } else {
-            let source = room
-                .find(find::SOURCES_ACTIVE, None)
-                .first()
-                .unwrap()
-                .clone();
-            if !creep.pos().is_near_to(source.pos()) {
+        } else if let Some(source) = room.find(find::SOURCES_ACTIVE, None).first() {
+            if creep.pos().is_near_to(source.pos()) {
+                match creep.harvest(source) {
+                    Ok(()) => trace!(
+                        "Creep {} harvesting from source {}",
+                        self.name(),
+                        source.pos()
+                    ),
+                    Err(err) => trace!(
+                        "Creep {} failed to harvest from source {}: {}",
+                        self.name(),
+                        source.pos(),
+                        err
+                    ),
+                }
+            } else {
                 self.move_to(creep, source.pos());
-            } else if let Err(err) = creep.harvest(&source) {
-                warn!("Builder {} failed to harvest: {}", self.name(), err);
             }
         }
     }
