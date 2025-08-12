@@ -57,6 +57,14 @@ impl Upgrade {
             });
         }
 
+        // Remove dead upgraders
+        self.upgraders = self
+            .upgraders
+            .iter()
+            .filter(|name| game::creeps().get(name.to_string()).is_some())
+            .cloned()
+            .collect();
+
         // Update memory
         MEMORY.with_borrow_mut(|memory| {
             memory.rooms.entry(self.room_name).or_default().upgraders = self.upgraders.clone();
