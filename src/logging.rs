@@ -1,15 +1,45 @@
-use std::{fmt::Write, panic};
+use std::{fmt::Write, panic, str::FromStr};
 
 use js_sys::JsString;
 use log::*;
 use screeps::game;
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{
+    JsCast, JsValue,
+    prelude::{Closure, wasm_bindgen},
+};
 use web_sys::console;
 
 pub use log::LevelFilter::*;
 
 struct JsLog;
 struct JsNotify;
+
+#[wasm_bindgen]
+pub fn set_log_level(level: &str) {
+    let Ok(level) = LevelFilter::from_str(level) else {
+        warn!("Error parsing level {level}");
+        return;
+    };
+    set_max_level(level);
+}
+
+pub fn setup_logging_helpers() {
+    let global = js_sys::global();
+
+    let set_log_level = Closure::wrap(Box::new(move |level: String| {
+        set_log_level(&level);
+    }) as Box<dyn FnMut(String)>);
+
+    if let Err(err) = js_sys::Reflect::set(
+        &global,
+        &JsValue::from_str("setLogLevel"),
+        set_log_level.as_ref().unchecked_ref(),
+    ) {
+        warn!("Unable to attach `setLogLevel`: {err:?}");
+    }
+
+    set_log_level.forget();
+}
 
 impl log::Log for JsLog {
     fn enabled(&self, _: &log::Metadata<'_>) -> bool {

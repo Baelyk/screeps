@@ -31,6 +31,7 @@ pub fn game_loop() {
     INIT.call_once(|| {
         // Setup logging
         logging::setup_logging(logging::Trace);
+        logging::setup_logging_helpers();
 
         warn!("- - - RESET - - -");
 
