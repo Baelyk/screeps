@@ -8,10 +8,11 @@ use screeps::{
 
 use crate::{
     MEMORY,
-    actor::{Actor, Context, actor, call, ret, ret_to, stop, timer},
-    creeps::{Builder, Tender, Upgrader},
+    actor::{Actor, Context, actor, call, ret, stop, timer},
+    creeps::{Builder, Tender},
     rooms::{
         construct::Construct, defend::Defend, link::Link, mine::Mine, spawner::Spawner, tend::Tend,
+        upgrade::Upgrade,
     },
     visuals,
 };
@@ -22,10 +23,10 @@ mod link;
 mod mine;
 mod spawner;
 mod tend;
+mod upgrade;
 
 pub struct RoomActor {
     room_name: RoomName,
-    spawner: Actor<Spawner>,
     stats: RoomStats,
 }
 
@@ -55,6 +56,9 @@ impl RoomActor {
         let defend_spawner = spawner.clone();
         actor!(ctx, Defend::init(room_name, defend_spawner), ret!(None));
 
+        let upgrade_spawner = spawner.clone();
+        actor!(ctx, Upgrade::init(room_name, upgrade_spawner), ret!(None));
+
         actor!(ctx, Link::init(room_name), ret!(None));
 
         let unemployment_room = room.clone();
@@ -62,7 +66,6 @@ impl RoomActor {
         call!([ctx], tick());
         Some(Self {
             room_name,
-            spawner,
             stats: Default::default(),
         })
     }
@@ -94,7 +97,15 @@ impl RoomActor {
                 })
             })
             .unwrap_or_default();
-        let mut upgrader_assigned = false;
+        // Upgrader names from memory
+        let upgraders = MEMORY
+            .with_borrow(|memory| {
+                memory
+                    .rooms
+                    .get(&self.room_name)
+                    .map(|memory| memory.upgraders.clone())
+            })
+            .unwrap_or_default();
         let room_name = self.room_name;
         room.find(find::MY_CREEPS, None).iter().for_each(|creep| {
             let name = creep.name().clone();
@@ -107,48 +118,20 @@ impl RoomActor {
                 // Tenders are not unemployed
             } else if miners.contains(&creep.name()) {
                 // Miners are not unemployed
+            } else if upgraders.contains(&creep.name()) {
+                // Upgraders are not unemployed
             } else if !has_work_part {
                 // No work parts, extra tender
                 actor!(ctx, Tender::init(name, room_name), ret!(None));
-            } else if !upgrader_assigned {
-                // One upgrader
-                upgrader_assigned = true;
-                let death_ret = ret_to!([ctx], |this, ctx, _| {
-                    this.upgrade(ctx);
-                });
-                actor!(ctx, Upgrader::init(name), death_ret);
             } else {
                 // Rest as builders
                 let owner = construct.actor();
                 actor!(ctx, Builder::init(name, owner), ret!(None));
             }
         });
-        if !upgrader_assigned {
-            call!([ctx], upgrade());
-        }
     }
 
-    fn upgrade(&mut self, ctx: &mut Context<'_, Self>) {
-        let Some(room) = game::rooms().get(self.room_name) else {
-            warn!("Room {} not visible, not creating actor", self.room_name);
-            stop!([ctx]);
-            return;
-        };
-
-        let death_ret = ret_to!([ctx], |this, ctx, _| {
-            this.upgrade(ctx);
-        });
-        let ret = ret_to!([ctx], |_, ctx, name| {
-            actor!(ctx, Upgrader::init(name), death_ret);
-        });
-        let body = Builder::body(room.energy_capacity_available());
-        call!(
-            [self.spawner],
-            queue(body, ret, Some("Upgrader".into()), false)
-        );
-    }
-
-    fn visualize(&mut self, ctx: &mut Context<'_, Self>) {
+    fn visualize(&mut self, _ctx: &mut Context<'_, Self>) {
         let mut lines = vec![];
         lines.push(format!("Room {}", self.room_name));
 

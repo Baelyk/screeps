@@ -17,6 +17,7 @@ pub struct RoomMemory {
     pub miners: Vec<(Position, ObjectId<Source>, Option<String>)>,
     pub tender: String,
     pub builders: Vec<String>,
+    pub upgraders: Vec<String>,
 }
 
 impl Memory {
