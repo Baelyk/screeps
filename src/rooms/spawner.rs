@@ -79,8 +79,7 @@ impl Spawner {
         body: &[Part],
     ) -> Result<String, SpawnCreepErrorCode> {
         debug!("Trying to spawn {body:?} at {}", spawn.pos());
-        let name_base = game::time();
-        let name = format!("{name_base}");
+        let name = crate::creeps::unique_name();
         spawn.spawn_creep(body, &name).map(|_| name)
     }
 

@@ -5,6 +5,7 @@ use crate::{
     stop, timer,
 };
 use log::*;
+use rand::{Rng, distr::Alphanumeric};
 use screeps::{
     ConstructionSite, CostMatrix, LINK_CAPACITY, ObjectId, Position, ROOM_AREA, ROOM_USIZE,
     RawObjectId, Resource, ResourceType, RoomName, Source, Structure, StructureContainer,
@@ -16,6 +17,19 @@ use screeps::{
     pathfinder::SingleRoomCostResult,
     prelude::*,
 };
+
+pub fn unique_name() -> String {
+    loop {
+        let name: String = rand::rng()
+            .sample_iter(&Alphanumeric)
+            .take(4)
+            .map(char::from)
+            .collect();
+        if game::creeps().get(name.clone()).is_none() {
+            return name;
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 struct GetEnergyOptions {

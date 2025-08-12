@@ -61,3 +61,23 @@ pub fn game_loop() {
         trace!("{cpu_used:.2} cpu");
     }
 }
+
+fn random(buf: &mut [u8]) -> Result<(), getrandom::Error> {
+    buf.iter_mut()
+        .for_each(|byte| *byte = (js_sys::Math::random() * 256.0) as u8);
+    Ok(())
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "Rust" fn __getrandom_v03_custom(
+    dest: *mut u8,
+    len: usize,
+) -> Result<(), getrandom::Error> {
+    let buf = unsafe {
+        // fill the buffer with zeros
+        core::ptr::write_bytes(dest, 0, len);
+        // create mutable byte slice
+        core::slice::from_raw_parts_mut(dest, len)
+    };
+    random(buf)
+}
