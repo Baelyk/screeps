@@ -92,6 +92,10 @@ impl Spawner {
     }
 
     fn visualize(&mut self, ctx: &mut Context<'_, Self>) {
+        if self.queue.is_empty() {
+            return;
+        }
+
         const Y: f32 = 10.0;
         let visual = RoomVisual::new(Some(self.room_name));
         let queue = self.queue.iter().map(|(_, _, info)| {

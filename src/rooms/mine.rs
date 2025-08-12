@@ -15,6 +15,7 @@ pub struct Mine {
     spawner: Actor<Spawner>,
     miners: Vec<(Position, ObjectId<screeps::Source>, Option<String>)>,
     uninitialized: bool,
+    has_queued_spawn: bool,
 }
 
 impl Mine {
@@ -35,6 +36,7 @@ impl Mine {
             spawner,
             miners: vec![],
             uninitialized: true,
+            has_queued_spawn: false,
         })
     }
 
@@ -103,8 +105,10 @@ impl Mine {
                 .clone()
                 .and_then(|name| game::creeps().get(name))
                 .is_none()
+                && !self.has_queued_spawn
             {
                 // Spawn a new miner
+                self.has_queued_spawn = true;
                 debug!("Miner {name:?} does not exist, spawning new miner for {spot}");
                 let ret = ret_to!([ctx], spawned_miner(spot, source));
                 let body = Miner::body(room.energy_capacity_available());
@@ -132,6 +136,7 @@ impl Mine {
         name: String,
     ) {
         // Update self.miners and memory
+        self.has_queued_spawn = false;
         self.miners
             .iter_mut()
             .find(|(miners_spot, _, _)| *miners_spot == spot)
@@ -144,5 +149,7 @@ impl Mine {
         let actor = ctx.actor();
         let death_ret = ret_do!(|_| call!([actor], mine()));
         actor!(ctx, Miner::init(name, spot, source), death_ret);
+        // Call mine again in case another miner died while waiting to spawn this one
+        call!([ctx], mine());
     }
 }
