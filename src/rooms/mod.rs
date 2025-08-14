@@ -9,7 +9,7 @@ use screeps::{
 use crate::{
     MEMORY,
     actor::{Actor, Context, actor, call, ret, stop, timer},
-    creeps::{Builder, Tender},
+    creeps::{Builder, Tender, has_body_part},
     rooms::{
         construct::Construct, defend::Defend, link::Link, mine::Mine, spawner::Spawner, tend::Tend,
         upgrade::Upgrade,
@@ -117,12 +117,11 @@ impl RoomActor {
         let room_name = self.room_name;
         room.find(find::MY_CREEPS, None).iter().for_each(|creep| {
             let name = creep.name().clone();
-            let has_work_part = creep
-                .body()
-                .iter()
-                .map(|part| part.part())
-                .any(|part| part == Part::Work);
-            if creep.name() == tender_name {
+            let has_work_part = has_body_part(&creep.body(), Part::Work);
+            let has_carry_part = has_body_part(&creep.body(), Part::Work);
+            if !has_carry_part && !has_work_part {
+                // Nothing to be done with these creeps
+            } else if creep.name() == tender_name {
                 // Tenders are not unemployed
             } else if miners.contains(&creep.name()) {
                 // Miners are not unemployed

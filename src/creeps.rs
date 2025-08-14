@@ -7,9 +7,10 @@ use crate::{
 use log::*;
 use rand::{Rng, distr::Alphanumeric};
 use screeps::{
-    ConstructionSite, CostMatrix, LINK_CAPACITY, ObjectId, Position, ROOM_AREA, ROOM_USIZE,
-    RawObjectId, Resource, ResourceType, RoomName, Source, Structure, StructureContainer,
-    StructureLink, StructureObject, StructureStorage, StructureType, TransferableObject,
+    BodyPart, ConstructionSite, CostMatrix, LINK_CAPACITY, ObjectId, Position, ROOM_AREA,
+    ROOM_USIZE, RawObjectId, Resource, ResourceType, RoomName, Source, Structure,
+    StructureContainer, StructureLink, StructureObject, StructureStorage, StructureType,
+    TransferableObject,
     action_error_codes::{HarvestErrorCode, WithdrawErrorCode},
     constants::Part,
     find, game, look,
@@ -17,6 +18,10 @@ use screeps::{
     pathfinder::SingleRoomCostResult,
     prelude::*,
 };
+
+pub fn has_body_part(body: &[BodyPart], part: Part) -> bool {
+    body.iter().any(|bodypart| bodypart.part() == part)
+}
 
 pub fn unique_name() -> String {
     loop {
