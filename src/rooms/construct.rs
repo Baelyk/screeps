@@ -97,27 +97,20 @@ impl Construct {
                         .into_iter()
                         .filter(|s| s.as_structure().hits_max() > 0)
                         .any(|s| s.as_structure().hits() < s.as_structure().hits_max() / 4);
-                    if has_sites || has_urgent_repairs {
+                    if !self.has_queued_spawn && (has_sites || has_urgent_repairs) {
                         // Spawn a builder
-                        call!([ctx], spawn());
+                        debug!("Requesting a new builder to join {living:?}");
+                        self.has_queued_spawn = true;
+                        let body = Builder::body(room.energy_capacity_available());
+                        let ret = ret_to!([ctx], spawned_builder());
+                        call!(
+                            [self.spawner],
+                            queue(body, ret, Some("Builder".into()), false)
+                        );
                     }
                 }
                 self.builders = Builders::Intialized(living);
             }
-        }
-    }
-
-    fn spawn(&mut self, ctx: &mut Context<'_, Self>) {
-        if !self.has_queued_spawn
-            && let Some(room) = game::rooms().get(self.room_name)
-        {
-            self.has_queued_spawn = true;
-            let body = Builder::body(room.energy_capacity_available());
-            let ret = ret_to!([ctx], spawned_builder());
-            call!(
-                [self.spawner],
-                queue(body, ret, Some("Builder".into()), false)
-            );
         }
     }
 
@@ -131,6 +124,10 @@ impl Construct {
         };
         self.has_queued_spawn = false;
         builders.push(name.clone());
+        // Update memory
+        MEMORY.with_borrow_mut(|memory| {
+            memory.rooms.entry(self.room_name).or_default().builders = builders.clone();
+        });
         let owner = ctx.actor();
         actor!(ctx, Builder::init(name, owner), ret!(None));
     }
