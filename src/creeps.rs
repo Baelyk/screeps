@@ -88,13 +88,19 @@ where
     }
 
     fn get_energy(&self, creep: CreepObject, options: GetEnergyOptions) {
+        let minimum_stored_energy = if has_body_part(&creep.body(), Part::Work) {
+            50
+        } else {
+            0
+        };
+
         let room = creep.room().unwrap();
         if options.prioritize_storage
             && let Some(storage) = room.storage()
             && storage
                 .store()
                 .get_used_capacity(Some(ResourceType::Energy))
-                > 0
+                > minimum_stored_energy
         {
             self.get_energy_from_storage(creep, &storage);
             return;
@@ -118,7 +124,7 @@ where
                                     target
                                         .store()
                                         .get_used_capacity(Some(screeps::ResourceType::Energy))
-                                        > 0
+                                        > minimum_stored_energy
                                 })
                                 .unwrap_or(false)
                     })
