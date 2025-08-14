@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 
 use log::*;
-use screeps::game;
+use screeps::{OwnedStructureProperties, game};
 use wasm_bindgen::prelude::*;
 
 use crate::{actor::Runtime, memory::Memory, rooms::RoomActor, scout::Scout};
@@ -40,10 +40,15 @@ pub fn game_loop() {
             let scout = actor!(runtime, Scout::init(), ret!(None));
 
             // Create a room actor for every room
-            for room_name in game::rooms().keys() {
-                call!([scout], push_queue(room_name));
-                let room_scout = scout.actor();
-                actor!(runtime, RoomActor::init(room_name, room_scout), ret!(None));
+            for (room_name, room) in game::rooms().entries() {
+                if let Some(controller) = room.controller()
+                    && controller.my()
+                {
+                    debug!("Creating room actor for {room_name}");
+                    call!([scout], push_queue(room_name));
+                    let room_scout = scout.actor();
+                    actor!(runtime, RoomActor::init(room_name, room_scout), ret!(None));
+                }
             }
         });
     });
