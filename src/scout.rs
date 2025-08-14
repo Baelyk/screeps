@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use log::{error, trace, warn};
+use log::{debug, error, trace, warn};
 use screeps::{
     MoveToOptions, OwnedStructure, Part, Position, ResourceType, RoomCoordinate, RoomName, RoomXY,
     StructureType, find, game, prelude::*,
@@ -61,12 +61,15 @@ pub struct ScoutData {
 
 impl Scout {
     pub fn init(ctx: &mut Context<'_, Self>) -> Option<Self> {
+        // Initialize
+        let memory = MEMORY.with_borrow(|memory| memory.scouting.clone());
+
         call!([ctx], tick());
         Some(Self {
             data: Default::default(),
-            scouts: Default::default(),
+            scouts: memory.scouts,
             spawners: Default::default(),
-            queue: Default::default(),
+            queue: memory.queue,
             has_queued_spawn: false,
         })
     }
@@ -158,17 +161,11 @@ impl Scout {
     }
 
     fn tick(&mut self, ctx: &mut Context<'_, Self>) {
-        // Initialize
-        if self.scouts.is_empty() && self.queue.is_empty() {
-            let memory = MEMORY.with_borrow(|memory| memory.scouting.clone());
-            self.scouts = memory.scouts;
-            self.queue = memory.queue;
-        }
-
         // Find scouting targets
         const SCOUT_INTERVAL: u32 = 15_000;
         self.data.iter().for_each(|(room_name, data)| {
             if game::time() - data.time > SCOUT_INTERVAL {
+                trace!("Rescouting {room_name}");
                 self.queue.insert(*room_name);
             }
 
@@ -176,7 +173,7 @@ impl Scout {
                 .values()
                 .filter(|exit| {
                     if let Some(data) = self.data.get(exit)
-                        && data.time < SCOUT_INTERVAL
+                        && game::time() - data.time <= SCOUT_INTERVAL
                     {
                         false
                     } else {
@@ -184,14 +181,10 @@ impl Scout {
                     }
                 })
                 .for_each(|exit| {
+                    trace!("Adding exit {exit}");
                     self.queue.insert(exit);
                 });
         });
-
-        if self.queue.is_empty() {
-            timer!([ctx], game::time() + 1, tick());
-            return;
-        }
 
         // Spawn a scout if there are queued rooms but no scouts
         if self.scouts.is_empty() && !self.has_queued_spawn {
@@ -214,6 +207,7 @@ impl Scout {
             .iter()
             .filter_map(|(name, target)| {
                 let Some(creep) = game::creeps().get(name.clone()) else {
+                    trace!("Creep {name} died");
                     target.map(|target| self.queue.insert(target));
                     return None;
                 };
@@ -235,6 +229,7 @@ impl Scout {
                 });
 
                 if let Some(target) = target {
+                    trace!("Scout {name} heading to {target:?}");
                     if current == target {
                         call!([ctx], scout(target));
                         return Some((creep.name(), None));
@@ -252,6 +247,7 @@ impl Scout {
                 Some((creep.name(), target))
             })
             .collect();
+        trace!("Done scouting");
 
         timer!([ctx], game::time() + 1, tick());
     }
