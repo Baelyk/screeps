@@ -12,8 +12,4 @@ mods: # Recommended mods
 bots:
   simplebot: screepsbot-zeswarm
 serverConfig: # This section requires screepsmod-admin-utils to work
-  welcomeText:  |
-    <h1 style="text-align: center;">My Cool Server</h1>
-  constants: # Used to override screeps constants
-    TEST_CONSTANT: 123
   tickRate: 1000  # In milliseconds. This is a lower bound. Users reported problems when set too low.
