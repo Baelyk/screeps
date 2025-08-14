@@ -6,7 +6,7 @@ use log::*;
 use screeps::game;
 use wasm_bindgen::prelude::*;
 
-use crate::{actor::Runtime, memory::Memory, rooms::RoomActor};
+use crate::{actor::Runtime, memory::Memory, rooms::RoomActor, scout::Scout};
 
 pub mod actor;
 mod creeps;
@@ -14,6 +14,7 @@ mod logging;
 mod memory;
 pub mod planner;
 mod rooms;
+mod scout;
 mod visuals;
 
 // this is one way to persist data between ticks within Rust's memory, as opposed to
@@ -35,13 +36,16 @@ pub fn game_loop() {
 
         warn!("- - - RESET - - -");
 
-        // Create a room actor for every room
-        for room_name in game::rooms().keys() {
-            //let room = RoomActor::new(room_name);
-            RUNTIME.with_borrow_mut(|runtime| {
-                actor!(runtime, RoomActor::init(room_name), ret!(None));
-            });
-        }
+        RUNTIME.with_borrow_mut(|runtime| {
+            let scout = actor!(runtime, Scout::init(), ret!(None));
+
+            // Create a room actor for every room
+            for room_name in game::rooms().keys() {
+                call!([scout], push_queue(room_name));
+                let room_scout = scout.actor();
+                actor!(runtime, RoomActor::init(room_name, room_scout), ret!(None));
+            }
+        });
     });
 
     logging::tick();

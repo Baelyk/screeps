@@ -4,11 +4,12 @@ use log::{debug, error};
 use screeps::{ObjectId, Position, RoomName, Source};
 use serde::{Deserialize, Serialize};
 
-use crate::planner::architect::RoomPlan;
+use crate::{planner::architect::RoomPlan, scout::ScoutingMemory};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Memory {
     pub rooms: HashMap<RoomName, RoomMemory>,
+    pub scouting: ScoutingMemory,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

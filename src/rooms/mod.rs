@@ -14,6 +14,7 @@ use crate::{
         construct::Construct, defend::Defend, link::Link, mine::Mine, spawner::Spawner, tend::Tend,
         upgrade::Upgrade,
     },
+    scout::Scout,
     visuals,
 };
 
@@ -21,7 +22,7 @@ pub mod construct;
 mod defend;
 mod link;
 mod mine;
-mod spawner;
+pub mod spawner;
 mod tend;
 mod upgrade;
 
@@ -31,7 +32,11 @@ pub struct RoomActor {
 }
 
 impl RoomActor {
-    pub fn init(ctx: &mut Context<'_, Self>, room_name: RoomName) -> Option<Self> {
+    pub fn init(
+        ctx: &mut Context<'_, Self>,
+        room_name: RoomName,
+        scout: Actor<Scout>,
+    ) -> Option<Self> {
         let Some(room) = game::rooms().get(room_name) else {
             warn!("Room {room_name} not visible, not creating actor");
             stop!([ctx]);
@@ -39,6 +44,9 @@ impl RoomActor {
         };
 
         let spawner = actor!(ctx, Spawner::init(room_name), ret!(None));
+
+        let scout_spawner = spawner.clone();
+        call!([scout], provide_spawner(room_name, scout_spawner));
 
         let mine_spawner = spawner.clone();
         actor!(ctx, Mine::init(room_name, mine_spawner), ret!(None));
