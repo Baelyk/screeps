@@ -1,5 +1,5 @@
 use log::warn;
-use screeps::{RoomName, game};
+use screeps::{RoomName, find, game};
 
 use crate::{
     MEMORY,
@@ -78,8 +78,9 @@ impl Upgrade {
             return;
         };
 
-        // Between 1 and 5 upgraders, one per 20k energy in the storage
+        // Between 1 and 5 upgraders,
         let desired = room
+            // One per 20k energy in the storage
             .storage()
             .map(|storage| {
                 storage
@@ -87,6 +88,13 @@ impl Upgrade {
                     .get_used_capacity(Some(screeps::ResourceType::Energy))
                     / 20_000
             })
+            .or(Some(
+                room.find(find::DROPPED_RESOURCES, None)
+                    .into_iter()
+                    .map(|r| r.amount())
+                    .sum::<u32>()
+                    / 2000,
+            ))
             .unwrap_or_default()
             .clamp(1, 5) as usize;
 
