@@ -1,3 +1,4 @@
+use clap::Parser;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -7,14 +8,22 @@ use screeps::{
     StructureType, Terrain, XMajor,
 };
 
+#[derive(Parser)]
+struct Args {
+    shard: String,
+    room: RoomName,
+}
+
 fn main() -> Result<(), &'static str> {
-    let shard = "shard3";
-    let name = "W5S2";
-    let room = RoomData::from_api(shard, name)?;
+    let args = Args::parse();
+
+    let shard = args.shard;
+    let name = args.room;
+    let room = RoomData::from_api(&shard, &name.to_string())?;
 
     let buildings = plan_room(&room)?;
     let blueprint = EncodedBlueprint {
-        name: Some(name.into()),
+        name: Some(name),
         shard: Some(shard.into()),
         buildings,
         controller: None,
@@ -43,7 +52,7 @@ struct EncodedBlueprintMineral {
 
 #[derive(Debug, Serialize)]
 struct EncodedBlueprint {
-    name: Option<String>,
+    name: Option<RoomName>,
     shard: Option<String>,
     buildings: HashMap<StructureType, Vec<RoomXY>>,
     terrain: Option<EncodedBlueprintTerrain>,

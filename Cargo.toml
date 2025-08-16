@@ -24,6 +24,7 @@ reqwest = { version = "0.11", features = ["blocking", "json"], optional = true }
 qcell = "0.5.4"
 rand = "0.9"
 getrandom = "0.3"
+clap = { version = "4", features = ["derive"], optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
@@ -48,8 +49,8 @@ default = []
 sim = ["screeps-game-api/sim"]
 mmo = ["screeps-game-api/mmo"]
 
-# Allow requesting the
-offline = ["dep:reqwest"]
+# Dependencies for offline binaries
+offline = ["dep:reqwest", "dep:clap"]
 
 [[bin]]
 name = "plan_room"
