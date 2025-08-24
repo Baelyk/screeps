@@ -97,11 +97,13 @@ impl EdgeDirection {
     }
 }
 
+// Capacities can be representated as bool "has flow" since each blocking flow will be restricted
+// by the inner edge that has capacity 1
 #[derive(Copy, Clone, Default, Debug)]
-struct TileCapacities([u32; 9]);
+struct TileCapacities([bool; 9]);
 
 impl Index<EdgeDirection> for TileCapacities {
-    type Output = u32;
+    type Output = bool;
     fn index(&self, index: EdgeDirection) -> &Self::Output {
         &self.0[index as usize]
     }
@@ -113,26 +115,22 @@ impl IndexMut<EdgeDirection> for TileCapacities {
     }
 }
 
-const INFINITE: u32 = 10_000;
-
 #[derive(Debug)]
 struct Capacities([TileCapacities; 2 * ROOM_AREA]);
 
 impl Capacities {
     fn new(obstacles: &HashSet<RoomXY>) -> Capacities {
         // Initialize all capacities to zero
-        let mut capacities =
-            Capacities([TileCapacities([0, 0, 0, 0, 0, 0, 0, 0, 0]); 2 * ROOM_AREA]);
+        let mut capacities = Capacities([TileCapacities::default(); 2 * ROOM_AREA]);
 
         (0..ROOM_AREA).map(linear_index_to_xy).for_each(|xy| {
             if obstacles.contains(&xy) {
                 return;
             }
 
-            // Each tiles input -> output edge has capacity 1
-            capacities[Tile::Input(xy)][EdgeDirection::Inner] = 1;
-            // Every grid edge from this tile's output -> it's neighbor's input has INFINITE
-            // capacity
+            // Each tiles input -> output edge has capacity
+            capacities[Tile::Input(xy)][EdgeDirection::Inner] = true;
+            // Every grid edge from this tile's output -> it's neighbor's input has capacity
             EdgeDirection::iter().for_each(|direction| {
                 if direction == EdgeDirection::Inner {
                     return;
@@ -140,7 +138,7 @@ impl Capacities {
                 if let Some(neighbor) = Tile::Output(xy).neighbor(direction)
                     && !obstacles.contains(&neighbor.xy())
                 {
-                    capacities[Tile::Output(xy)][direction] = INFINITE;
+                    capacities[Tile::Output(xy)][direction] = true;
                 }
             });
         });
@@ -148,21 +146,9 @@ impl Capacities {
         capacities
     }
 
-    fn update(&mut self, tile: Tile, direction: EdgeDirection, amount: u32) {
-        self[tile][direction] -= amount;
-        self[tile.neighbor(direction).unwrap()][direction.reverse()] += amount;
-
-        if ![0, 1, INFINITE - 1, INFINITE].contains(&self[tile][direction]) {
-            println!("{:?} {direction:?} is {}", tile, self[tile][direction]);
-        }
-
-        if ![0, 1, INFINITE - 1, INFINITE].contains(&self[tile][direction]) {
-            println!(
-                "{:?} {direction:?} is {} (rev)",
-                tile.neighbor(direction).unwrap(),
-                self[tile.neighbor(direction).unwrap()][direction.reverse()]
-            );
-        }
+    fn update(&mut self, tile: Tile, direction: EdgeDirection) {
+        self[tile][direction] = false;
+        self[tile.neighbor(direction).unwrap()][direction.reverse()] = true;
     }
 }
 
@@ -186,10 +172,10 @@ impl IndexMut<Tile> for Capacities {
 }
 
 /// Level of this tile's input and output node
-struct Levels([u32; 2 * ROOM_AREA]);
+struct Levels([u16; 2 * ROOM_AREA]);
 
 impl Index<Tile> for Levels {
-    type Output = u32;
+    type Output = u16;
     fn index(&self, index: Tile) -> &Self::Output {
         match index {
             Tile::Input(xy) => &self.0[2 * xy_to_linear_index(xy)],
@@ -209,7 +195,7 @@ impl IndexMut<Tile> for Levels {
 
 impl Levels {
     fn new() -> Self {
-        Self([u32::MAX; 2 * ROOM_AREA])
+        Self([u16::MAX; 2 * ROOM_AREA])
     }
 }
 
@@ -255,21 +241,13 @@ pub fn mincut(sources: &[RoomXY], obstacles: &[RoomXY], sinks: &[RoomXY]) -> Vec
     let sinks: HashSet<RoomXY> = sinks.iter().copied().collect();
     let mut capacities = Capacities::new(&obstacles);
 
-    let mut iters: usize = 0;
-    println!("Starting mincut");
     loop {
         let (levels, reachable) = construct_levels(&sources, &sinks, &capacities);
 
-        println!("iter {iters}");
-        iters += 1;
-
         if !reachable {
-            println!("not reachable");
             let boundary = find_boundary(&levels);
-            println!("boundary: {:?}", boundary);
             return boundary;
         }
-        println!("blocking");
         blocking_flow(&sources, &sinks, &mut capacities, &levels);
     }
 }
@@ -293,8 +271,8 @@ fn construct_levels(
         EdgeDirection::iter().for_each(|direction| {
             // Only propagate if the neighbor hasn't been reached and the current -> neighbor edge has capacity
             if let Some(neighbor) = current.neighbor(direction)
-                && levels[neighbor] == u32::MAX
-                && capacities[current][direction] > 0
+                && levels[neighbor] == u16::MAX
+                && capacities[current][direction]
             {
                 levels[neighbor] = levels[current] + 1;
                 queue.push_back(neighbor);
@@ -315,17 +293,11 @@ fn blocking_flow(
     levels: &Levels,
 ) {
     let mut stack: Vec<Tile> = Vec::new();
-    let mut flow: Vec<(Tile, EdgeDirection, u32)> = Vec::new();
+    let mut flow: Vec<(Tile, EdgeDirection)> = Vec::new();
     let mut edges = EdgeTracker::new();
 
     // Run searches until the sink cannot be reached
-    let mut iters = 0;
     'searches: loop {
-        if iters > 10 {
-            println!("Too many searches");
-            return;
-        }
-
         stack.clear();
         sources
             .iter()
@@ -337,27 +309,20 @@ fn blocking_flow(
         'dfs: while let Some(&current) = stack.last() {
             // Reached the sink, update capacities and start a new search
             if sinks.contains(&current.xy()) {
-                println!("Sink reached");
-                flow.drain(..).for_each(|(tile, direction, amount)| {
-                    capacities.update(tile, direction, amount)
-                });
-                iters += 1;
+                flow.drain(..)
+                    .for_each(|(tile, direction)| capacities.update(tile, direction));
                 continue 'searches;
             }
 
             // Immediately proceed to valid neighbors
             while let Some(direction) = edges.peek(current) {
-                if capacities[current][direction] > 0
+                if capacities[current][direction]
                     && let Some(neighbor) = current.neighbor(direction)
                     && levels[neighbor] == levels[current] + 1
                     && edges.peek(neighbor).is_some()
                 {
                     stack.push(neighbor);
-                    let amount = flow
-                        .last()
-                        .map_or(INFINITE, |(_, _, current)| *current)
-                        .min(capacities[current][direction]);
-                    flow.push((current, direction, amount));
+                    flow.push((current, direction));
                     continue 'dfs;
                 }
 
@@ -377,6 +342,6 @@ fn blocking_flow(
 fn find_boundary(levels: &Levels) -> Vec<RoomXY> {
     (0..ROOM_AREA)
         .map(linear_index_to_xy)
-        .filter(|&xy| levels[Tile::Input(xy)] < u32::MAX && levels[Tile::Output(xy)] == u32::MAX)
+        .filter(|&xy| levels[Tile::Input(xy)] < u16::MAX && levels[Tile::Output(xy)] == u16::MAX)
         .collect()
 }
