@@ -1,14 +1,9 @@
 # Room Planner
-1. Find spawn spot
-    1. Spawn spot is found by pathing from the sources to the controller (starting with the closest source) and then finding the intersection of those paths. Then bfs for a tile with enough space around it (3 tiles in all directions).
-    2. Place spawn stamp
-2. Set up economy based on spawn spot
-    1. Roads from sources to spawn, starting with closest source
-    2. Place container at first road tile of each road (i.e. the one adjacent to the source)
-    3. Road from spawn to controller (within two tiles)
-    4. Place the link for the controller at the end of the spawn-controller road
-    5. Place source links on an unoccupied tile adjacent to the source container
-3. Sort the links so that the furthest from the spawn link is built first
-4. If there is a mineral, add an extractor to it and build a road to it from the storage
-5. Path to exits
-6. Place extensions
+1. Get room data
+2. Construct terrain costs for pathfinding
+3. Distance transform from walls
+4. Calculate spawn spot score:
+    - Consider tiles with distance transform 3 or more
+    - Calculate distances from each source and from the controller
+    - Score for a tile is: distance from sources + 2 * distance from controller
+5. Find upgrade area

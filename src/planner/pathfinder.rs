@@ -1,8 +1,8 @@
-use std::collections::{hash_map::Entry, BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, hash_map::Entry};
 
 use screeps::{Direction, Position, ROOM_AREA};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Options {
     pub range: u32,
     pub max_iters: u32,
@@ -75,12 +75,9 @@ where
         if next_cost == ROOM_AREA as u32 {
             return None;
         }
-        // If the next tile has a different cost, stop jumping and add the current tile to the open
-        // set
+        // If the next tile has a different cost, stop jumping and add the next tile to the open set
         if next_cost != cost {
-            // TODO: actually returning `next` not `current` to handle paths starting on unpathable
-            // tiles, is that okay?
-            return Some((next, cost * jumps));
+            return Some((next, cost * jumps + next_cost));
         }
         jumps += 1;
         // If the next tile is the goal, stop jumping and add the the next tile to the open set
@@ -90,15 +87,15 @@ where
         // If the tiles above or below the next have a different cost, stop jumping and add the
         // next tile to the open set. Rotating the direction twice clockwise and counterclockwise
         // provide the correct analogies for above and below for any direction.
-        if let Ok(next_below) = next.checked_add_direction(direction.multi_rot(2)) {
-            if cost_fn(next_below) != cost {
-                return Some((next, cost * jumps));
-            }
+        if let Ok(next_below) = next.checked_add_direction(direction.multi_rot(2))
+            && cost_fn(next_below) != cost
+        {
+            return Some((next, cost * jumps));
         }
-        if let Ok(next_above) = next.checked_add_direction(direction.multi_rot(-2)) {
-            if cost_fn(next_above) != cost {
-                return Some((next, cost * jumps));
-            }
+        if let Ok(next_above) = next.checked_add_direction(direction.multi_rot(-2))
+            && cost_fn(next_above) != cost
+        {
+            return Some((next, cost * jumps));
         }
 
         // If the direction is diagonal, check jumping in the horizontal and vertical components
@@ -131,7 +128,7 @@ where
     F2: Fn(Position) -> bool,
 {
     let mut open_set = BinaryHeap::new();
-    let mut previous = HashMap::new();
+    let mut previous: HashMap<Position, (Position, Cost)> = HashMap::new();
     open_set.push(OpenSetItem {
         node: start,
         cost: start.get_range_to(goal),
@@ -151,7 +148,7 @@ where
                 if current == start {
                     break;
                 }
-                next = *previous.get(&current).unwrap();
+                (next, _) = *previous.get(&current).unwrap();
                 let Some(direction) = current.get_direction_to(next) else {
                     return Err("Unable to get jump direction");
                 };
@@ -188,8 +185,12 @@ where
             }
         })
         .for_each(|item| {
-            if let Entry::Vacant(e) = previous.entry(item.node) {
-                e.insert(node);
+            let previous_cost = previous
+                .get(&item.node)
+                .map(|prev| prev.1)
+                .unwrap_or(u32::MAX);
+            if item.cost - item.node.get_range_to(goal) < previous_cost {
+                previous.insert(item.node, (node, item.cost - item.node.get_range_to(goal)));
                 open_set.push(item);
             }
         })
