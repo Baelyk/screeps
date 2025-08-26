@@ -19,38 +19,38 @@ const COST_ROAD: u32 = MOVE_COST_ROAD;
 const COST_EMPTY: u32 = 10;
 const SPAWN_STAMP: [[Option<StructureType>; 5]; 5] = [
     [
-        None,
+        Some(StructureType::Observer),
         Some(StructureType::Road),
-        Some(StructureType::Tower),
+        Some(StructureType::Road),
         Some(StructureType::Road),
         None,
     ],
     [
         Some(StructureType::Road),
         Some(StructureType::Spawn),
-        Some(StructureType::Road),
+        Some(StructureType::Spawn),
         Some(StructureType::Spawn),
         Some(StructureType::Road),
     ],
     [
+        Some(StructureType::Road),
         Some(StructureType::Link),
         Some(StructureType::Road),
-        None,
+        Some(StructureType::PowerSpawn),
         Some(StructureType::Road),
-        None,
     ],
     [
         Some(StructureType::Road),
         Some(StructureType::Storage),
+        Some(StructureType::Terminal),
         Some(StructureType::Road),
-        Some(StructureType::Spawn),
-        Some(StructureType::Road),
+        Some(StructureType::Factory),
     ],
     [
         None,
         Some(StructureType::Road),
-        None,
         Some(StructureType::Road),
+        Some(StructureType::Nuker),
         None,
     ],
 ];
