@@ -55,6 +55,33 @@ const SPAWN_STAMP: [[Option<StructureType>; 5]; 5] = [
     ],
 ];
 
+const LAB_STAMP: [[Option<StructureType>; 4]; 4] = [
+    [
+        Some(StructureType::Lab),
+        Some(StructureType::Lab),
+        Some(StructureType::Lab),
+        None,
+    ],
+    [
+        Some(StructureType::Lab),
+        Some(StructureType::Road),
+        Some(StructureType::Lab),
+        None,
+    ],
+    [
+        Some(StructureType::Lab),
+        Some(StructureType::Lab),
+        Some(StructureType::Road),
+        Some(StructureType::Lab),
+    ],
+    [
+        None,
+        None,
+        Some(StructureType::Lab),
+        Some(StructureType::Lab),
+    ],
+];
+
 const DEFAULT_COST: u32 = ROOM_AREA as u32;
 struct Costs {
     costs: HashMap<RoomName, XMajor<u32>>,
@@ -111,7 +138,7 @@ pub fn plan_room(room: &RoomData) -> Result<RoomPlan, &'static str> {
         .filter(|&xy| room.terrain.get(&room.room_name).unwrap().get_xy(xy) == Terrain::Wall)
         .collect();
     // Distance transform from terrain walls for spawn_spot placement
-    let wall_distances = distance_transform(terrain_walls.iter(), [].iter());
+    let wall_distances = distance_transform(terrain_walls.iter().copied(), [].into_iter());
     // Exit tiles, will be used for mincut to place ramparts
     let exits: HashSet<RoomXY> = (0..ROOM_AREA)
         .map(linear_index_to_xy)
@@ -126,15 +153,18 @@ pub fn plan_room(room: &RoomData) -> Result<RoomPlan, &'static str> {
     let Some(controller) = room.controller else {
         return Err("Cannot plan room without controller");
     };
-    let controller_distances = distance_transform([controller.xy()].iter(), terrain_walls.iter());
+    let controller_distances = distance_transform(
+        [controller.xy()].iter().copied(),
+        terrain_walls.iter().copied(),
+    );
 
     // Distance transforms from the sources for the spawn spot
     if room.sources.len() != 2 {
         return Err("Can only plan rooms with exactly two sources");
     }
     let mut sources = [room.sources[0], room.sources[1]];
-    let source_distances =
-        sources.map(|pos| distance_transform([pos.xy()].iter(), terrain_walls.iter()));
+    let source_distances = sources
+        .map(|pos| distance_transform([pos.xy()].into_iter(), terrain_walls.iter().copied()));
 
     // Potential spawn spots
     let mut spawn_spots: Vec<RoomXY> = (0..ROOM_AREA)
@@ -204,6 +234,7 @@ fn plan_room_from_spawn_spot(
         })
     });
     costs.set(spawn_spot, COST_ROAD);
+    let storage = spawn_spot + (-1, 1);
 
     // Find upgrade area
     let Some(upgrade_area) = (-2..=2)
@@ -322,8 +353,63 @@ fn plan_room_from_spawn_spot(
             .and_modify(|xys: &mut Vec<Position>| xys.append(&mut path));
     }
 
+    // 5. Lab stamp
+    let occupied = costs
+        .costs
+        .get(&room.room_name)
+        .unwrap()
+        .0
+        .iter()
+        .flatten()
+        .enumerate()
+        .filter(|(_, cost)| **cost != COST_EMPTY)
+        .map(|(index, _)| linear_index_to_xy(index));
+    let distances = distance_transform(occupied, [].into_iter());
+    let mut queue: VecDeque<Position> = Direction::iter()
+        .filter_map(|&d| storage.checked_add_direction(d).ok())
+        .collect();
+    let mut visited = XMajor([[false; ROOM_USIZE]; ROOM_USIZE]);
+    let mut lab_center = None;
+    while let Some(current) = queue.pop_front() {
+        if distances[current.into()] as usize >= LAB_STAMP.len() / 2 {
+            lab_center = Some(current);
+            break;
+        }
+
+        neighbors(current).for_each(|n| {
+            if !visited[n.into()] {
+                visited[n.into()] = true;
+                queue.push_back(n)
+            }
+        });
+    }
+    let Some(lab_center) = lab_center else {
+        return Err("Unable to place lab stamp");
+    };
+    let lab_top_left = lab_center - (1, 1);
+    LAB_STAMP.iter().enumerate().for_each(|(y, row)| {
+        row.iter().enumerate().for_each(|(x, &structure)| {
+            if let Some(structure) = structure {
+                let xy = lab_top_left + (x as i32, y as i32);
+                inside.insert(xy.xy());
+                structures
+                    .entry(structure)
+                    .and_modify(|xys: &mut Vec<Position>| xys.push(xy))
+                    .or_insert(vec![xy]);
+                costs.set(
+                    xy,
+                    if structure == StructureType::Road {
+                        COST_ROAD
+                    } else {
+                        COST_UNWALKABLE
+                    },
+                );
+            }
+        })
+    });
+
     // 6. Plan extensions
-    let extension_hub = spawn_spot + (-1, 1);
+    let extension_hub = storage;
     let mut queue: VecDeque<Position> = Direction::iter()
         .filter_map(|&d| extension_hub.checked_add_direction(d).ok())
         .collect();
