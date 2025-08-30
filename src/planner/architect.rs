@@ -342,7 +342,7 @@ fn plan_room_from_spawn_spot(
         }
 
         // If unoccupied, maybe do extensions here
-        if costs.get(current) != COST_UNWALKABLE {
+        if costs.get(current) != COST_UNWALKABLE && extension_hub.get_range_to(current) > 1 {
             let Ok(mut path) = pathfinder::find_path(
                 |pos| costs.get(pos),
                 extension_hub,
